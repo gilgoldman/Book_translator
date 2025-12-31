@@ -1,0 +1,417 @@
+# Book Translation App - Architecture Document
+
+**Version 2.0 | December 2025**
+
+---
+
+## 1. Executive Summary
+
+A Streamlit app that translates illustrated books from English to Hebrew. Users upload a folder of page images; the app extracts text, translates it, and regenerates each image with Hebrew text while preserving the original artwork.
+
+**Core Pipeline:**
+1. User uploads folder of images (or selects path)
+2. For each image: Extract + Translate text (one API call)
+3. Check if we've seen this text before (deduplication)
+4. If new: Edit the original image - swap English text for Hebrew (preserves all artwork)
+5. Save translated image to output folder
+
+---
+
+## 2. System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           STREAMLIT APP                                  │
+│                                                                          │
+│  ┌──────────────────┐                                                   │
+│  │ Folder Upload    │ (path input or multi-file upload)                 │
+│  └────────┬─────────┘                                                   │
+│           │                                                              │
+│           ▼                                                              │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │                    FOR EACH IMAGE                                 │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 1: Extract + Translate (Gemini 2.5 Flash)              │ │   │
+│  │  │         One API call: OCR + English→Hebrew translation      │ │   │
+│  │  └─────────────────────────────────────────────────────────────┘ │   │
+│  │                          │                                        │   │
+│  │                          ▼                                        │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 2: Dedup Check                                         │ │   │
+│  │  │         First 100 chars of extracted text → check DB        │ │   │
+│  │  └─────────────────────────────────────────────────────────────┘ │   │
+│  │                          │                                        │   │
+│  │              ┌───────────┴───────────┐                           │   │
+│  │              │                       │                           │   │
+│  │           DUPLICATE               NEW PAGE                       │   │
+│  │              │                       │                           │   │
+│  │              ▼                       ▼                           │   │
+│  │  ┌─────────────────┐     ┌─────────────────────────────────────┐│   │
+│  │  │ Skip: Link to   │     │ Step 3: Edit Image                ││   │
+│  │  │ existing output │     │ (Nano Banana Pro)                 ││   │
+│  │  └─────────────────┘     │ Same image, just swap text to     ││   │
+│  │                          │ Hebrew - DO NOT regenerate        ││   │
+│  │                          └─────────────────────────────────────┘│   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ SQLite Database                                                   │   │
+│  │ • text_fingerprint (first 100 chars)  • extracted_text           │   │
+│  │ • translated_text_json                • status                    │   │
+│  │ • output_filepath                     • error info                │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Output Folder: translated_page_001.png, translated_page_002.png  │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Google AI Models
+
+| Purpose | Model ID | Notes |
+|---------|----------|-------|
+| Text extraction + translation | `gemini-2.5-flash` | Fast, cheap, good for OCR + translation |
+| Image editing (text swap) | `gemini-3-pro-image-preview` | Nano Banana Pro - edits existing image, replaces text only |
+
+**Important:** We use Nano Banana Pro for **image editing**, not generation. We send the original page and ask it to swap the text while preserving everything else.
+
+---
+
+## 4. Database Schema
+
+```sql
+CREATE TABLE pages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    -- Input
+    original_filename TEXT NOT NULL,
+    original_filepath TEXT NOT NULL,
+    
+    -- Deduplication (first 100 chars of extracted text, no normalization)
+    text_fingerprint TEXT,
+    
+    -- Extracted & translated content
+    extracted_text TEXT,          -- Full original English text
+    translated_text_json TEXT,    -- {"translations": [...]}
+    
+    -- Output
+    output_filepath TEXT,
+    
+    -- Status: pending, processing, completed, failed, duplicate
+    status TEXT DEFAULT 'pending',
+    duplicate_of_id INTEGER REFERENCES pages(id),
+    
+    -- Error handling
+    retry_count INTEGER DEFAULT 0,
+    last_error TEXT,
+    
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+CREATE INDEX idx_fingerprint ON pages(text_fingerprint);
+CREATE INDEX idx_status ON pages(status);
+```
+
+**Removed:** `books` table, `file_size_bytes`, `error_log_path`, complex status states, separate indexes for duplicates.
+
+---
+
+## 5. Core Code
+
+### 5.1 Text Extraction + Translation (One API Call)
+
+```python
+from google import genai
+from google.genai import types
+from PIL import Image
+
+client = genai.Client()
+
+def extract_and_translate(image_path: str) -> dict:
+    """
+    Single API call: Extract English text AND translate to Hebrew.
+    Returns both original text and translations.
+    """
+    image = Image.open(image_path)
+    
+    prompt = '''
+    1. Extract ALL English text from this image exactly as written.
+    2. Translate each text element to Hebrew.
+    
+    Return JSON:
+    {
+        "extracted_text": "full original English text here...",
+        "translations": [
+            {"english": "Mickey Mouse's Sugar Cookies", "hebrew": "עוגיות הסוכר של מיקי מאוס"},
+            {"english": "1 egg", "hebrew": "ביצה אחת"},
+            ...
+        ]
+    }
+    '''
+    
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[prompt, image]
+    )
+    
+    return parse_json_response(response.text)
+```
+
+### 5.2 Deduplication Check
+
+```python
+def get_fingerprint(text: str) -> str:
+    """First 100 characters, no normalization."""
+    if not text or not text.strip():
+        return "EMPTY_PAGE"
+    return text.strip()[:100]
+
+def check_duplicate(fingerprint: str) -> Optional[str]:
+    """Returns output_filepath if duplicate exists, None otherwise."""
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT output_filepath FROM pages WHERE text_fingerprint = ? AND status = 'completed'",
+            (fingerprint,)
+        ).fetchone()
+        return row[0] if row else None
+```
+
+### 5.3 Image Editing (Nano Banana Pro)
+
+```python
+def edit_image_with_hebrew(image_path: str, translations: list) -> Image:
+    """
+    EDIT the original image - replace English text with Hebrew.
+    This is NOT generating a new image from scratch.
+    """
+    image = Image.open(image_path)
+    
+    replacements = "\n".join([
+        f'• "{t["english"]}" → "{t["hebrew"]}"' 
+        for t in translations
+    ])
+    
+    prompt = f'''
+    EDIT THIS IMAGE - DO NOT REGENERATE IT.
+    
+    This is a text replacement task. Take the uploaded image and replace 
+    the English text with Hebrew translations. Everything else must remain 
+    EXACTLY as it is in the original:
+    
+    ✓ Keep the EXACT same illustrations and cartoon characters
+    ✓ Keep the EXACT same layout and positioning
+    ✓ Keep the EXACT same colors and backgrounds
+    ✓ Keep the EXACT same decorative elements
+    ✗ Do NOT redraw or reimagine any part of the image
+    ✗ Do NOT change anything except the text
+    
+    The ONLY change should be: English text → Hebrew text
+    Hebrew reads right-to-left.
+    
+    Text replacements to make:
+    {replacements}
+    '''
+    
+    response = client.models.generate_content(
+        model="gemini-3-pro-image-preview",
+        contents=[prompt, image],  # Original image sent for editing
+        config=types.GenerateContentConfig(
+            response_modalities=['TEXT', 'IMAGE']
+        )
+    )
+    
+    for part in response.parts:
+        if part.inline_data is not None:
+            return part.as_image()
+    
+    raise RuntimeError("No image in response")
+```
+
+### 5.4 Main Processing Loop
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=4, max=60))
+def process_single_page(image_path: str) -> str:
+    """Process one page. Returns output path."""
+    
+    # Step 1: Extract + Translate
+    result = extract_and_translate(image_path)
+    extracted_text = result["extracted_text"]
+    translations = result["translations"]
+    
+    # Step 2: Dedup check
+    fingerprint = get_fingerprint(extracted_text)
+    existing = check_duplicate(fingerprint)
+    
+    if existing:
+        record_duplicate(image_path, fingerprint, existing)
+        return existing  # Return existing translated image
+    
+    # Step 3: Register in DB
+    page_id = register_page(image_path, fingerprint, extracted_text, translations)
+    
+    # Step 4: Edit image (replace English text with Hebrew)
+    output_image = edit_image_with_hebrew(image_path, translations)
+    
+    # Step 5: Save
+    output_path = save_image(output_image, image_path)
+    mark_completed(page_id, output_path)
+    
+    return output_path
+
+
+def process_folder(input_folder: str, output_folder: str):
+    """Process all images in a folder."""
+    image_files = sorted(Path(input_folder).glob("*.[jp][pn][g]*"))  # jpg, jpeg, png
+    
+    results = {"completed": 0, "duplicates": 0, "failed": 0}
+    
+    for i, image_path in enumerate(image_files):
+        try:
+            output = process_single_page(str(image_path))
+            if "duplicate" in get_status(image_path):
+                results["duplicates"] += 1
+            else:
+                results["completed"] += 1
+        except Exception as e:
+            log_error(image_path, e)
+            results["failed"] += 1
+        
+        # Progress update for Streamlit
+        yield i + 1, len(image_files), results
+        
+        # Manual review checkpoint
+        if i == 299:  # After 300 pages
+            yield "REVIEW_CHECKPOINT", None, results
+```
+
+---
+
+## 6. Streamlit App (Simplified)
+
+```python
+import streamlit as st
+from pathlib import Path
+
+st.title("📚 Book Translator: English → Hebrew")
+
+# Input
+input_folder = st.text_input("Input folder path:", "/path/to/book/pages")
+output_folder = st.text_input("Output folder path:", "/path/to/output")
+
+# Or file upload for cloud deployment
+uploaded_files = st.file_uploader(
+    "Or upload images directly:", 
+    type=["png", "jpg", "jpeg", "webp"],
+    accept_multiple_files=True
+)
+
+if st.button("🚀 Start Translation"):
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for current, total, results in process_folder(input_folder, output_folder):
+        if current == "REVIEW_CHECKPOINT":
+            st.warning("⚠️ 300 pages processed. Please review before continuing.")
+            if not st.button("Continue processing"):
+                break
+        else:
+            progress_bar.progress(current / total)
+            status_text.text(
+                f"Page {current}/{total} | "
+                f"✅ {results['completed']} | "
+                f"⏭️ {results['duplicates']} skipped | "
+                f"❌ {results['failed']} failed"
+            )
+    
+    st.success("Done!")
+    st.download_button("📥 Download as ZIP", create_zip(output_folder))
+```
+
+---
+
+## 7. Project Structure (Simplified)
+
+```
+book-translator/
+├── app.py                 # Streamlit app (main entry point)
+├── translator.py          # All processing logic (extract, translate, regenerate)
+├── database.py            # SQLite operations + deduplication
+├── requirements.txt
+├── .env.example
+├── README.md
+│
+├── data/
+│   └── translator.db      # Auto-created
+│
+└── tests/
+    └── test_translator.py
+```
+
+**Removed:** Separate `gemini_client.py`, `image_processor.py`, `batch_processor.py`, `dedup.py`, `error_handler.py`, `config/settings.py`. Everything fits in 3 files.
+
+---
+
+## 8. Configuration
+
+```bash
+# .env
+GEMINI_API_KEY=your_key_here
+```
+
+That's it. Other settings can be hardcoded or passed as function parameters:
+- `MAX_RETRIES = 3`
+- `REVIEW_THRESHOLD = 300`
+
+---
+
+## 9. Error Handling
+
+- **Retry:** 3 attempts with exponential backoff (4s → 8s → 16s)
+- **On failure:** Log to database `last_error` column, continue to next image
+- **After processing:** Show list of failed pages with "Retry Failed" button
+
+No separate error log files needed - everything is in the database.
+
+---
+
+## 10. What Was Removed (Simplifications)
+
+| Removed | Why |
+|---------|-----|
+| `books` table | Over-engineering; just process folders |
+| Stage 0 (separate OCR) | Combined with Stage 1 - one API call |
+| 8 status states | Reduced to 5: pending, processing, completed, failed, duplicate |
+| `Image Queue Manager` component | It's just a for loop |
+| `file_size_bytes` column | Not needed |
+| `error_log_path` column | Errors stored in `last_error` |
+| `started_at` timestamp | Not useful |
+| Separate config file | Just use .env for API key |
+| 7 source files | Reduced to 3 |
+| Batch API mention | Premature optimization |
+
+---
+
+## 11. Key Decisions
+
+1. **One API call for extraction + translation:** Simpler, still cheap with Gemini Flash.
+
+2. **Dedup AFTER extraction:** Yes, we "waste" one API call if duplicate. But:
+   - Extraction is cheap (Gemini Flash)
+   - Code is much simpler
+   - We get the translation cached even for duplicates (useful for debugging)
+
+3. **No normalization for fingerprint:** First 100 chars raw is good enough for book pages.
+
+4. **SQLite over JSON files:** Queryable, supports resume, handles concurrent access.
+
+5. **Streamlit over CLI:** Visual progress, easy to use, good for non-technical users.

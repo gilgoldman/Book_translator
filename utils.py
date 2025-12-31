@@ -5,6 +5,9 @@ Handles ZIP creation, image loading, and other helpers.
 
 import io
 import logging
+import os
+import shutil
+import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -207,6 +210,98 @@ def load_image_from_upload(uploaded_file: BinaryIO) -> Image.Image:
         image = image.convert("RGB")
 
     return image
+
+
+def stream_images_from_zip(zip_file: BinaryIO):
+    """
+    Generator that yields images from a ZIP file ONE AT A TIME.
+    Memory-efficient alternative to extract_images_from_zip.
+
+    Args:
+        zip_file: A file-like object containing the ZIP data
+
+    Yields:
+        (filename, PIL Image) tuples, sorted naturally by filename
+    """
+    logger.info(f"Starting streaming ZIP extraction from: {getattr(zip_file, 'name', 'unknown')}")
+    valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+
+    try:
+        with zipfile.ZipFile(zip_file, "r") as zf:
+            file_list = zf.namelist()
+            logger.info(f"ZIP contains {len(file_list)} entries")
+
+            # Filter and sort filenames first (cheap operation)
+            image_files = []
+            for name in file_list:
+                # Skip directories and hidden files
+                if name.endswith("/") or name.startswith("__MACOSX") or "/." in name:
+                    continue
+                ext = Path(name).suffix.lower()
+                if ext in valid_extensions:
+                    image_files.append(name)
+
+            # Sort naturally
+            image_files = sort_files_naturally(image_files)
+            logger.info(f"Found {len(image_files)} valid image files to stream")
+
+            # Yield one image at a time
+            for name in image_files:
+                try:
+                    logger.debug(f"Streaming: {name}")
+                    with zf.open(name) as img_file:
+                        img_data = io.BytesIO(img_file.read())
+                        image = Image.open(img_data)
+                        image.load()  # Force load to catch errors
+
+                        # Convert to RGB if necessary
+                        if image.mode in ("RGBA", "P"):
+                            background = Image.new("RGB", image.size, (255, 255, 255))
+                            if image.mode == "P":
+                                image = image.convert("RGBA")
+                            background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+                            image = background
+                        elif image.mode != "RGB":
+                            image = image.convert("RGB")
+
+                        clean_name = Path(name).name
+                        yield (clean_name, image)
+
+                except Exception as e:
+                    logger.warning(f"Failed to extract {name}: {e}")
+                    continue
+
+    except zipfile.BadZipFile as e:
+        logger.error(f"Invalid ZIP file: {e}")
+        raise ValueError(f"Invalid ZIP file: {e}")
+
+
+def count_images_in_zip(zip_file: BinaryIO) -> tuple[int, list[str]]:
+    """
+    Count valid images in a ZIP file without loading them.
+    Returns (count, sorted_filenames).
+    """
+    valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+    image_files = []
+
+    try:
+        # Reset file position
+        zip_file.seek(0)
+        with zipfile.ZipFile(zip_file, "r") as zf:
+            for name in zf.namelist():
+                if name.endswith("/") or name.startswith("__MACOSX") or "/." in name:
+                    continue
+                ext = Path(name).suffix.lower()
+                if ext in valid_extensions:
+                    image_files.append(name)
+
+        sorted_names = sort_files_naturally(image_files)
+        # Reset for later reading
+        zip_file.seek(0)
+        return len(sorted_names), sorted_names
+
+    except zipfile.BadZipFile as e:
+        raise ValueError(f"Invalid ZIP file: {e}")
 
 
 def extract_images_from_zip(zip_file: BinaryIO) -> list[tuple[str, Image.Image]]:
@@ -420,3 +515,84 @@ def create_preview_grid(images: list[Image.Image], max_cols: int = 4, thumb_size
         grid.paste(thumb, (x, y))
 
     return grid
+
+
+# =============================================================================
+# Memory-Efficient Temp File Management
+# =============================================================================
+
+
+class TempResultStorage:
+    """
+    Manages temporary storage for translated images.
+    Saves results to disk instead of keeping them in memory.
+    """
+
+    def __init__(self):
+        self.temp_dir = tempfile.mkdtemp(prefix="book_translator_")
+        self.results: list[tuple[str, str]] = []  # (original_filename, temp_path)
+        logger.info(f"Created temp directory: {self.temp_dir}")
+
+    def save_result(self, filename: str, image: Image.Image) -> str:
+        """
+        Save a translated image to temp storage.
+        Returns the temp file path.
+        """
+        output_name = get_output_filename(filename)
+        temp_path = os.path.join(self.temp_dir, output_name)
+
+        # Save as PNG
+        image.save(temp_path, format="PNG", optimize=True)
+        self.results.append((filename, temp_path))
+
+        logger.debug(f"Saved result to temp: {temp_path}")
+        return temp_path
+
+    def get_result_count(self) -> int:
+        """Return number of saved results."""
+        return len(self.results)
+
+    def create_zip(self) -> bytes:
+        """
+        Create a ZIP file from all saved results.
+        Streams from disk to avoid loading all images into memory.
+        """
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for original_filename, temp_path in self.results:
+                if os.path.exists(temp_path):
+                    output_name = get_output_filename(original_filename)
+                    zf.write(temp_path, output_name)
+
+        return zip_buffer.getvalue()
+
+    def load_result_for_preview(self, index: int) -> tuple[str, Image.Image] | None:
+        """Load a single result for preview (temporary load)."""
+        if 0 <= index < len(self.results):
+            filename, temp_path = self.results[index]
+            if os.path.exists(temp_path):
+                return (filename, Image.open(temp_path))
+        return None
+
+    def get_preview_results(self, max_count: int = 4) -> list[tuple[str, Image.Image]]:
+        """Load a few results for preview display."""
+        previews = []
+        for i in range(min(max_count, len(self.results))):
+            result = self.load_result_for_preview(i)
+            if result:
+                previews.append(result)
+        return previews
+
+    def cleanup(self):
+        """Remove temp directory and all files."""
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+            logger.info(f"Cleaned up temp directory: {self.temp_dir}")
+
+    def __del__(self):
+        """Cleanup on garbage collection."""
+        try:
+            self.cleanup()
+        except Exception:
+            pass

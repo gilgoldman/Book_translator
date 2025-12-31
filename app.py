@@ -30,6 +30,9 @@ from utils import (
     get_phase_label,
     UploadProgress,
     extract_images_from_zip,
+    stream_images_from_zip,
+    count_images_in_zip,
+    TempResultStorage,
 )
 
 
@@ -360,13 +363,17 @@ def init_session_state():
         "paused_at_checkpoint": False,
         "paused_at_batch": False,  # Pause between batches
         "current_index": 0,
-        "results": [],  # List of (filename, translated_image) tuples
-        "uploaded_images": [],  # List of (filename, PIL Image) tuples
+        "results": [],  # List of (filename, translated_image) tuples - DEPRECATED, use temp_storage
+        "uploaded_images": [],  # List of (filename, PIL Image) tuples - only for preview now
         "accumulated_images": [],  # For chunked upload mode
         "batch_job_id": None,
         "upload_mode": "single",  # "single" or "chunked"
         "upload_progress": None,  # UploadProgress object for tracking
         "last_page_time": None,  # For ETA calculation
+        "temp_storage": None,  # TempResultStorage for memory-efficient result storage
+        "zip_file_ref": None,  # Reference to uploaded ZIP file for streaming
+        "total_pages": 0,  # Total pages count for streaming mode
+        "file_refs": None,  # File references for single-upload streaming mode
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -403,6 +410,9 @@ with st.sidebar:
         st.json(stats)
 
     if st.button("🔄 Reset Session"):
+        # Clean up temp storage before resetting
+        if st.session_state.get("temp_storage"):
+            st.session_state.temp_storage.cleanup()
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -442,50 +452,64 @@ if is_zip:
         st.write(f"📁 Processing: `{zip_file.name}` ({zip_file.size / 1024 / 1024:.1f} MB)")
 
         extraction_status = st.empty()
-        extraction_status.info("🔄 Extracting images from ZIP file...")
+        extraction_status.info("🔄 Scanning ZIP file for images...")
 
         try:
-            logger.info("Starting ZIP extraction...")
-            extracted_images = extract_images_from_zip(zip_file)
-            logger.info(f"ZIP extraction returned {len(extracted_images) if extracted_images else 0} images")
+            # MEMORY-EFFICIENT: Count images without loading them
+            logger.info("Counting images in ZIP (without loading)...")
+            image_count, image_filenames = count_images_in_zip(zip_file)
+            logger.info(f"ZIP scan found {image_count} valid images")
 
-            if not extracted_images:
+            if image_count == 0:
                 logger.warning("No valid images found in ZIP file")
                 extraction_status.error("No valid images found in ZIP file. Supported formats: PNG, JPG, WEBP")
                 uploaded_files = None
                 sorted_files = []
             else:
-                extraction_status.success(f"✅ Extracted {len(extracted_images)} images from ZIP")
-                logger.info(f"Successfully extracted {len(extracted_images)} images")
+                extraction_status.success(f"✅ Found {image_count} images in ZIP (will process one at a time)")
+                logger.info(f"Ready to stream {image_count} images")
 
-                # Store extracted images in session state for processing
-                st.session_state.uploaded_images = extracted_images
-                logger.debug(f"Stored {len(extracted_images)} images in session state")
+                # Store ZIP reference for streaming during processing
+                st.session_state.zip_file_ref = zip_file
+                st.session_state.total_pages = image_count
+                logger.debug(f"Stored ZIP reference for streaming")
 
-                # Preview first few pages
-                with st.expander("👁️ Preview extracted pages", expanded=False):
-                    preview_count = min(4, len(extracted_images))
+                # Preview first few pages (load only these)
+                with st.expander("👁️ Preview pages from ZIP", expanded=False):
+                    preview_count = min(4, image_count)
                     if preview_count > 0:
                         cols = st.columns(preview_count)
-                        for i in range(preview_count):
-                            filename, img = extracted_images[i]
+                        # Stream just the first few for preview
+                        for i, (filename, img) in enumerate(stream_images_from_zip(zip_file)):
+                            if i >= preview_count:
+                                break
                             with cols[i]:
-                                st.image(img, caption=filename, width=150)
-                        if len(extracted_images) > 4:
-                            st.caption(f"... and {len(extracted_images) - 4} more pages")
+                                # Show thumbnail to save memory
+                                thumb = img.copy()
+                                thumb.thumbnail((150, 200))
+                                st.image(thumb, caption=filename, width=150)
+                            # Explicitly delete to free memory
+                            del img
+                        if image_count > 4:
+                            st.caption(f"... and {image_count - 4} more pages")
+                        # Reset ZIP file position for later
+                        zip_file.seek(0)
 
                 # Estimate time
                 if "Real-time" in mode:
-                    est_time = estimate_processing_time(len(extracted_images))
+                    est_time = estimate_processing_time(image_count)
                     st.info(f"⏱️ Estimated processing time: {est_time}")
 
+                # Memory efficiency notice
+                st.info("💡 **Memory-efficient mode:** Images will be processed one at a time to prevent crashes.")
+
                 # Set variables for processing
-                uploaded_files = extracted_images  # List of (filename, image) tuples
-                sorted_files = extracted_images  # Already sorted
-                logger.info("ZIP upload handling complete, ready for processing")
+                uploaded_files = True  # Flag indicating we have files
+                sorted_files = image_filenames  # Just filenames for count
+                logger.info("ZIP upload handling complete, ready for streaming processing")
 
         except Exception as e:
-            error_msg = f"Error extracting ZIP file: {e}"
+            error_msg = f"Error scanning ZIP file: {e}"
             logger.error(error_msg, exc_info=True)
             extraction_status.error(error_msg)
             st.code(traceback.format_exc(), language="python")
@@ -578,11 +602,16 @@ else:
             st.error(error_msg)
             st.stop()
 
-        # Sort files naturally
+        # Sort files naturally (just references, not loading into memory)
         sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
 
+        # MEMORY-EFFICIENT: Store file references, not loaded images
+        st.session_state.file_refs = sorted_files
+        st.session_state.total_pages = len(sorted_files)
+        logger.info(f"Stored {len(sorted_files)} file references for streaming processing")
+
         # Show upload summary
-        st.success(f"✅ {len(sorted_files)} pages uploaded")
+        st.success(f"✅ {len(sorted_files)} pages uploaded (will process one at a time)")
 
         # Estimate time
         if "Real-time" in mode:
@@ -595,15 +624,17 @@ else:
             )
 
         if len(sorted_files) > 100:
-            st.warning(
-                "⚠️ **Large upload detected.** If uploads stall, try **Chunked upload mode** above."
+            st.info(
+                "💡 **Memory-efficient mode:** Images will be processed one at a time to prevent crashes."
             )
 
-        # Preview first few pages
+        # Preview first few pages (load thumbnails only for preview)
         with st.expander("👁️ Preview uploaded pages", expanded=False):
-            cols = st.columns(min(4, len(sorted_files)))
-            for i, f in enumerate(sorted_files[:4]):
+            preview_count = min(4, len(sorted_files))
+            cols = st.columns(preview_count)
+            for i, f in enumerate(sorted_files[:preview_count]):
                 with cols[i]:
+                    # Load as thumbnail for preview only
                     st.image(f, caption=f.name, width=150)
             if len(sorted_files) > 4:
                 st.caption(f"... and {len(sorted_files) - 4} more pages")
@@ -677,68 +708,79 @@ if "Real-time" in mode:
         logger.info(f"Start Translation button clicked or processing={st.session_state.processing}")
 
         if not st.session_state.processing:
-            # Starting fresh
-            logger.info("Starting fresh processing session")
+            # Starting fresh - MEMORY EFFICIENT: Don't load all images upfront
+            logger.info("Starting fresh processing session (memory-efficient mode)")
             st.session_state.processing = True
-            st.session_state.results = []
+            st.session_state.results = []  # Keep for backward compatibility
             st.session_state.current_index = 0
 
-            # Load all images into session state
-            if is_zip:
-                # ZIP mode: images already extracted as (filename, image) tuples
-                logger.info(f"ZIP mode: copying {len(uploaded_files) if uploaded_files else 0} images")
-                st.session_state.uploaded_images = uploaded_files.copy() if uploaded_files else []
-            elif is_chunked:
-                # Chunked mode: images already loaded in accumulated_images
-                logger.info(f"Chunked mode: copying {len(st.session_state.accumulated_images)} images")
-                st.session_state.uploaded_images = st.session_state.accumulated_images.copy()
-            else:
-                # Single mode: load from uploaded files
-                logger.info(f"Single mode: loading {len(uploaded_files) if uploaded_files else 0} files")
-                st.session_state.uploaded_images = []
-                sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
-                for f in sorted_files:
-                    img = load_image_from_upload(f)
-                    st.session_state.uploaded_images.append((f.name, img))
+            # Initialize temp storage for results (saves to disk, not memory)
+            st.session_state.temp_storage = TempResultStorage()
+            logger.info("Initialized TempResultStorage for disk-based result storage")
 
-            # Initialize progress tracking
-            total_pages = len(st.session_state.uploaded_images)
+            # Get total pages count (already stored during upload)
+            total_pages = st.session_state.total_pages
             logger.info(f"Initializing progress tracking for {total_pages} pages")
             st.session_state.upload_progress = init_upload_progress(total_pages, BATCH_SIZE)
             st.session_state.last_page_time = time.time()
 
         # Processing UI with batched progress
-        images = st.session_state.uploaded_images
-        total = len(images)
+        total = st.session_state.total_pages
         start_from = st.session_state.current_index
         progress = st.session_state.upload_progress
+        temp_storage = st.session_state.temp_storage
 
         logger.info(f"Processing UI: total={total}, start_from={start_from}, progress={progress is not None}")
 
         # Create containers for dynamic updates
-        # Use a combination of native Streamlit elements and custom HTML for reliability
-        progress_header = st.empty()  # For the visual progress component
-        progress_bar = st.progress(start_from / total if total > 0 else 0)  # Fallback progress bar
-        progress_text = st.empty()  # Status text
+        progress_header = st.empty()
+        progress_bar = st.progress(start_from / total if total > 0 else 0)
+        progress_text = st.empty()
         preview_container = st.empty()
         status_text = st.empty()
 
         # Determine current batch
         current_batch_idx = start_from // BATCH_SIZE
 
-        for i in range(start_from, total):
-            filename, image = images[i]
+        # MEMORY-EFFICIENT: Create image iterator based on upload mode
+        def get_image_iterator():
+            """Generator that yields (filename, image) one at a time."""
+            if is_zip:
+                # Stream from ZIP file
+                zip_file = st.session_state.zip_file_ref
+                if zip_file:
+                    zip_file.seek(0)
+                    yield from stream_images_from_zip(zip_file)
+            elif is_chunked:
+                # Chunked mode: iterate through accumulated images
+                for item in st.session_state.accumulated_images:
+                    yield item
+            else:
+                # Single mode: load one file at a time
+                file_refs = st.session_state.file_refs
+                if file_refs:
+                    for f in file_refs:
+                        img = load_image_from_upload(f)
+                        yield (f.name, img)
 
+        # Skip already processed images and process remaining
+        image_iter = get_image_iterator()
+        for skip_idx in range(start_from):
+            try:
+                next(image_iter)
+            except StopIteration:
+                break
+
+        # Process remaining images
+        for i, (filename, image) in enumerate(image_iter, start=start_from):
             # Update batch tracking
             batch_idx = i // BATCH_SIZE
             page_in_batch = i % BATCH_SIZE
 
             # Check if we've moved to a new batch
             if batch_idx != current_batch_idx:
-                # Mark previous batch as completed
                 if current_batch_idx < len(progress.batches):
                     progress.batches[current_batch_idx].status = "completed"
-
                 current_batch_idx = batch_idx
 
                 # Pause every N batches for large uploads (100+ pages)
@@ -748,6 +790,8 @@ if "Real-time" in mode:
                     progress.is_paused = True
                     st.session_state.paused_at_batch = True
                     st.session_state.current_index = i
+                    # Clear image from memory before pausing
+                    del image
                     st.rerun()
 
             # Update current batch status
@@ -764,32 +808,32 @@ if "Real-time" in mode:
             current_time = time.time()
             if st.session_state.last_page_time:
                 page_duration = current_time - st.session_state.last_page_time
-                if page_duration > 0 and page_duration < 120:  # Ignore outliers > 2 min
+                if page_duration > 0 and page_duration < 120:
                     progress.pages_processed_times.append(page_duration)
 
             # Update progress displays
             progress_bar.progress((i + 1) / total)
-
-            # Render visual progress component
             progress_header.markdown(render_progress_component(progress, filename), unsafe_allow_html=True)
 
-            # Show batch and ETA info as text (reliable fallback)
             batch_info = f"Batch {batch_idx + 1}/{progress.total_batches}" if progress.total_batches > 1 else ""
             progress_text.markdown(
                 f"**Page {i + 1}/{total}** | {batch_info} | ⏱️ {progress.format_eta()} remaining | 📄 `{filename}`"
             )
 
-            # Show current page being processed (compact view below progress)
+            # Show current page being processed
             with preview_container.container():
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.image(image, caption=f"Original: {filename}", use_container_width=True)
+                    # Create thumbnail for display to save memory
+                    display_img = image.copy()
+                    display_img.thumbnail((400, 600))
+                    st.image(display_img, caption=f"Original: {filename}", use_container_width=True)
+                    del display_img
                 with col2:
                     st.info("⏳ Translating...")
 
             try:
                 # Process the page
-                page_start_time = time.time()
                 result = process_single_page(image, filename, verify=verify)
                 st.session_state.last_page_time = time.time()
 
@@ -803,35 +847,46 @@ if "Real-time" in mode:
                 else:
                     status_icon = "✅"
 
-                # Store result
-                if result["translated_image"] is not None:
-                    st.session_state.results.append((filename, result["translated_image"]))
+                # MEMORY-EFFICIENT: Save result to disk, not memory
+                translated_img = result.get("translated_image")
+                if translated_img is not None:
+                    temp_storage.save_result(filename, translated_img)
+                    logger.debug(f"Saved {filename} to temp storage, total: {temp_storage.get_result_count()}")
 
-                # Update preview with result
+                # Update preview with result (using thumbnail)
                 with preview_container.container():
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.image(image, caption=f"Original: {filename}", use_container_width=True)
+                        display_img = image.copy()
+                        display_img.thumbnail((400, 600))
+                        st.image(display_img, caption=f"Original: {filename}", use_container_width=True)
+                        del display_img
                     with col2:
-                        if result["translated_image"] is not None:
-                            st.image(
-                                result["translated_image"],
-                                caption=f"{status_icon} Translated",
-                                use_container_width=True,
-                            )
+                        if translated_img is not None:
+                            result_thumb = translated_img.copy()
+                            result_thumb.thumbnail((400, 600))
+                            st.image(result_thumb, caption=f"{status_icon} Translated", use_container_width=True)
+                            del result_thumb
                         else:
                             st.warning("No output image")
+
+                # MEMORY-EFFICIENT: Explicitly delete images to free memory
+                if translated_img is not None:
+                    del translated_img
+                del result
 
             except Exception as e:
                 log_error(filename, str(e))
                 status_text.error(f"❌ Error processing {filename}: {e}")
                 st.session_state.last_page_time = time.time()
 
+            # MEMORY-EFFICIENT: Delete original image to free memory
+            del image
+
             # Update session state
             st.session_state.current_index = i + 1
             progress.current_page = i + 1
 
-            # Update batch page count
             if batch_idx < len(progress.batches):
                 progress.batches[batch_idx].pages_completed = page_in_batch + 1
 
@@ -843,7 +898,6 @@ if "Real-time" in mode:
         progress.phase = "complete"
         progress.current_page = total
 
-        # Show final progress
         progress_header.markdown(render_progress_component(progress, ""), unsafe_allow_html=True)
         progress_bar.progress(1.0)
         progress_text.markdown(f"**✅ Complete!** All {total} pages processed.")
@@ -852,7 +906,7 @@ if "Real-time" in mode:
         st.session_state.current_index = 0
         st.session_state.upload_progress = None
         preview_container.empty()
-        status_text.success(f"✅ Completed! {len(st.session_state.results)} pages translated.")
+        status_text.success(f"✅ Completed! {temp_storage.get_result_count()} pages translated.")
 
 else:
     # Batch mode
@@ -955,11 +1009,62 @@ else:
 # Results section
 st.header("3️⃣ Download Results")
 
-if st.session_state.results:
+# Check for results in temp_storage (memory-efficient) or legacy results list
+temp_storage = st.session_state.get("temp_storage")
+has_temp_results = temp_storage is not None and temp_storage.get_result_count() > 0
+has_legacy_results = bool(st.session_state.results)
+
+if has_temp_results:
+    # MEMORY-EFFICIENT: Results are stored on disk
+    num_results = temp_storage.get_result_count()
+    st.success(f"📄 {num_results} translated pages ready")
+
+    # Preview (loads only first few from disk)
+    with st.expander("👁️ Preview translated pages", expanded=True):
+        preview_results = temp_storage.get_preview_results(max_count=4)
+        if preview_results:
+            cols = st.columns(min(4, len(preview_results)))
+            for i, (filename, img) in enumerate(preview_results):
+                with cols[i]:
+                    # Show thumbnail
+                    thumb = img.copy()
+                    thumb.thumbnail((150, 200))
+                    st.image(thumb, caption=get_output_filename(filename), width=150)
+                    del thumb
+                    del img  # Free memory after display
+            if num_results > 4:
+                st.caption(f"... and {num_results - 4} more pages")
+
+    # Download button - streams from disk
+    with st.spinner("Creating ZIP file from saved results..."):
+        zip_bytes = temp_storage.create_zip()
+
+    st.download_button(
+        "📥 Download All (ZIP)",
+        data=zip_bytes,
+        file_name="translated_book.zip",
+        mime="application/zip",
+        type="primary",
+    )
+
+    # Show any issues
+    verification_issues = get_verification_issues()
+    if verification_issues:
+        with st.expander(f"⚠️ {len(verification_issues)} pages flagged for review"):
+            for issue in verification_issues:
+                st.write(f"**{issue['filename']}:** {', '.join(issue['issues'])}")
+
+    failed_pages = get_failed_pages()
+    if failed_pages:
+        with st.expander(f"❌ {len(failed_pages)} pages failed"):
+            for page in failed_pages:
+                st.write(f"**{page['filename']}:** {page['error']}")
+
+elif has_legacy_results:
+    # Legacy mode: results in memory (backward compatibility)
     num_results = len(st.session_state.results)
     st.success(f"📄 {num_results} translated pages ready")
 
-    # Preview
     with st.expander("👁️ Preview translated pages", expanded=True):
         cols = st.columns(min(4, num_results))
         for i, (filename, img) in enumerate(st.session_state.results[:4]):
@@ -968,7 +1073,6 @@ if st.session_state.results:
         if num_results > 4:
             st.caption(f"... and {num_results - 4} more pages")
 
-    # Download button
     with st.spinner("Creating ZIP file..."):
         zip_bytes = create_zip_in_memory(st.session_state.results)
 
@@ -980,7 +1084,6 @@ if st.session_state.results:
         type="primary",
     )
 
-    # Show any issues
     verification_issues = get_verification_issues()
     if verification_issues:
         with st.expander(f"⚠️ {len(verification_issues)} pages flagged for review"):

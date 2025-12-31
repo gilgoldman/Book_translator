@@ -20,6 +20,7 @@ from utils import (
     get_phase_icon,
     get_phase_label,
     UploadProgress,
+    extract_images_from_zip,
 )
 
 
@@ -404,14 +405,73 @@ st.header("1️⃣ Upload Book Pages")
 # Upload mode selection
 upload_mode = st.radio(
     "Upload mode:",
-    ["📄 Single upload", "📚 Chunked upload (for large books)"],
+    ["📄 Single upload", "📦 ZIP upload", "📚 Chunked upload (for large books)"],
     horizontal=True,
-    help="Use chunked upload if you have many pages (100+) and uploads keep stalling. Upload in batches of 30-50 pages.",
+    help="ZIP upload extracts images from a ZIP file. Chunked mode is for large books (100+ pages) that stall during upload.",
 )
 
 is_chunked = "Chunked" in upload_mode
+is_zip = "ZIP" in upload_mode
 
-if is_chunked:
+if is_zip:
+    st.info(
+        "**ZIP mode:** Upload a ZIP file containing your book pages. "
+        "All PNG, JPG, and WEBP images will be extracted automatically."
+    )
+
+    # ZIP file uploader
+    zip_file = st.file_uploader(
+        "Upload ZIP file containing book pages:",
+        type=["zip"],
+        accept_multiple_files=False,
+        help="Upload a ZIP file with your book pages. Images will be extracted and sorted naturally.",
+        key="zip_uploader",
+    )
+
+    if zip_file:
+        with st.spinner(f"Extracting images from {zip_file.name}..."):
+            try:
+                extracted_images = extract_images_from_zip(zip_file)
+
+                if not extracted_images:
+                    st.error("No valid images found in ZIP file. Supported formats: PNG, JPG, WEBP")
+                    uploaded_files = None
+                    sorted_files = []
+                else:
+                    st.success(f"✅ Extracted {len(extracted_images)} images from ZIP")
+
+                    # Store extracted images in session state for processing
+                    st.session_state.uploaded_images = extracted_images
+
+                    # Preview first few pages
+                    with st.expander("👁️ Preview extracted pages", expanded=False):
+                        preview_count = min(4, len(extracted_images))
+                        cols = st.columns(preview_count)
+                        for i in range(preview_count):
+                            filename, img = extracted_images[i]
+                            with cols[i]:
+                                st.image(img, caption=filename, width=150)
+                        if len(extracted_images) > 4:
+                            st.caption(f"... and {len(extracted_images) - 4} more pages")
+
+                    # Estimate time
+                    if "Real-time" in mode:
+                        est_time = estimate_processing_time(len(extracted_images))
+                        st.info(f"⏱️ Estimated processing time: {est_time}")
+
+                    # Set variables for processing
+                    uploaded_files = extracted_images  # List of (filename, image) tuples
+                    sorted_files = extracted_images  # Already sorted
+
+            except Exception as e:
+                st.error(f"Error extracting ZIP file: {e}")
+                uploaded_files = None
+                sorted_files = []
+    else:
+        uploaded_files = None
+        sorted_files = []
+
+elif is_chunked:
     st.info(
         "**Chunked mode:** Upload pages in batches (30-50 at a time). "
         "Pages accumulate until you start processing."
@@ -576,7 +636,12 @@ st.header("2️⃣ Translate")
 
 if "Real-time" in mode:
     # Real-time processing with batching and mobile-friendly progress
-    has_files = bool(uploaded_files) if not is_chunked else bool(st.session_state.accumulated_images)
+    if is_zip:
+        has_files = bool(uploaded_files)  # ZIP: uploaded_files is list of (name, image) tuples
+    elif is_chunked:
+        has_files = bool(st.session_state.accumulated_images)
+    else:
+        has_files = bool(uploaded_files)
     start_disabled = not has_files or st.session_state.processing
 
     # Batch size configuration for large uploads
@@ -591,13 +656,15 @@ if "Real-time" in mode:
             st.session_state.current_index = 0
 
             # Load all images into session state
-            st.session_state.uploaded_images = []
-
-            if is_chunked:
+            if is_zip:
+                # ZIP mode: images already extracted as (filename, image) tuples
+                st.session_state.uploaded_images = uploaded_files.copy() if uploaded_files else []
+            elif is_chunked:
                 # Chunked mode: images already loaded in accumulated_images
                 st.session_state.uploaded_images = st.session_state.accumulated_images.copy()
             else:
                 # Single mode: load from uploaded files
+                st.session_state.uploaded_images = []
                 sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
                 for f in sorted_files:
                     img = load_image_from_upload(f)
@@ -759,13 +826,21 @@ else:
 
     col1, col2 = st.columns(2)
 
-    has_files = bool(uploaded_files) if not is_chunked else bool(st.session_state.accumulated_images)
+    if is_zip:
+        has_files = bool(uploaded_files)
+    elif is_chunked:
+        has_files = bool(st.session_state.accumulated_images)
+    else:
+        has_files = bool(uploaded_files)
 
     with col1:
         if st.button("📤 Submit Batch Job", disabled=not has_files):
             with st.spinner("Submitting batch job..."):
-                # Load images
-                if is_chunked:
+                # Load images based on upload mode
+                if is_zip:
+                    # ZIP mode: images already extracted
+                    images = uploaded_files.copy() if uploaded_files else []
+                elif is_chunked:
                     images = st.session_state.accumulated_images.copy()
                 else:
                     sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])

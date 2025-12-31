@@ -201,6 +201,59 @@ def load_image_from_upload(uploaded_file: BinaryIO) -> Image.Image:
     return image
 
 
+def extract_images_from_zip(zip_file: BinaryIO) -> list[tuple[str, Image.Image]]:
+    """
+    Extract all valid images from a ZIP file.
+
+    Args:
+        zip_file: A file-like object containing the ZIP data
+
+    Returns:
+        List of (filename, PIL Image) tuples, sorted naturally by filename
+    """
+    images = []
+    valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+
+    with zipfile.ZipFile(zip_file, "r") as zf:
+        for name in zf.namelist():
+            # Skip directories and hidden files
+            if name.endswith("/") or name.startswith("__MACOSX") or "/." in name:
+                continue
+
+            # Check file extension
+            ext = Path(name).suffix.lower()
+            if ext not in valid_extensions:
+                continue
+
+            try:
+                # Extract and load image
+                with zf.open(name) as img_file:
+                    img_data = io.BytesIO(img_file.read())
+                    image = Image.open(img_data)
+
+                    # Convert to RGB if necessary
+                    if image.mode in ("RGBA", "P"):
+                        background = Image.new("RGB", image.size, (255, 255, 255))
+                        if image.mode == "P":
+                            image = image.convert("RGBA")
+                        background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+                        image = background
+                    elif image.mode != "RGB":
+                        image = image.convert("RGB")
+
+                    # Use just the filename, not the full path in zip
+                    clean_name = Path(name).name
+                    images.append((clean_name, image))
+            except Exception:
+                # Skip files that can't be opened as images
+                continue
+
+    # Sort images naturally by filename
+    images.sort(key=lambda x: sort_files_naturally([x[0]])[0])
+
+    return images
+
+
 def create_zip_in_memory(images: list[tuple[str, Image.Image]]) -> bytes:
     """
     Create ZIP file in memory from list of (filename, PIL Image) tuples.

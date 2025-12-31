@@ -3,8 +3,17 @@ Book Translator - Streamlit App
 Translates illustrated books from English to Hebrew.
 """
 
+import logging
 import time
+import traceback
 import streamlit as st
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from database import get_stats, get_verification_issues, get_failed_pages, log_error
 from translator import process_single_page
@@ -429,23 +438,34 @@ if is_zip:
     )
 
     if zip_file:
-        with st.spinner(f"Extracting images from {zip_file.name}..."):
-            try:
-                extracted_images = extract_images_from_zip(zip_file)
+        logger.info(f"ZIP file uploaded: {zip_file.name}, size: {zip_file.size} bytes")
+        st.write(f"📁 Processing: `{zip_file.name}` ({zip_file.size / 1024 / 1024:.1f} MB)")
 
-                if not extracted_images:
-                    st.error("No valid images found in ZIP file. Supported formats: PNG, JPG, WEBP")
-                    uploaded_files = None
-                    sorted_files = []
-                else:
-                    st.success(f"✅ Extracted {len(extracted_images)} images from ZIP")
+        extraction_status = st.empty()
+        extraction_status.info("🔄 Extracting images from ZIP file...")
 
-                    # Store extracted images in session state for processing
-                    st.session_state.uploaded_images = extracted_images
+        try:
+            logger.info("Starting ZIP extraction...")
+            extracted_images = extract_images_from_zip(zip_file)
+            logger.info(f"ZIP extraction returned {len(extracted_images) if extracted_images else 0} images")
 
-                    # Preview first few pages
-                    with st.expander("👁️ Preview extracted pages", expanded=False):
-                        preview_count = min(4, len(extracted_images))
+            if not extracted_images:
+                logger.warning("No valid images found in ZIP file")
+                extraction_status.error("No valid images found in ZIP file. Supported formats: PNG, JPG, WEBP")
+                uploaded_files = None
+                sorted_files = []
+            else:
+                extraction_status.success(f"✅ Extracted {len(extracted_images)} images from ZIP")
+                logger.info(f"Successfully extracted {len(extracted_images)} images")
+
+                # Store extracted images in session state for processing
+                st.session_state.uploaded_images = extracted_images
+                logger.debug(f"Stored {len(extracted_images)} images in session state")
+
+                # Preview first few pages
+                with st.expander("👁️ Preview extracted pages", expanded=False):
+                    preview_count = min(4, len(extracted_images))
+                    if preview_count > 0:
                         cols = st.columns(preview_count)
                         for i in range(preview_count):
                             filename, img = extracted_images[i]
@@ -454,20 +474,25 @@ if is_zip:
                         if len(extracted_images) > 4:
                             st.caption(f"... and {len(extracted_images) - 4} more pages")
 
-                    # Estimate time
-                    if "Real-time" in mode:
-                        est_time = estimate_processing_time(len(extracted_images))
-                        st.info(f"⏱️ Estimated processing time: {est_time}")
+                # Estimate time
+                if "Real-time" in mode:
+                    est_time = estimate_processing_time(len(extracted_images))
+                    st.info(f"⏱️ Estimated processing time: {est_time}")
 
-                    # Set variables for processing
-                    uploaded_files = extracted_images  # List of (filename, image) tuples
-                    sorted_files = extracted_images  # Already sorted
+                # Set variables for processing
+                uploaded_files = extracted_images  # List of (filename, image) tuples
+                sorted_files = extracted_images  # Already sorted
+                logger.info("ZIP upload handling complete, ready for processing")
 
-            except Exception as e:
-                st.error(f"Error extracting ZIP file: {e}")
-                uploaded_files = None
-                sorted_files = []
+        except Exception as e:
+            error_msg = f"Error extracting ZIP file: {e}"
+            logger.error(error_msg, exc_info=True)
+            extraction_status.error(error_msg)
+            st.code(traceback.format_exc(), language="python")
+            uploaded_files = None
+            sorted_files = []
     else:
+        logger.debug("No ZIP file uploaded yet")
         uploaded_files = None
         sorted_files = []
 
@@ -649,8 +674,11 @@ if "Real-time" in mode:
     PAUSE_EVERY_N_BATCHES = 5  # Pause every 5 batches (100 pages) for user review
 
     if st.button("🚀 Start Translation", disabled=start_disabled, type="primary") or st.session_state.processing:
+        logger.info(f"Start Translation button clicked or processing={st.session_state.processing}")
+
         if not st.session_state.processing:
             # Starting fresh
+            logger.info("Starting fresh processing session")
             st.session_state.processing = True
             st.session_state.results = []
             st.session_state.current_index = 0
@@ -658,12 +686,15 @@ if "Real-time" in mode:
             # Load all images into session state
             if is_zip:
                 # ZIP mode: images already extracted as (filename, image) tuples
+                logger.info(f"ZIP mode: copying {len(uploaded_files) if uploaded_files else 0} images")
                 st.session_state.uploaded_images = uploaded_files.copy() if uploaded_files else []
             elif is_chunked:
                 # Chunked mode: images already loaded in accumulated_images
+                logger.info(f"Chunked mode: copying {len(st.session_state.accumulated_images)} images")
                 st.session_state.uploaded_images = st.session_state.accumulated_images.copy()
             else:
                 # Single mode: load from uploaded files
+                logger.info(f"Single mode: loading {len(uploaded_files) if uploaded_files else 0} files")
                 st.session_state.uploaded_images = []
                 sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
                 for f in sorted_files:
@@ -672,6 +703,7 @@ if "Real-time" in mode:
 
             # Initialize progress tracking
             total_pages = len(st.session_state.uploaded_images)
+            logger.info(f"Initializing progress tracking for {total_pages} pages")
             st.session_state.upload_progress = init_upload_progress(total_pages, BATCH_SIZE)
             st.session_state.last_page_time = time.time()
 
@@ -680,6 +712,8 @@ if "Real-time" in mode:
         total = len(images)
         start_from = st.session_state.current_index
         progress = st.session_state.upload_progress
+
+        logger.info(f"Processing UI: total={total}, start_from={start_from}, progress={progress is not None}")
 
         # Create containers for dynamic updates
         # Use a combination of native Streamlit elements and custom HTML for reliability

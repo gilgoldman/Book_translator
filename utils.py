@@ -4,12 +4,20 @@ Handles ZIP creation, image loading, and other helpers.
 """
 
 import io
+import logging
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
 from PIL import Image
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -211,47 +219,78 @@ def extract_images_from_zip(zip_file: BinaryIO) -> list[tuple[str, Image.Image]]
     Returns:
         List of (filename, PIL Image) tuples, sorted naturally by filename
     """
+    logger.info(f"Starting ZIP extraction from: {getattr(zip_file, 'name', 'unknown')}")
     images = []
     valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+    skipped_files = []
+    error_files = []
 
-    with zipfile.ZipFile(zip_file, "r") as zf:
-        for name in zf.namelist():
-            # Skip directories and hidden files
-            if name.endswith("/") or name.startswith("__MACOSX") or "/." in name:
-                continue
+    try:
+        with zipfile.ZipFile(zip_file, "r") as zf:
+            file_list = zf.namelist()
+            logger.info(f"ZIP contains {len(file_list)} entries")
 
-            # Check file extension
-            ext = Path(name).suffix.lower()
-            if ext not in valid_extensions:
-                continue
+            for name in file_list:
+                # Skip directories and hidden files
+                if name.endswith("/") or name.startswith("__MACOSX") or "/." in name:
+                    skipped_files.append((name, "directory or hidden file"))
+                    continue
 
-            try:
-                # Extract and load image
-                with zf.open(name) as img_file:
-                    img_data = io.BytesIO(img_file.read())
-                    image = Image.open(img_data)
+                # Check file extension
+                ext = Path(name).suffix.lower()
+                if ext not in valid_extensions:
+                    skipped_files.append((name, f"invalid extension: {ext}"))
+                    continue
 
-                    # Convert to RGB if necessary
-                    if image.mode in ("RGBA", "P"):
-                        background = Image.new("RGB", image.size, (255, 255, 255))
-                        if image.mode == "P":
-                            image = image.convert("RGBA")
-                        background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
-                        image = background
-                    elif image.mode != "RGB":
-                        image = image.convert("RGB")
+                try:
+                    # Extract and load image
+                    logger.debug(f"Extracting: {name}")
+                    with zf.open(name) as img_file:
+                        img_data = io.BytesIO(img_file.read())
+                        image = Image.open(img_data)
+                        # Force load the image data to catch any deferred errors
+                        image.load()
 
-                    # Use just the filename, not the full path in zip
-                    clean_name = Path(name).name
-                    images.append((clean_name, image))
-            except Exception:
-                # Skip files that can't be opened as images
-                continue
+                        logger.debug(f"Image {name}: mode={image.mode}, size={image.size}")
 
-    # Sort images naturally by filename
-    images.sort(key=lambda x: sort_files_naturally([x[0]])[0])
+                        # Convert to RGB if necessary
+                        if image.mode in ("RGBA", "P"):
+                            background = Image.new("RGB", image.size, (255, 255, 255))
+                            if image.mode == "P":
+                                image = image.convert("RGBA")
+                            background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+                            image = background
+                        elif image.mode != "RGB":
+                            image = image.convert("RGB")
 
-    return images
+                        # Use just the filename, not the full path in zip
+                        clean_name = Path(name).name
+                        images.append((clean_name, image))
+                        logger.debug(f"Successfully extracted: {clean_name}")
+
+                except Exception as e:
+                    error_files.append((name, str(e)))
+                    logger.warning(f"Failed to extract {name}: {e}")
+                    continue
+
+        logger.info(f"ZIP extraction complete: {len(images)} images extracted, {len(skipped_files)} skipped, {len(error_files)} errors")
+
+        if error_files:
+            logger.warning(f"Files with errors: {error_files[:5]}...")  # Log first 5
+
+        # Sort images naturally by filename
+        logger.debug("Sorting images naturally by filename")
+        images.sort(key=lambda x: sort_files_naturally([x[0]])[0])
+
+        logger.info(f"Returning {len(images)} sorted images")
+        return images
+
+    except zipfile.BadZipFile as e:
+        logger.error(f"Invalid ZIP file: {e}")
+        raise ValueError(f"Invalid ZIP file: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error during ZIP extraction: {e}", exc_info=True)
+        raise
 
 
 def create_zip_in_memory(images: list[tuple[str, Image.Image]]) -> bytes:

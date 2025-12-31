@@ -37,7 +37,9 @@ def init_session_state():
         "current_index": 0,
         "results": [],  # List of (filename, translated_image) tuples
         "uploaded_images": [],  # List of (filename, PIL Image) tuples
+        "accumulated_images": [],  # For chunked upload mode
         "batch_job_id": None,
+        "upload_mode": "single",  # "single" or "chunked"
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -79,44 +81,129 @@ with st.sidebar:
 # Main content area
 st.header("1️⃣ Upload Book Pages")
 
-uploaded_files = st.file_uploader(
-    "Upload book pages (PNG, JPG, WEBP):",
-    type=["png", "jpg", "jpeg", "webp"],
-    accept_multiple_files=True,
-    help="Upload all pages of your book. They will be processed in alphabetical order.",
+# Upload mode selection
+upload_mode = st.radio(
+    "Upload mode:",
+    ["📄 Single upload", "📚 Chunked upload (for large books)"],
+    horizontal=True,
+    help="Use chunked upload if you have many pages (100+) and uploads keep stalling. Upload in batches of 30-50 pages.",
 )
 
-if uploaded_files:
-    # Validate files
-    is_valid, error_msg = validate_uploaded_files(uploaded_files)
-    if not is_valid:
-        st.error(error_msg)
-        st.stop()
+is_chunked = "Chunked" in upload_mode
 
-    # Sort files naturally
-    sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
+if is_chunked:
+    st.info(
+        "**Chunked mode:** Upload pages in batches (30-50 at a time). "
+        "Pages accumulate until you start processing."
+    )
 
-    # Show upload summary
-    st.success(f"✅ {len(sorted_files)} pages uploaded")
+    # Show accumulated pages count
+    if st.session_state.accumulated_images:
+        accumulated_count = len(st.session_state.accumulated_images)
+        st.success(f"📚 **{accumulated_count} pages accumulated** (ready to process)")
 
-    # Estimate time
-    if "Real-time" in mode:
-        est_time = estimate_processing_time(len(sorted_files))
-        st.info(f"⏱️ Estimated processing time: {est_time}")
+        # Preview accumulated pages
+        with st.expander("👁️ Preview accumulated pages", expanded=False):
+            preview_count = min(8, accumulated_count)
+            cols = st.columns(min(4, preview_count))
+            for i in range(preview_count):
+                filename, img = st.session_state.accumulated_images[i]
+                with cols[i % 4]:
+                    st.image(img, caption=filename, width=120)
+            if accumulated_count > 8:
+                st.caption(f"... and {accumulated_count - 8} more pages")
 
-    if len(sorted_files) > 50 and "Real-time" in mode:
-        st.warning(
-            "💡 **Tip:** For 50+ pages, consider using Batch mode for ~50% cost savings."
-        )
+        # Clear button
+        if st.button("🗑️ Clear all accumulated pages"):
+            st.session_state.accumulated_images = []
+            st.rerun()
 
-    # Preview first few pages
-    with st.expander("👁️ Preview uploaded pages", expanded=False):
-        cols = st.columns(min(4, len(sorted_files)))
-        for i, f in enumerate(sorted_files[:4]):
-            with cols[i]:
-                st.image(f, caption=f.name, width=150)
-        if len(sorted_files) > 4:
-            st.caption(f"... and {len(sorted_files) - 4} more pages")
+    # Chunked file uploader
+    uploaded_files = st.file_uploader(
+        "Add more pages (30-50 at a time recommended):",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        help="Upload a batch of pages. They will be added to your accumulated pages.",
+        key="chunked_uploader",
+    )
+
+    if uploaded_files:
+        # Validate files
+        is_valid, error_msg = validate_uploaded_files(uploaded_files)
+        if not is_valid:
+            st.error(error_msg)
+        else:
+            # Add to accumulated images
+            if st.button(f"➕ Add {len(uploaded_files)} pages to queue", type="primary"):
+                with st.spinner(f"Loading {len(uploaded_files)} images..."):
+                    for f in uploaded_files:
+                        img = load_image_from_upload(f)
+                        st.session_state.accumulated_images.append((f.name, img))
+
+                # Sort accumulated images naturally
+                st.session_state.accumulated_images.sort(
+                    key=lambda x: sort_files_naturally([x[0]])[0]
+                )
+                st.success(f"✅ Added {len(uploaded_files)} pages!")
+                st.rerun()
+
+    # For processing, use accumulated images
+    if st.session_state.accumulated_images:
+        # Create a virtual "uploaded_files" list for compatibility
+        uploaded_files = st.session_state.accumulated_images
+        sorted_files = uploaded_files  # Already sorted
+    else:
+        uploaded_files = None
+        sorted_files = []
+
+else:
+    # Standard single upload mode
+    uploaded_files = st.file_uploader(
+        "Upload book pages (PNG, JPG, WEBP):",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        help="Upload all pages of your book. They will be processed in alphabetical order.",
+        key="single_uploader",
+    )
+
+    if uploaded_files:
+        # Validate files
+        is_valid, error_msg = validate_uploaded_files(uploaded_files)
+        if not is_valid:
+            st.error(error_msg)
+            st.stop()
+
+        # Sort files naturally
+        sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
+
+        # Show upload summary
+        st.success(f"✅ {len(sorted_files)} pages uploaded")
+
+        # Estimate time
+        if "Real-time" in mode:
+            est_time = estimate_processing_time(len(sorted_files))
+            st.info(f"⏱️ Estimated processing time: {est_time}")
+
+        if len(sorted_files) > 50 and "Real-time" in mode:
+            st.warning(
+                "💡 **Tip:** For 50+ pages, consider using Batch mode for ~50% cost savings."
+            )
+
+        if len(sorted_files) > 100:
+            st.warning(
+                "⚠️ **Large upload detected.** If uploads stall, try **Chunked upload mode** above."
+            )
+
+        # Preview first few pages
+        with st.expander("👁️ Preview uploaded pages", expanded=False):
+            cols = st.columns(min(4, len(sorted_files)))
+            for i, f in enumerate(sorted_files[:4]):
+                with cols[i]:
+                    st.image(f, caption=f.name, width=150)
+            if len(sorted_files) > 4:
+                st.caption(f"... and {len(sorted_files) - 4} more pages")
+    else:
+        sorted_files = []
 
 
 # Handle checkpoint pause
@@ -142,7 +229,8 @@ st.header("2️⃣ Translate")
 
 if "Real-time" in mode:
     # Real-time processing
-    start_disabled = not uploaded_files or st.session_state.processing
+    has_files = bool(uploaded_files) if not is_chunked else bool(st.session_state.accumulated_images)
+    start_disabled = not has_files or st.session_state.processing
 
     if st.button("🚀 Start Translation", disabled=start_disabled, type="primary") or st.session_state.processing:
         if not st.session_state.processing:
@@ -153,10 +241,16 @@ if "Real-time" in mode:
 
             # Load all images into session state
             st.session_state.uploaded_images = []
-            sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
-            for f in sorted_files:
-                img = load_image_from_upload(f)
-                st.session_state.uploaded_images.append((f.name, img))
+
+            if is_chunked:
+                # Chunked mode: images already loaded in accumulated_images
+                st.session_state.uploaded_images = st.session_state.accumulated_images.copy()
+            else:
+                # Single mode: load from uploaded files
+                sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
+                for f in sorted_files:
+                    img = load_image_from_upload(f)
+                    st.session_state.uploaded_images.append((f.name, img))
 
         # Processing UI
         images = st.session_state.uploaded_images
@@ -240,12 +334,17 @@ else:
 
     col1, col2 = st.columns(2)
 
+    has_files = bool(uploaded_files) if not is_chunked else bool(st.session_state.accumulated_images)
+
     with col1:
-        if st.button("📤 Submit Batch Job", disabled=not uploaded_files):
+        if st.button("📤 Submit Batch Job", disabled=not has_files):
             with st.spinner("Submitting batch job..."):
                 # Load images
-                sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
-                images = [(f.name, load_image_from_upload(f)) for f in sorted_files]
+                if is_chunked:
+                    images = st.session_state.accumulated_images.copy()
+                else:
+                    sorted_files = sorted(uploaded_files, key=lambda f: sort_files_naturally([f.name])[0])
+                    images = [(f.name, load_image_from_upload(f)) for f in sorted_files]
 
                 # Submit batch
                 job_id = submit_batch_job(images)

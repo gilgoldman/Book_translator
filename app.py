@@ -3,6 +3,7 @@ Book Translator - Streamlit App
 Translates illustrated books from English to Hebrew.
 """
 
+import time
 import streamlit as st
 
 from database import get_stats, get_verification_issues, get_failed_pages, log_error
@@ -15,7 +16,320 @@ from utils import (
     sort_files_naturally,
     estimate_processing_time,
     validate_uploaded_files,
+    init_upload_progress,
+    get_phase_icon,
+    get_phase_label,
+    UploadProgress,
 )
+
+
+# =============================================================================
+# Mobile-Friendly Progress Component CSS
+# =============================================================================
+
+PROGRESS_CSS = """
+<style>
+/* Progress Container - works on all screen sizes */
+.progress-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 24px;
+    color: white;
+    margin: 16px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Circular Progress Ring */
+.progress-ring-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.progress-ring {
+    position: relative;
+    width: 140px;
+    height: 140px;
+}
+
+.progress-ring svg {
+    transform: rotate(-90deg);
+    width: 140px;
+    height: 140px;
+}
+
+.progress-ring circle {
+    fill: none;
+    stroke-width: 10;
+}
+
+.progress-ring .bg {
+    stroke: rgba(255,255,255,0.2);
+}
+
+.progress-ring .progress {
+    stroke: white;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s ease;
+}
+
+.progress-ring .center-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.progress-ring .percentage {
+    font-size: 28px;
+    font-weight: bold;
+    display: block;
+}
+
+.progress-ring .page-count {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Batch Progress Bar */
+.batch-progress {
+    margin: 16px 0;
+    padding: 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+}
+
+.batch-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.batch-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.batch-bar-fill {
+    height: 100%;
+    background: white;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Status Info */
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.status-row:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.status-value {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Current Page Thumbnail */
+.current-page-preview {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.current-page-preview img {
+    max-width: 120px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+/* Compact Progress (for sidebar or small displays) */
+.compact-progress {
+    background: #f0f2f6;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px 0;
+}
+
+.compact-progress .mini-ring {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 8px;
+}
+
+.compact-progress .info {
+    text-align: center;
+    font-size: 13px;
+    color: #555;
+}
+
+/* Batch chips */
+.batch-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.batch-chip {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.batch-chip.pending { background: rgba(255,255,255,0.2); }
+.batch-chip.processing { background: #ffd700; color: #333; }
+.batch-chip.completed { background: #4ade80; color: #166534; }
+.batch-chip.failed { background: #f87171; color: #7f1d1d; }
+
+/* Animation for processing state */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.processing-indicator {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+</style>
+"""
+
+
+def render_progress_component(progress: UploadProgress, current_filename: str = "") -> str:
+    """
+    Render the mobile-friendly progress component as HTML.
+
+    Args:
+        progress: UploadProgress object with current state
+        current_filename: Name of the file currently being processed
+
+    Returns:
+        HTML string for the progress component
+    """
+    # Calculate SVG circle parameters
+    radius = 60
+    circumference = 2 * 3.14159 * radius
+    progress_offset = circumference - (progress.overall_progress / 100) * circumference
+
+    # Calculate batch bar width
+    batch_pct = progress.batch_progress
+
+    # Build batch chips HTML
+    batch_chips = ""
+    if progress.total_batches > 1:
+        # Show max 10 batch chips to avoid clutter
+        display_batches = progress.batches[:10] if len(progress.batches) > 10 else progress.batches
+        for b in display_batches:
+            batch_chips += f'<span class="batch-chip {b.status}">{b.batch_num}</span>'
+        if len(progress.batches) > 10:
+            remaining = len(progress.batches) - 10
+            batch_chips += f'<span class="batch-chip pending">+{remaining}</span>'
+
+    phase_icon = get_phase_icon(progress.phase)
+    phase_label = get_phase_label(progress.phase)
+
+    html = f"""
+    <div class="progress-container">
+        <!-- Circular Progress Ring -->
+        <div class="progress-ring-container">
+            <div class="progress-ring">
+                <svg viewBox="0 0 140 140">
+                    <circle class="bg" cx="70" cy="70" r="{radius}"/>
+                    <circle class="progress" cx="70" cy="70" r="{radius}"
+                        stroke-dasharray="{circumference}"
+                        stroke-dashoffset="{progress_offset}"/>
+                </svg>
+                <div class="center-text">
+                    <span class="percentage">{int(progress.overall_progress)}%</span>
+                    <span class="page-count">{progress.current_page}/{progress.total_pages}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Progress (if multiple batches) -->
+        {"" if progress.total_batches <= 1 else f'''
+        <div class="batch-progress">
+            <div class="batch-label">
+                <span>Batch {progress.current_batch + 1} of {progress.total_batches}</span>
+                <span>{int(batch_pct)}%</span>
+            </div>
+            <div class="batch-bar">
+                <div class="batch-bar-fill" style="width: {batch_pct}%"></div>
+            </div>
+            <div class="batch-chips">{batch_chips}</div>
+        </div>
+        '''}
+
+        <!-- Status Info -->
+        <div class="status-info">
+            <div class="status-row">
+                <span class="status-label">Status</span>
+                <span class="status-value processing-indicator">{phase_icon} {phase_label}</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Time Remaining</span>
+                <span class="status-value">{progress.format_eta()}</span>
+            </div>
+            {"" if not current_filename else f'''
+            <div class="status-row">
+                <span class="status-label">Current Page</span>
+                <span class="status-value">{current_filename[:25]}{"..." if len(current_filename) > 25 else ""}</span>
+            </div>
+            '''}
+        </div>
+    </div>
+    """
+    return html
+
+
+def render_compact_progress(progress: UploadProgress) -> str:
+    """
+    Render a compact progress indicator for sidebar or small spaces.
+
+    Args:
+        progress: UploadProgress object
+
+    Returns:
+        HTML string for compact progress
+    """
+    radius = 25
+    circumference = 2 * 3.14159 * radius
+    progress_offset = circumference - (progress.overall_progress / 100) * circumference
+
+    html = f"""
+    <div class="compact-progress">
+        <div class="mini-ring">
+            <svg viewBox="0 0 60 60" style="width:60px;height:60px;transform:rotate(-90deg)">
+                <circle fill="none" stroke="#e0e0e0" stroke-width="6" cx="30" cy="30" r="{radius}"/>
+                <circle fill="none" stroke="#667eea" stroke-width="6" cx="30" cy="30" r="{radius}"
+                    stroke-linecap="round"
+                    stroke-dasharray="{circumference}"
+                    stroke-dashoffset="{progress_offset}"/>
+            </svg>
+        </div>
+        <div class="info">
+            <strong>{int(progress.overall_progress)}%</strong> ({progress.current_page}/{progress.total_pages})
+            <br/>
+            {get_phase_icon(progress.phase)} {get_phase_label(progress.phase)}
+        </div>
+    </div>
+    """
+    return html
 
 
 # Page configuration
@@ -34,12 +348,15 @@ def init_session_state():
     defaults = {
         "processing": False,
         "paused_at_checkpoint": False,
+        "paused_at_batch": False,  # Pause between batches
         "current_index": 0,
         "results": [],  # List of (filename, translated_image) tuples
         "uploaded_images": [],  # List of (filename, PIL Image) tuples
         "accumulated_images": [],  # For chunked upload mode
         "batch_job_id": None,
         "upload_mode": "single",  # "single" or "chunked"
+        "upload_progress": None,  # UploadProgress object for tracking
+        "last_page_time": None,  # For ETA calculation
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -47,6 +364,9 @@ def init_session_state():
 
 
 init_session_state()
+
+# Inject CSS for progress component
+st.markdown(PROGRESS_CSS, unsafe_allow_html=True)
 
 
 # Sidebar for settings
@@ -223,14 +543,45 @@ if st.session_state.paused_at_checkpoint:
 
     st.stop()
 
+# Handle batch pause (pause between batches for large uploads)
+if st.session_state.paused_at_batch:
+    progress = st.session_state.upload_progress
+    if progress:
+        completed_batches = progress.current_batch
+        total_batches = progress.total_batches
+
+        st.info(f"⏸️ **Batch {completed_batches} of {total_batches} complete.** Ready to continue with the next batch.")
+
+        # Show current progress
+        st.markdown(render_progress_component(progress, "Paused"), unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("▶️ Continue to Next Batch", type="primary"):
+                st.session_state.paused_at_batch = False
+                st.session_state.upload_progress.is_paused = False
+                st.rerun()
+        with col2:
+            if st.button("🛑 Stop Here"):
+                st.session_state.processing = False
+                st.session_state.paused_at_batch = False
+                st.session_state.upload_progress = None
+                st.success(f"Processing stopped after {completed_batches} batches. Partial results are available below.")
+
+        st.stop()
+
 
 # Processing section
 st.header("2️⃣ Translate")
 
 if "Real-time" in mode:
-    # Real-time processing
+    # Real-time processing with batching and mobile-friendly progress
     has_files = bool(uploaded_files) if not is_chunked else bool(st.session_state.accumulated_images)
     start_disabled = not has_files or st.session_state.processing
+
+    # Batch size configuration for large uploads
+    BATCH_SIZE = 20  # Process 20 pages per batch
+    PAUSE_EVERY_N_BATCHES = 5  # Pause every 5 batches (100 pages) for user review
 
     if st.button("🚀 Start Translation", disabled=start_disabled, type="primary") or st.session_state.processing:
         if not st.session_state.processing:
@@ -252,38 +603,83 @@ if "Real-time" in mode:
                     img = load_image_from_upload(f)
                     st.session_state.uploaded_images.append((f.name, img))
 
-        # Processing UI
+            # Initialize progress tracking
+            total_pages = len(st.session_state.uploaded_images)
+            st.session_state.upload_progress = init_upload_progress(total_pages, BATCH_SIZE)
+            st.session_state.last_page_time = time.time()
+
+        # Processing UI with batched progress
         images = st.session_state.uploaded_images
         total = len(images)
         start_from = st.session_state.current_index
+        progress = st.session_state.upload_progress
 
-        progress_bar = st.progress(start_from / total if total > 0 else 0)
-        status_container = st.empty()
+        # Create containers for dynamic updates
+        progress_container = st.empty()
         preview_container = st.empty()
+        status_text = st.empty()
+
+        # Determine current batch
+        current_batch_idx = start_from // BATCH_SIZE
 
         for i in range(start_from, total):
             filename, image = images[i]
 
-            # Checkpoint at 300 pages
-            if i > 0 and i % 300 == 0 and i > start_from:
-                st.session_state.paused_at_checkpoint = True
-                st.session_state.current_index = i
-                st.rerun()
+            # Update batch tracking
+            batch_idx = i // BATCH_SIZE
+            page_in_batch = i % BATCH_SIZE
 
-            # Update status
-            status_container.text(f"Processing page {i + 1}/{total}: {filename}")
+            # Check if we've moved to a new batch
+            if batch_idx != current_batch_idx:
+                # Mark previous batch as completed
+                if current_batch_idx < len(progress.batches):
+                    progress.batches[current_batch_idx].status = "completed"
 
-            # Show current page being processed
+                current_batch_idx = batch_idx
+
+                # Pause every N batches for large uploads (100+ pages)
+                if total > 50 and batch_idx > 0 and batch_idx % PAUSE_EVERY_N_BATCHES == 0:
+                    progress.current_batch = batch_idx
+                    progress.phase = "paused"
+                    progress.is_paused = True
+                    st.session_state.paused_at_batch = True
+                    st.session_state.current_index = i
+                    st.rerun()
+
+            # Update current batch status
+            if batch_idx < len(progress.batches):
+                progress.batches[batch_idx].status = "processing"
+                progress.batches[batch_idx].pages_completed = page_in_batch
+
+            # Update progress state
+            progress.current_page = i
+            progress.current_batch = batch_idx
+            progress.phase = "verifying" if verify else "processing"
+
+            # Calculate time for this page (for ETA)
+            current_time = time.time()
+            if st.session_state.last_page_time:
+                page_duration = current_time - st.session_state.last_page_time
+                if page_duration > 0 and page_duration < 120:  # Ignore outliers > 2 min
+                    progress.pages_processed_times.append(page_duration)
+
+            # Render progress component
+            with progress_container.container():
+                st.markdown(render_progress_component(progress, filename), unsafe_allow_html=True)
+
+            # Show current page being processed (compact view below progress)
             with preview_container.container():
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.image(image, caption=f"Original: {filename}", width=300)
+                    st.image(image, caption=f"Original: {filename}", use_container_width=True)
                 with col2:
                     st.info("⏳ Translating...")
 
             try:
                 # Process the page
+                page_start_time = time.time()
                 result = process_single_page(image, filename, verify=verify)
+                st.session_state.last_page_time = time.time()
 
                 if result["status"] == "failed":
                     log_error(filename, result.get("error", "Unknown error"))
@@ -303,30 +699,47 @@ if "Real-time" in mode:
                 with preview_container.container():
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.image(image, caption=f"Original: {filename}", width=300)
+                        st.image(image, caption=f"Original: {filename}", use_container_width=True)
                     with col2:
                         if result["translated_image"] is not None:
                             st.image(
                                 result["translated_image"],
                                 caption=f"{status_icon} Translated",
-                                width=300,
+                                use_container_width=True,
                             )
                         else:
                             st.warning("No output image")
 
             except Exception as e:
                 log_error(filename, str(e))
-                status_container.error(f"❌ Error processing {filename}: {e}")
+                status_text.error(f"❌ Error processing {filename}: {e}")
+                st.session_state.last_page_time = time.time()
 
-            # Update progress
-            progress_bar.progress((i + 1) / total)
+            # Update session state
             st.session_state.current_index = i + 1
+            progress.current_page = i + 1
+
+            # Update batch page count
+            if batch_idx < len(progress.batches):
+                progress.batches[batch_idx].pages_completed = page_in_batch + 1
+
+        # Mark final batch as complete
+        if current_batch_idx < len(progress.batches):
+            progress.batches[current_batch_idx].status = "completed"
 
         # Done!
+        progress.phase = "complete"
+        progress.current_page = total
+
+        # Show final progress
+        with progress_container.container():
+            st.markdown(render_progress_component(progress, ""), unsafe_allow_html=True)
+
         st.session_state.processing = False
         st.session_state.current_index = 0
+        st.session_state.upload_progress = None
         preview_container.empty()
-        status_container.success(f"✅ Completed! {len(st.session_state.results)} pages translated.")
+        status_text.success(f"✅ Completed! {len(st.session_state.results)} pages translated.")
 
 else:
     # Batch mode

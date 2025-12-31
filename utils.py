@@ -5,10 +5,179 @@ Handles ZIP creation, image loading, and other helpers.
 
 import io
 import zipfile
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
 from PIL import Image
+
+
+# =============================================================================
+# Progress Tracking for Mobile-Friendly Upload
+# =============================================================================
+
+@dataclass
+class BatchInfo:
+    """Information about a single batch."""
+    batch_num: int
+    start_idx: int
+    end_idx: int
+    status: str = "pending"  # pending, processing, completed, failed
+    pages_completed: int = 0
+
+    @property
+    def size(self) -> int:
+        return self.end_idx - self.start_idx
+
+    @property
+    def progress(self) -> float:
+        return self.pages_completed / self.size if self.size > 0 else 0
+
+
+@dataclass
+class UploadProgress:
+    """
+    Tracks upload and processing progress for mobile-friendly display.
+    Supports batched processing for large uploads (200+ pages).
+    """
+    total_pages: int = 0
+    current_page: int = 0
+    current_batch: int = 0
+    total_batches: int = 0
+    batch_size: int = 20
+    phase: str = "idle"  # idle, uploading, processing, verifying, complete, paused
+    batches: list = field(default_factory=list)
+    start_time: float = 0
+    pages_processed_times: list = field(default_factory=list)  # For ETA calculation
+    is_paused: bool = False
+    error_message: str = ""
+
+    @property
+    def overall_progress(self) -> float:
+        """Calculate overall progress as percentage (0-100)."""
+        if self.total_pages == 0:
+            return 0
+        return (self.current_page / self.total_pages) * 100
+
+    @property
+    def batch_progress(self) -> float:
+        """Calculate current batch progress as percentage (0-100)."""
+        if not self.batches or self.current_batch >= len(self.batches):
+            return 0
+        batch = self.batches[self.current_batch]
+        return batch.progress * 100
+
+    def get_eta_seconds(self) -> int | None:
+        """Estimate remaining time in seconds based on rolling average."""
+        if len(self.pages_processed_times) < 2:
+            return None
+
+        # Use last 10 page times for rolling average
+        recent_times = self.pages_processed_times[-10:]
+        avg_time_per_page = sum(recent_times) / len(recent_times)
+
+        remaining_pages = self.total_pages - self.current_page
+        return int(remaining_pages * avg_time_per_page)
+
+    def format_eta(self) -> str:
+        """Format ETA as human-readable string."""
+        eta = self.get_eta_seconds()
+        if eta is None:
+            return "Calculating..."
+
+        if eta < 60:
+            return f"{eta}s"
+        elif eta < 3600:
+            mins = eta // 60
+            secs = eta % 60
+            return f"{mins}m {secs}s"
+        else:
+            hours = eta // 3600
+            mins = (eta % 3600) // 60
+            return f"{hours}h {mins}m"
+
+
+def create_batches(total_pages: int, batch_size: int = 20) -> list[BatchInfo]:
+    """
+    Split pages into batches for processing.
+
+    Args:
+        total_pages: Total number of pages to process
+        batch_size: Number of pages per batch (default 20)
+
+    Returns:
+        List of BatchInfo objects
+    """
+    batches = []
+    num_batches = (total_pages + batch_size - 1) // batch_size
+
+    for i in range(num_batches):
+        start_idx = i * batch_size
+        end_idx = min((i + 1) * batch_size, total_pages)
+        batches.append(BatchInfo(
+            batch_num=i + 1,
+            start_idx=start_idx,
+            end_idx=end_idx,
+        ))
+
+    return batches
+
+
+def init_upload_progress(total_pages: int, batch_size: int = 20) -> UploadProgress:
+    """
+    Initialize upload progress tracking for a new upload.
+
+    Args:
+        total_pages: Total number of pages to upload
+        batch_size: Pages per batch (default 20)
+
+    Returns:
+        Initialized UploadProgress object
+    """
+    import time
+
+    batches = create_batches(total_pages, batch_size)
+
+    return UploadProgress(
+        total_pages=total_pages,
+        current_page=0,
+        current_batch=0,
+        total_batches=len(batches),
+        batch_size=batch_size,
+        phase="processing",
+        batches=batches,
+        start_time=time.time(),
+        pages_processed_times=[],
+        is_paused=False,
+    )
+
+
+def get_phase_icon(phase: str) -> str:
+    """Get icon for current processing phase."""
+    icons = {
+        "idle": "⏸️",
+        "uploading": "📤",
+        "processing": "⚙️",
+        "verifying": "🔍",
+        "complete": "✅",
+        "paused": "⏸️",
+        "failed": "❌",
+    }
+    return icons.get(phase, "⏳")
+
+
+def get_phase_label(phase: str) -> str:
+    """Get human-readable label for current processing phase."""
+    labels = {
+        "idle": "Ready",
+        "uploading": "Uploading",
+        "processing": "Translating",
+        "verifying": "Verifying",
+        "complete": "Complete",
+        "paused": "Paused",
+        "failed": "Failed",
+    }
+    return labels.get(phase, "Processing")
 
 
 def load_image_from_upload(uploaded_file: BinaryIO) -> Image.Image:

@@ -615,7 +615,10 @@ if "Real-time" in mode:
         progress = st.session_state.upload_progress
 
         # Create containers for dynamic updates
-        progress_container = st.empty()
+        # Use a combination of native Streamlit elements and custom HTML for reliability
+        progress_header = st.empty()  # For the visual progress component
+        progress_bar = st.progress(start_from / total if total > 0 else 0)  # Fallback progress bar
+        progress_text = st.empty()  # Status text
         preview_container = st.empty()
         status_text = st.empty()
 
@@ -663,9 +666,17 @@ if "Real-time" in mode:
                 if page_duration > 0 and page_duration < 120:  # Ignore outliers > 2 min
                     progress.pages_processed_times.append(page_duration)
 
-            # Render progress component
-            with progress_container.container():
-                st.markdown(render_progress_component(progress, filename), unsafe_allow_html=True)
+            # Update progress displays
+            progress_bar.progress((i + 1) / total)
+
+            # Render visual progress component
+            progress_header.markdown(render_progress_component(progress, filename), unsafe_allow_html=True)
+
+            # Show batch and ETA info as text (reliable fallback)
+            batch_info = f"Batch {batch_idx + 1}/{progress.total_batches}" if progress.total_batches > 1 else ""
+            progress_text.markdown(
+                f"**Page {i + 1}/{total}** | {batch_info} | ⏱️ {progress.format_eta()} remaining | 📄 `{filename}`"
+            )
 
             # Show current page being processed (compact view below progress)
             with preview_container.container():
@@ -732,8 +743,9 @@ if "Real-time" in mode:
         progress.current_page = total
 
         # Show final progress
-        with progress_container.container():
-            st.markdown(render_progress_component(progress, ""), unsafe_allow_html=True)
+        progress_header.markdown(render_progress_component(progress, ""), unsafe_allow_html=True)
+        progress_bar.progress(1.0)
+        progress_text.markdown(f"**✅ Complete!** All {total} pages processed.")
 
         st.session_state.processing = False
         st.session_state.current_index = 0

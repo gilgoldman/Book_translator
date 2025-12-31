@@ -212,8 +212,16 @@ def edit_image_with_hebrew(image_path: str, translations: list) -> Image:
     ✗ Do NOT redraw or reimagine any part of the image
     ✗ Do NOT change anything except the text
     
-    The ONLY change should be: English text → Hebrew text
-    Hebrew reads right-to-left.
+    HEBREW TEXT POSITIONING (RTL RULES):
+    - Hebrew reads RIGHT-TO-LEFT
+    - Titles: Keep centered if originally centered
+    - Paragraphs: Flip alignment (left-aligned English → right-aligned Hebrew)
+    - Lists/bullet points: Bullets move to the RIGHT side of text
+    - Text boxes: Text starts from the RIGHT edge
+    - Numbers in recipes (½ cup, 350°F): Keep as-is, they appear correctly in RTL
+    - Keep text in the SAME position/area as the original English
+    
+    The ONLY change should be: English text → Hebrew text (with proper RTL alignment)
     
     Text replacements to make:
     {replacements}
@@ -234,16 +242,127 @@ def edit_image_with_hebrew(image_path: str, translations: list) -> Image:
     raise RuntimeError("No image in response")
 ```
 
-### 5.4 Main Processing Loop
+### 5.4 Verification Step (Optional)
+
+```python
+def verify_translation(original_path: str, translated_path: str) -> dict:
+    """
+    Compare original and translated images to catch issues.
+    Returns verification result with pass/fail and reason.
+    
+    Checks for:
+    - Missing translations (English text still visible)
+    - Broken layout (illustrations moved/distorted)
+    - Unreadable Hebrew (garbled text)
+    - Major visual differences
+    """
+    original = Image.open(original_path)
+    translated = Image.open(translated_path)
+    
+    prompt = '''
+    Compare these two images. The first is the original (English), 
+    the second is the translated version (Hebrew).
+    
+    Check for these issues:
+    1. MISSING TRANSLATION: Is any English text still visible in image 2?
+    2. BROKEN LAYOUT: Are illustrations/graphics significantly different or distorted?
+    3. UNREADABLE TEXT: Is the Hebrew text garbled or incorrectly rendered?
+    4. ALIGNMENT ISSUES: Is Hebrew text properly right-aligned where appropriate?
+    
+    Respond with JSON:
+    {
+        "pass": true/false,
+        "issues": ["list of issues found, or empty if pass"],
+        "confidence": 0.0-1.0
+    }
+    
+    Be strict - flag anything that looks wrong. It's better to have 
+    false positives than miss real issues.
+    '''
+    
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",  # Cheap model is fine for comparison
+        contents=[prompt, original, translated]
+    )
+    
+    return parse_json_response(response.text)
+
+
+def process_single_page(image_path: str, verify: bool = False) -> dict:
+    """Process one page with optional verification."""
+    
+    # Steps 1-4: Extract, translate, dedup check, edit image
+    # ... (existing code) ...
+    
+    result = {
+        "status": "completed",
+        "output_path": output_path,
+        "verification": None
+    }
+    
+    # Step 5: Optional verification
+    if verify:
+        verification = verify_translation(image_path, output_path)
+        result["verification"] = verification
+        
+        # Store in database
+        update_verification_status(
+            page_id, 
+            passed=verification["pass"],
+            issues=verification.get("issues", [])
+        )
+        
+        if not verification["pass"]:
+            result["status"] = "needs_review"
+    
+    return result
+
+
+def get_verification_issues() -> list[dict]:
+    """Get all pages that failed verification."""
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            """SELECT original_filename, verification_issues 
+               FROM pages 
+               WHERE verification_passed = 0"""
+        ).fetchall()
+        
+        return [
+            {"filename": row[0], "reason": row[1]} 
+            for row in rows
+        ]
+```
+
+**Database schema addition:**
+
+```sql
+-- Add to pages table
+ALTER TABLE pages ADD COLUMN verification_passed BOOLEAN;
+ALTER TABLE pages ADD COLUMN verification_issues TEXT;
+```
+
+**When to use verification:**
+- High-stakes books (professional publication)
+- First run on a new book style (to calibrate quality)
+- When previous batches had issues
+
+**Cost impact:** ~33% more API calls (one extra Gemini Flash call per page)
+
+### 5.5 Main Processing Flow
+
+The main processing is now handled directly in the Streamlit app (Section 7) with proper `st.session_state` for pause/resume. The core logic per page is:
 
 ```python
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=4, max=60))
-def process_single_page(image_path: str) -> str:
-    """Process one page. Returns output path."""
+def process_single_page(image_path: str, verify: bool = False) -> dict:
+    """
+    Process one page end-to-end.
+    Returns dict with status, output_path, and optional verification result.
+    """
     
-    # Step 1: Extract + Translate
+    # Step 1: Extract + Translate (one API call)
     result = extract_and_translate(image_path)
     extracted_text = result["extracted_text"]
     translations = result["translations"]
@@ -254,55 +373,180 @@ def process_single_page(image_path: str) -> str:
     
     if existing:
         record_duplicate(image_path, fingerprint, existing)
-        return existing  # Return existing translated image
+        return {"status": "duplicate", "output_path": existing}
     
     # Step 3: Register in DB
     page_id = register_page(image_path, fingerprint, extracted_text, translations)
     
     # Step 4: Edit image (replace English text with Hebrew)
     output_image = edit_image_with_hebrew(image_path, translations)
-    
-    # Step 5: Save
     output_path = save_image(output_image, image_path)
+    
+    # Step 5: Optional verification
+    if verify:
+        verification = verify_translation(image_path, output_path)
+        update_verification_status(page_id, verification)
+        
+        if not verification["pass"]:
+            mark_completed(page_id, output_path, status="needs_review")
+            return {"status": "needs_review", "output_path": output_path, "verification": verification}
+    
     mark_completed(page_id, output_path)
-    
-    return output_path
-
-
-def process_folder(input_folder: str, output_folder: str):
-    """Process all images in a folder."""
-    image_files = sorted(Path(input_folder).glob("*.[jp][pn][g]*"))  # jpg, jpeg, png
-    
-    results = {"completed": 0, "duplicates": 0, "failed": 0}
-    
-    for i, image_path in enumerate(image_files):
-        try:
-            output = process_single_page(str(image_path))
-            if "duplicate" in get_status(image_path):
-                results["duplicates"] += 1
-            else:
-                results["completed"] += 1
-        except Exception as e:
-            log_error(image_path, e)
-            results["failed"] += 1
-        
-        # Progress update for Streamlit
-        yield i + 1, len(image_files), results
-        
-        # Manual review checkpoint
-        if i == 299:  # After 300 pages
-            yield "REVIEW_CHECKPOINT", None, results
+    return {"status": "completed", "output_path": output_path}
 ```
 
 ---
 
-## 6. Streamlit App (Simplified)
+## 6. Batch Processing Mode (Optional - Up to 50% Cheaper)
+
+For large books (50+ pages), users can opt for Gemini's Batch API which is significantly cheaper but processes overnight (up to 24 hours).
+
+### 6.1 When to Use Batch Mode
+
+| Book Size | Recommended Mode | Why |
+|-----------|------------------|-----|
+| 1-20 pages | Real-time | Fast, batch overhead not worth it |
+| 20-50 pages | Either | User preference |
+| 50+ pages | Batch | Significant cost savings |
+
+### 6.2 Batch Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        BATCH MODE                                    │
+│                                                                      │
+│  1. User uploads folder + selects "Batch Mode (Cheaper, Overnight)" │
+│                              │                                       │
+│                              ▼                                       │
+│  2. Submit all images to Batch API for extraction + translation     │
+│     (returns job ID, stored in database)                            │
+│                              │                                       │
+│                              ▼                                       │
+│  3. Show "Processing overnight - check back in 24 hours"            │
+│                              │                                       │
+│                              ▼                                       │
+│  4. User returns, clicks "Check Batch Status"                       │
+│                              │                                       │
+│                              ▼                                       │
+│  5. If complete: Retrieve translations, run image editing           │
+│     (Image editing with Nano Banana runs real-time - fast since     │
+│      all the text extraction/translation work is already done)      │
+│                              │                                       │
+│                              ▼                                       │
+│  6. Save all translated images                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Note:** Only extraction + translation can be batched. Image editing (Nano Banana Pro) runs real-time, but it's quick since the translations are pre-computed.
+
+### 6.3 Batch API Code
+
+```python
+from google import genai
+from google.genai import types
+
+def submit_batch_job(image_paths: list[str]) -> str:
+    """
+    Submit batch job for extraction + translation.
+    Returns job ID for status checking later.
+    """
+    client = genai.Client()
+    
+    requests = []
+    for i, image_path in enumerate(image_paths):
+        image = Image.open(image_path)
+        
+        prompt = '''
+        1. Extract ALL English text from this image exactly as written.
+        2. Translate each text element to Hebrew.
+        
+        Return JSON:
+        {
+            "extracted_text": "...",
+            "translations": [{"english": "...", "hebrew": "..."}, ...]
+        }
+        '''
+        
+        requests.append(types.BatchRequest(
+            custom_id=f"page_{i:04d}_{Path(image_path).name}",
+            request=types.GenerateContentRequest(
+                model="gemini-2.5-flash",
+                contents=[prompt, image]
+            )
+        ))
+    
+    batch_job = client.batches.create(
+        requests=requests,
+        config=types.BatchConfig(display_name="book_translation")
+    )
+    
+    return batch_job.name
+
+
+def check_batch_status(job_id: str) -> dict:
+    """Check if batch job is complete."""
+    client = genai.Client()
+    job = client.batches.get(name=job_id)
+    
+    return {
+        "status": job.state,  # PENDING, RUNNING, SUCCEEDED, FAILED
+        "completed": job.succeeded_request_count,
+        "total": job.total_request_count
+    }
+
+
+def process_batch_results(job_id: str, image_paths: list[str], output_folder: str):
+    """
+    Retrieve batch results and run image editing for each page.
+    Called after batch job completes.
+    """
+    client = genai.Client()
+    
+    # Get all translation results
+    results = {r.custom_id: r for r in client.batches.list_results(name=job_id)}
+    
+    for image_path in image_paths:
+        custom_id = f"page_{...}_{Path(image_path).name}"
+        result = results[custom_id]
+        
+        translations = parse_json_response(result.response.text)
+        
+        # Run image editing (real-time, but fast since translation is done)
+        output_image = edit_image_with_hebrew(image_path, translations["translations"])
+        save_image(output_image, output_folder, image_path)
+```
+
+### 6.4 Database Schema Addition for Batch Jobs
+
+```sql
+CREATE TABLE batch_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id TEXT NOT NULL,           -- Gemini batch job ID
+    status TEXT DEFAULT 'pending',  -- pending, running, completed, failed
+    total_pages INTEGER,
+    completed_pages INTEGER DEFAULT 0,
+    input_folder TEXT,
+    output_folder TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+```
+
+---
+
+## 7. Streamlit App
 
 ```python
 import streamlit as st
 from pathlib import Path
 
 st.title("📚 Book Translator: English → Hebrew")
+
+# Initialize session state
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+    st.session_state.paused_at_checkpoint = False
+    st.session_state.current_page = 0
 
 # Input
 input_folder = st.text_input("Input folder path:", "/path/to/book/pages")
@@ -315,37 +559,130 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-if st.button("🚀 Start Translation"):
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+# Processing mode selection
+mode = st.radio(
+    "Processing mode:",
+    ["⚡ Real-time (instant, standard price)", "💰 Batch (overnight, ~50% cheaper)"],
+    index=0
+)
+
+# Optional verification
+verify = st.checkbox(
+    "🔍 Enable verification (checks each translation, +33% cost)", 
+    value=False
+)
+
+# Count pages to help user decide
+page_count = len(list(Path(input_folder).glob("*.[jp][pn][g]*"))) if input_folder else 0
+if page_count > 50:
+    st.info(f"📊 {page_count} pages detected. Batch mode recommended for cost savings.")
+
+# Handle checkpoint pause (must be BEFORE the main processing block)
+if st.session_state.paused_at_checkpoint:
+    st.warning("⚠️ 300 pages processed. Please review output folder before continuing.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Continue Processing"):
+            st.session_state.paused_at_checkpoint = False
+            st.rerun()
+    with col2:
+        if st.button("🛑 Stop Here"):
+            st.session_state.processing = False
+            st.session_state.paused_at_checkpoint = False
+            st.session_state.current_page = 0
+            st.success("Processing stopped. Partial results saved.")
+            st.rerun()
+
+# Real-time mode
+elif "Real-time" in mode:
+    if st.button("🚀 Start Translation") or st.session_state.processing:
+        st.session_state.processing = True
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        image_files = sorted(Path(input_folder).glob("*.[jp][pn][g]*"))
+        start_from = st.session_state.current_page
+        
+        for i, image_path in enumerate(image_files[start_from:], start=start_from):
+            # Checkpoint at 300 pages
+            if i == 300 and i > start_from:
+                st.session_state.paused_at_checkpoint = True
+                st.session_state.current_page = i
+                st.rerun()
+            
+            # Process page
+            try:
+                result = process_single_page(str(image_path), verify=verify)
+                status = "✅" if result["status"] == "completed" else "⏭️"
+            except Exception as e:
+                log_error(image_path, e)
+                status = "❌"
+            
+            # Update progress
+            progress_bar.progress((i + 1) / len(image_files))
+            status_text.text(f"Page {i + 1}/{len(image_files)} {status}")
+            st.session_state.current_page = i + 1
+        
+        # Done - reset state
+        st.session_state.processing = False
+        st.session_state.current_page = 0
+        
+        # Show verification issues if any
+        if verify:
+            issues = get_verification_issues()
+            if issues:
+                st.warning(f"⚠️ {len(issues)} pages flagged for review")
+                with st.expander("View flagged pages"):
+                    for issue in issues:
+                        st.write(f"- {issue['filename']}: {issue['reason']}")
+        
+        st.success("Done!")
+        st.download_button("📥 Download as ZIP", create_zip(output_folder))
+
+# Batch mode
+else:
+    col1, col2 = st.columns(2)
     
-    for current, total, results in process_folder(input_folder, output_folder):
-        if current == "REVIEW_CHECKPOINT":
-            st.warning("⚠️ 300 pages processed. Please review before continuing.")
-            if not st.button("Continue processing"):
-                break
-        else:
-            progress_bar.progress(current / total)
-            status_text.text(
-                f"Page {current}/{total} | "
-                f"✅ {results['completed']} | "
-                f"⏭️ {results['duplicates']} skipped | "
-                f"❌ {results['failed']} failed"
-            )
+    with col1:
+        if st.button("📤 Submit Batch Job"):
+            image_paths = sorted(Path(input_folder).glob("*.[jp][pn][g]*"))
+            job_id = submit_batch_job(list(image_paths))
+            save_batch_job(job_id, input_folder, output_folder, verify=verify)
+            st.success(f"✅ Batch submitted! Job ID: {job_id}")
+            st.info("Check back in 24 hours to retrieve results.")
     
-    st.success("Done!")
-    st.download_button("📥 Download as ZIP", create_zip(output_folder))
+    with col2:
+        if st.button("🔄 Check Batch Status"):
+            job = get_latest_batch_job()
+            if job:
+                status = check_batch_status(job["job_id"])
+                st.write(f"Status: {status['status']}")
+                st.write(f"Progress: {status['completed']}/{status['total']} pages")
+                
+                if status["status"] == "SUCCEEDED":
+                    if st.button("📥 Generate Translated Images"):
+                        process_batch_results(
+                            job["job_id"], 
+                            job["image_paths"], 
+                            output_folder,
+                            verify=job.get("verify", False)
+                        )
+                        st.success("Done! All images translated.")
+                        st.download_button("📥 Download as ZIP", create_zip(output_folder))
+            else:
+                st.warning("No pending batch jobs found.")
 ```
 
 ---
 
-## 7. Project Structure (Simplified)
+## 8. Project Structure
 
 ```
 book-translator/
 ├── app.py                 # Streamlit app (main entry point)
-├── translator.py          # All processing logic (extract, translate, regenerate)
+├── translator.py          # Extract, translate, edit image
 ├── database.py            # SQLite operations + deduplication
+├── batch.py               # Batch API operations (optional)
 ├── requirements.txt
 ├── .env.example
 ├── README.md
@@ -357,11 +694,9 @@ book-translator/
     └── test_translator.py
 ```
 
-**Removed:** Separate `gemini_client.py`, `image_processor.py`, `batch_processor.py`, `dedup.py`, `error_handler.py`, `config/settings.py`. Everything fits in 3 files.
-
 ---
 
-## 8. Configuration
+## 9. Configuration
 
 ```bash
 # .env
@@ -374,7 +709,7 @@ That's it. Other settings can be hardcoded or passed as function parameters:
 
 ---
 
-## 9. Error Handling
+## 10. Error Handling
 
 - **Retry:** 3 attempts with exponential backoff (4s → 8s → 16s)
 - **On failure:** Log to database `last_error` column, continue to next image
@@ -384,7 +719,7 @@ No separate error log files needed - everything is in the database.
 
 ---
 
-## 10. What Was Removed (Simplifications)
+## 11. What Was Removed (Simplifications)
 
 | Removed | Why |
 |---------|-----|
@@ -396,12 +731,11 @@ No separate error log files needed - everything is in the database.
 | `error_log_path` column | Errors stored in `last_error` |
 | `started_at` timestamp | Not useful |
 | Separate config file | Just use .env for API key |
-| 7 source files | Reduced to 3 |
-| Batch API mention | Premature optimization |
+| 7 source files | Reduced to 4 (added batch.py) |
 
 ---
 
-## 11. Key Decisions
+## 12. Key Decisions
 
 1. **One API call for extraction + translation:** Simpler, still cheap with Gemini Flash.
 
@@ -415,3 +749,7 @@ No separate error log files needed - everything is in the database.
 4. **SQLite over JSON files:** Queryable, supports resume, handles concurrent access.
 
 5. **Streamlit over CLI:** Visual progress, easy to use, good for non-technical users.
+
+6. **Batch mode optional:** Real-time by default, batch for 50+ pages to save ~50% cost.
+
+7. **RTL positioning in prompt:** Explicit rules for Hebrew text alignment (right-align paragraphs, flip bullet points).

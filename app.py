@@ -474,27 +474,6 @@ if is_zip:
                 st.session_state.total_pages = image_count
                 logger.debug(f"Stored ZIP reference for streaming")
 
-                # Preview first few pages (load only these)
-                with st.expander("👁️ Preview pages from ZIP", expanded=False):
-                    preview_count = min(4, image_count)
-                    if preview_count > 0:
-                        cols = st.columns(preview_count)
-                        # Stream just the first few for preview
-                        for i, (filename, img) in enumerate(stream_images_from_zip(zip_file)):
-                            if i >= preview_count:
-                                break
-                            with cols[i]:
-                                # Show thumbnail to save memory
-                                thumb = img.copy()
-                                thumb.thumbnail((150, 200))
-                                st.image(thumb, caption=filename, width=150)
-                            # Explicitly delete to free memory
-                            del img
-                        if image_count > 4:
-                            st.caption(f"... and {image_count - 4} more pages")
-                        # Reset ZIP file position for later
-                        zip_file.seek(0)
-
                 # Estimate time
                 if "Real-time" in mode:
                     est_time = estimate_processing_time(image_count)
@@ -627,17 +606,6 @@ else:
             st.info(
                 "💡 **Memory-efficient mode:** Images will be processed one at a time to prevent crashes."
             )
-
-        # Preview first few pages (load thumbnails only for preview)
-        with st.expander("👁️ Preview uploaded pages", expanded=False):
-            preview_count = min(4, len(sorted_files))
-            cols = st.columns(preview_count)
-            for i, f in enumerate(sorted_files[:preview_count]):
-                with cols[i]:
-                    # Load as thumbnail for preview only
-                    st.image(f, caption=f.name, width=150)
-            if len(sorted_files) > 4:
-                st.caption(f"... and {len(sorted_files) - 4} more pages")
     else:
         sorted_files = []
 
@@ -736,7 +704,6 @@ if "Real-time" in mode:
         progress_header = st.empty()
         progress_bar = st.progress(start_from / total if total > 0 else 0)
         progress_text = st.empty()
-        preview_container = st.empty()
         status_text = st.empty()
 
         # Determine current batch
@@ -820,18 +787,6 @@ if "Real-time" in mode:
                 f"**Page {i + 1}/{total}** | {batch_info} | ⏱️ {progress.format_eta()} remaining | 📄 `{filename}`"
             )
 
-            # Show current page being processed
-            with preview_container.container():
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Create thumbnail for display to save memory
-                    display_img = image.copy()
-                    display_img.thumbnail((400, 600))
-                    st.image(display_img, caption=f"Original: {filename}", use_container_width=True)
-                    del display_img
-                with col2:
-                    st.info("⏳ Translating...")
-
             try:
                 # Process the page
                 result = process_single_page(image, filename, verify=verify)
@@ -852,27 +807,8 @@ if "Real-time" in mode:
                 if translated_img is not None:
                     temp_storage.save_result(filename, translated_img)
                     logger.debug(f"Saved {filename} to temp storage, total: {temp_storage.get_result_count()}")
-
-                # Update preview with result (using thumbnail)
-                with preview_container.container():
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        display_img = image.copy()
-                        display_img.thumbnail((400, 600))
-                        st.image(display_img, caption=f"Original: {filename}", use_container_width=True)
-                        del display_img
-                    with col2:
-                        if translated_img is not None:
-                            result_thumb = translated_img.copy()
-                            result_thumb.thumbnail((400, 600))
-                            st.image(result_thumb, caption=f"{status_icon} Translated", use_container_width=True)
-                            del result_thumb
-                        else:
-                            st.warning("No output image")
-
-                # MEMORY-EFFICIENT: Explicitly delete images to free memory
-                if translated_img is not None:
                     del translated_img
+
                 del result
 
             except Exception as e:
@@ -905,7 +841,6 @@ if "Real-time" in mode:
         st.session_state.processing = False
         st.session_state.current_index = 0
         st.session_state.upload_progress = None
-        preview_container.empty()
         status_text.success(f"✅ Completed! {temp_storage.get_result_count()} pages translated.")
 
 else:
@@ -1017,23 +952,7 @@ has_legacy_results = bool(st.session_state.results)
 if has_temp_results:
     # MEMORY-EFFICIENT: Results are stored on disk
     num_results = temp_storage.get_result_count()
-    st.success(f"📄 {num_results} translated pages ready")
-
-    # Preview (loads only first few from disk)
-    with st.expander("👁️ Preview translated pages", expanded=True):
-        preview_results = temp_storage.get_preview_results(max_count=4)
-        if preview_results:
-            cols = st.columns(min(4, len(preview_results)))
-            for i, (filename, img) in enumerate(preview_results):
-                with cols[i]:
-                    # Show thumbnail
-                    thumb = img.copy()
-                    thumb.thumbnail((150, 200))
-                    st.image(thumb, caption=get_output_filename(filename), width=150)
-                    del thumb
-                    del img  # Free memory after display
-            if num_results > 4:
-                st.caption(f"... and {num_results - 4} more pages")
+    st.success(f"📄 {num_results} translated pages ready for download")
 
     # Download button - streams from disk
     with st.spinner("Creating ZIP file from saved results..."):
@@ -1063,15 +982,7 @@ if has_temp_results:
 elif has_legacy_results:
     # Legacy mode: results in memory (backward compatibility)
     num_results = len(st.session_state.results)
-    st.success(f"📄 {num_results} translated pages ready")
-
-    with st.expander("👁️ Preview translated pages", expanded=True):
-        cols = st.columns(min(4, num_results))
-        for i, (filename, img) in enumerate(st.session_state.results[:4]):
-            with cols[i]:
-                st.image(img, caption=get_output_filename(filename), width=150)
-        if num_results > 4:
-            st.caption(f"... and {num_results - 4} more pages")
+    st.success(f"📄 {num_results} translated pages ready for download")
 
     with st.spinner("Creating ZIP file..."):
         zip_bytes = create_zip_in_memory(st.session_state.results)

@@ -2,15 +2,17 @@
 
 import { useActionState } from "react";
 import { login, register, type FormState } from "@/app/actions";
+import { useT } from "@/lib/i18n/client";
 
 export function LoginForm({ firstRun, next }: { firstRun: boolean; next: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(login, undefined);
+  const t = useT();
   return (
     <form action={action} className="login">
-      {firstRun && <p>Welcome. Sign in with the owner username and choose a password.</p>}
+      {firstRun && <p>{t("login.welcome")}</p>}
       <input type="hidden" name="next" value={next} />
       <label className="field">
-        <span>Username</span>
+        <span>{t("field.username")}</span>
         <input
           key={state?.values?.username}
           name="username"
@@ -22,7 +24,7 @@ export function LoginForm({ firstRun, next }: { firstRun: boolean; next: string 
         />
       </label>
       <label className="field">
-        <span>Password</span>
+        <span>{t("field.password")}</span>
         <input
           name="password"
           type="password"
@@ -31,7 +33,7 @@ export function LoginForm({ firstRun, next }: { firstRun: boolean; next: string 
         />
       </label>
       <button className="primary" disabled={pending}>
-        {pending ? "Signing in…" : firstRun ? "Create owner account" : "Sign in"}
+        {pending ? t("login.signingIn") : firstRun ? t("login.createOwner") : t("login.submit")}
       </button>
       {state?.error && <p className="error" role="alert">{state.error}</p>}
     </form>
@@ -40,15 +42,16 @@ export function LoginForm({ firstRun, next }: { firstRun: boolean; next: string 
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(register, undefined);
+  const t = useT();
   if (state?.ok) return <p role="status">{state.ok}</p>;
   return (
     <form action={action} className="login">
       <label className="field">
-        <span>Your name</span>
+        <span>{t("field.yourName")}</span>
         <input name="displayName" defaultValue={state?.values?.displayName} autoComplete="name" maxLength={60} />
       </label>
       <label className="field">
-        <span>Username</span>
+        <span>{t("field.username")}</span>
         <input
           name="username"
           defaultValue={state?.values?.username}
@@ -59,15 +62,15 @@ export function RegisterForm() {
         />
       </label>
       <label className="field">
-        <span>Password (10+ characters)</span>
+        <span>{t("field.newPassword")}</span>
         <input name="password" type="password" autoComplete="new-password" minLength={10} required />
       </label>
       <label className="field">
-        <span>A note for the owner (optional)</span>
-        <input name="note" defaultValue={state?.values?.note} maxLength={300} placeholder="Hi, it's Mira from next door" />
+        <span>{t("register.note")}</span>
+        <input name="note" defaultValue={state?.values?.note} maxLength={300} placeholder={t("register.notePlaceholder")} />
       </label>
       <button className="primary" disabled={pending}>
-        {pending ? "Sending…" : "Request access"}
+        {pending ? t("register.sending") : t("register.submit")}
       </button>
       {state?.error && <p className="error" role="alert">{state.error}</p>}
     </form>

@@ -31,6 +31,8 @@ export const ai = customProvider({
     extract: gemini("low", "MEDIA_RESOLUTION_HIGH"),
     // Rewriting into the Effective view and working out Ruhlman ratios.
     enrich: gemini("medium"),
+    // Translating a recipe's words into the other app languages.
+    translate: gemini("low"),
     // Small, fast jobs (query understanding, Telegram replies).
     quick: gemini("low"),
   },

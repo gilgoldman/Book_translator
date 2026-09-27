@@ -4,12 +4,15 @@ import { put } from "@vercel/blob";
 import { checkBotId } from "botid/server";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { db, recipes, sources, users } from "@/db";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
 import {
   checkCredentials,
   createUser,
+  getSession,
   endSession,
   hashPassword,
   hasAnyUser,
@@ -22,16 +25,17 @@ import {
   validUsername,
 } from "@/lib/auth";
 import { canEdit, resolveDuplicate, type DuplicateChoice } from "@/lib/dedupe";
+import { isLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
+import { getLocale, getT } from "@/lib/i18n/server";
 import { ingest, NotARecipeError, restructureRecipe, type IngestRequest } from "@/lib/ingest";
 import { findUrl } from "@/lib/ingest/url";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
 import { COURSES, CUISINES, DIETS, SEASONS, type Substitution } from "@/lib/recipe-types";
 import { notifyOwner } from "@/lib/telegram";
+import { ensureTranslations } from "@/lib/translations";
 
 // `values` echoes non-secret fields so a failed submit doesn't make people retype them.
 export type FormState = { error?: string; ok?: string; values?: Record<string, string> } | undefined;
-
-const GENERIC_LOGIN_ERROR = "That username and password don't match.";
 
 async function isBot() {
   // Invisible Vercel BotID challenge (see instrumentation-client.ts). Only on Vercel.
@@ -46,23 +50,26 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   const username = normalizeUsername(String(form.get("username") ?? ""));
   const password = String(form.get("password") ?? "");
   const next = String(form.get("next") ?? "/");
+  const t = await getT();
 
-  if (await isBot()) return { error: "Access denied.", values: { username } };
+  if (await isBot()) return { error: t("err.accessDenied"), values: { username } };
   const ip = await clientIp();
   if ((await isRateLimited(`login:ip:${ip}`, 20, 15 * 60)) || (await isRateLimited(`login:user:${username}`, 8, 15 * 60))) {
-    return { error: "Too many attempts. Please wait 15 minutes and try again.", values: { username } };
+    return { error: t("err.tooManyLogins"), values: { username } };
   }
 
   if (!(await hasAnyUser())) {
     // First run: only the configured owner can claim the book.
-    if (username !== OWNER_USERNAME) return { error: GENERIC_LOGIN_ERROR, values: { username } };
+    if (username !== OWNER_USERNAME) return { error: t("err.badLogin"), values: { username } };
     const problem = passwordProblem(password);
-    if (problem) return { error: problem, values: { username } };
-    await startSession(await createUser({ username, password, isAdmin: true, status: "approved" }));
+    if (problem) return { error: t(problem), values: { username } };
+    await startSession(
+      await createUser({ username, password, isAdmin: true, status: "approved", locale: await getLocale() }),
+    );
   } else {
     const user = await checkCredentials(username, password);
-    if (!user || user.status === "declined") return { error: GENERIC_LOGIN_ERROR, values: { username } };
-    if (user.status === "pending") return { error: "Your request is waiting for approval.", values: { username } };
+    if (!user || user.status === "declined") return { error: t("err.badLogin"), values: { username } };
+    if (user.status === "pending") return { error: t("err.pending"), values: { username } };
     await startSession(user);
   }
   redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
@@ -73,24 +80,26 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
   const password = String(form.get("password") ?? "");
   const displayName = String(form.get("displayName") ?? "").slice(0, 60);
   const note = String(form.get("note") ?? "").slice(0, 300);
+  const t = await getT();
 
   const values = { username, displayName, note };
-  if (await isBot()) return { error: "Access denied.", values };
+  if (await isBot()) return { error: t("err.accessDenied"), values };
   if (await isRateLimited(`register:ip:${await clientIp()}`, 5, 60 * 60)) {
-    return { error: "Too many requests. Please try again later.", values };
+    return { error: t("err.tooManyRequests"), values };
   }
-  if (!(await hasAnyUser())) return { error: "The cookbook isn't set up yet.", values };
-  if (!validUsername(username)) return { error: "Usernames use 2–32 letters, numbers, dots, dashes or underscores.", values };
+  if (!(await hasAnyUser())) return { error: t("err.notSetUp"), values };
+  if (!validUsername(username)) return { error: t("err.username"), values };
   const problem = passwordProblem(password);
-  if (problem) return { error: problem, values };
+  if (problem) return { error: t(problem), values };
 
   try {
-    await createUser({ username, password, displayName, requestNote: note, status: "pending" });
+    // They keep the language they asked in.
+    await createUser({ username, password, displayName, requestNote: note, status: "pending", locale: t.locale });
   } catch {
-    return { error: "That username is taken.", values };
+    return { error: t("err.taken"), values };
   }
-  await notifyOwner(`New access request: ${displayName || username} (@${username})${note ? `\n“${note}”` : ""}`);
-  return { ok: "Thanks! You'll be able to sign in once your request is approved." };
+  await notifyOwner((ot) => `${ot("people.notify", { who: `${displayName || username} (@${username})` })}${note ? `\n“${note}”` : ""}`);
+  return { ok: t("register.thanks") };
 }
 
 export async function logout() {
@@ -102,10 +111,11 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
   const session = await requireSession();
   const current = String(form.get("current") ?? "");
   const next = String(form.get("next") ?? "");
+  const t = await getT();
   const problem = passwordProblem(next);
-  if (problem) return { error: problem };
-  if (await isRateLimited(`password:${session.userId}`, 5, 15 * 60)) return { error: "Too many attempts. Try later." };
-  if (!(await checkCredentials(session.username, current))) return { error: "Current password is wrong." };
+  if (problem) return { error: t(problem) };
+  if (await isRateLimited(`password:${session.userId}`, 5, 15 * 60)) return { error: t("err.tryLater") };
+  if (!(await checkCredentials(session.username, current))) return { error: t("err.currentPassword") };
   // Bumping the version signs out every other device.
   const [user] = await db()
     .update(users)
@@ -113,7 +123,7 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
     .where(eq(users.id, session.userId))
     .returning();
   await startSession(user);
-  return { ok: "Password changed. Other devices have been signed out." };
+  return { ok: t("password.changed") };
 }
 
 // ---------- profile ----------
@@ -121,10 +131,28 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
 export async function updateProfile(_: FormState, form: FormData): Promise<FormState> {
   const session = await requireSession();
   const displayName = String(form.get("displayName") ?? "").trim().slice(0, 60);
-  if (!displayName) return { error: "Please enter a name." };
+  const t = await getT();
+  if (!displayName) return { error: t("err.nameEmpty") };
   await db().update(users).set({ displayName }).where(eq(users.id, session.userId));
   revalidatePath("/", "layout");
-  return { ok: "Saved." };
+  return { ok: t("common.saved") };
+}
+
+/**
+ * Switch the app language. Remembered on this device (for the sign-in and share pages)
+ * and on the profile, so it follows the person to their other devices and to Telegram.
+ */
+export async function setLanguage(locale: Locale) {
+  if (!isLocale(locale)) return;
+  (await cookies()).set(LOCALE_COOKIE, locale, {
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 365 * 24 * 60 * 60,
+  });
+  const session = await getSession();
+  if (session) await db().update(users).set({ locale }).where(eq(users.id, session.userId));
+  revalidatePath("/", "layout");
 }
 
 export async function updateAvatar(form: FormData) {
@@ -175,8 +203,9 @@ export async function removeUser(userId: string) {
 
 export async function importRecipe(_: FormState, form: FormData): Promise<FormState> {
   const session = await requireSession();
+  const t = await getT();
   if (await isRateLimited(`import:${session.userId}`, 30, 60 * 60)) {
-    return { error: "That's a lot of imports for one hour. Take a break and try again soon." };
+    return { error: t("err.importLimit") };
   }
   const text = String(form.get("text") ?? "").trim();
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
@@ -199,7 +228,7 @@ export async function importRecipe(_: FormState, form: FormData): Promise<FormSt
     const url = findUrl(text);
     req = url && text.length < url.length + 40 ? { kind: "url", url } : { kind: "text", text };
   } else {
-    return { error: "Add a link, some text, a photo or a voice note." };
+    return { error: t("err.importEmpty") };
   }
 
   let id: string;
@@ -207,8 +236,8 @@ export async function importRecipe(_: FormState, form: FormData): Promise<FormSt
     ({ recipeId: id } = await ingest(req, session.userId));
   } catch (err) {
     console.error("import failed", err);
-    if (err instanceof NotARecipeError) return { error: err.message };
-    return { error: `Import failed: ${err instanceof Error ? err.message : "unknown error"}` };
+    if (err instanceof NotARecipeError) return { error: t("err.notRecipe") };
+    return { error: t("err.importFailed", { reason: err instanceof Error ? err.message : t("err.unknown") }) };
   }
   revalidatePath("/");
   // A parked duplicate shows the keep/replace prompt on its page.
@@ -278,12 +307,13 @@ const minutes = (v: FormDataEntryValue | null) => {
  */
 export async function updateRecipe(id: string, _: FormState, form: FormData): Promise<FormState> {
   const { allowed } = await editableRecipe(id);
-  if (!allowed) return { error: "Only whoever added this recipe can edit it." };
+  const t = await getT();
+  if (!allowed) return { error: t("err.onlyOwnerEdits") };
   const current = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
-  if (!current) return { error: "Recipe not found." };
+  if (!current) return { error: t("err.recipeNotFound") };
 
   const title = String(form.get("title") ?? "").trim().slice(0, 200);
-  if (!title) return { error: "The recipe needs a title." };
+  if (!title) return { error: t("err.titleEmpty") };
   // Browsers submit textareas with \r\n line breaks.
   const text = (name: string) => String(form.get(name) ?? "").replace(/\r\n?/g, "\n").trim();
   const ingredientsText = text("ingredients");
@@ -311,14 +341,16 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
     ingredientsText !== current.ingredients.map((i) => i.original).join("\n").trim() ||
     methodText !== current.steps.map((s) => s.text).join("\n\n").trim();
   if (contentChanged) {
-    if (!ingredientsText || !methodText) return { error: "Ingredients and method can't be empty." };
+    if (!ingredientsText || !methodText) return { error: t("err.contentEmpty") };
     try {
       await restructureRecipe(id, { title, ingredients: ingredientsText, method: methodText });
     } catch (err) {
       console.error("re-reading recipe failed", err);
-      return { error: "Details saved, but re-reading the ingredients and method failed. Try again?" };
+      return { error: t("err.rereadFailed") };
     }
   }
+  // Changed words make the other languages stale; redo them after the page is back.
+  after(() => ensureTranslations(id));
   revalidatePath(`/recipes/${id}`);
   revalidatePath("/profile");
   redirect(`/recipes/${id}`);
@@ -341,11 +373,12 @@ export async function deleteRecipe(id: string, back: "/" | "/profile" = "/") {
 export async function substituteInRecipe(recipeId: string, index: number): Promise<Substitution> {
   const session = await requireSession();
   if (await isRateLimited(`swap:${session.userId}`, 60, 60 * 60)) throw new Error("Too many requests, try later.");
+  const locale = await getLocale();
   const r = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) });
   const ing = r?.ingredients[index];
   if (!r || !ing) throw new Error("Ingredient not found");
   const word = ing.name.toLowerCase();
-  return suggestSubstitutes(ing.canonical, {
+  return suggestSubstitutes(ing.canonical, locale, {
     recipeId,
     recipeTitle: r.titleEnglish,
     line: ing.original,

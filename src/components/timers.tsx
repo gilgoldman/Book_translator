@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { formatClock, formatDuration } from "@/lib/format";
+import { useT } from "@/lib/i18n/client";
 import { Icon } from "./icons";
 
 type Timer = {
@@ -73,6 +74,7 @@ async function notify(title: string, body: string) {
 // ---------- provider ----------
 
 export function TimersProvider({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const [timers, setTimers] = useState<Timer[]>([]);
   const [, setTick] = useState(0);
   const wakeLock = useRef<WakeLockSentinel | null>(null);
@@ -100,18 +102,18 @@ export function TimersProvider({ children }: { children: React.ReactNode }) {
     if (!running) return;
     const id = setInterval(() => {
       const now = Date.now();
-      const finished = timers.filter((t) => t.endsAt && !t.done && t.endsAt <= now);
+      const finished = timers.filter((x) => x.endsAt && !x.done && x.endsAt <= now);
       if (finished.length) {
         chime();
-        for (const t of finished) void notify(`${t.label} — done`, t.recipeTitle);
-        const ids = new Set(finished.map((t) => t.id));
-        setTimers((list) => list.map((t) => (ids.has(t.id) ? { ...t, done: true } : t)));
+        for (const x of finished) void notify(t("timers.notifyDone", { label: x.label }), x.recipeTitle);
+        const ids = new Set(finished.map((x) => x.id));
+        setTimers((list) => list.map((x) => (ids.has(x.id) ? { ...x, done: true } : x)));
       } else {
         setTick((n) => n + 1);
       }
     }, 250);
     return () => clearInterval(id);
-  }, [running, timers]);
+  }, [running, timers, t]);
 
   // Keep the screen on while anything is running, so the chime is heard.
   useEffect(() => {
@@ -174,59 +176,60 @@ function TimerTray({
   timers: Timer[];
   setTimers: React.Dispatch<React.SetStateAction<Timer[]>>;
 }) {
+  const t = useT();
   if (timers.length === 0) return null;
   const update = (id: string, f: (t: Timer) => Timer | null) =>
     setTimers((list) => list.flatMap((t) => (t.id === id ? (f(t) ?? []) : [t])));
 
   return (
-    <aside className="timer-tray" aria-label="Timers">
+    <aside className="timer-tray" aria-label={t("timers.title")}>
       <p className="tray-head">
-        <Icon name="clock" /> Timers
+        <Icon name="clock" /> {t("timers.title")}
       </p>
       <ul className="tray-list">
-        {timers.map((t) => {
-          const left = remainingOf(t);
-          const paused = !t.endsAt && !t.done;
+        {timers.map((timer) => {
+          const left = remainingOf(timer);
+          const paused = !timer.endsAt && !timer.done;
           return (
-            <li key={t.id} className={`timer${t.done ? " is-done" : ""}${paused ? " is-paused" : ""}`}>
+            <li key={timer.id} className={`timer${timer.done ? " is-done" : ""}${paused ? " is-paused" : ""}`}>
               <div className="t-info">
-                <span className="t-label">{t.label}</span>
-                <span className="t-time" aria-live={t.done ? "assertive" : "off"}>
-                  {t.done ? "Done!" : formatClock(left)}
+                <span className="t-label">{timer.label}</span>
+                <span className="t-time" dir="ltr" aria-live={timer.done ? "assertive" : "off"}>
+                  {timer.done ? t("timers.done") : formatClock(left)}
                 </span>
                 <span className="t-state">
-                  {t.done ? (
+                  {timer.done ? (
                     <>
-                      <Icon name="bell" /> {t.recipeTitle}
+                      <Icon name="bell" /> {timer.recipeTitle}
                     </>
                   ) : paused ? (
-                    "Paused"
+                    t("timers.paused")
                   ) : (
-                    `of ${formatDuration(t.seconds)}`
+                    t("timers.of", { d: formatDuration(timer.seconds, t) })
                   )}
                 </span>
               </div>
               <div className="t-actions">
-                {!t.done && (
+                {!timer.done && (
                   <button
                     className="btn"
                     onClick={() =>
-                      update(t.id, (x) =>
+                      update(timer.id, (x) =>
                         paused
                           ? { ...x, endsAt: Date.now() + x.remaining * 1000 }
                           : { ...x, endsAt: null, remaining: remainingOf(x) },
                       )
                     }
                   >
-                    <Icon name={paused ? "play" : "pause"} /> {paused ? "Resume" : "Pause"}
+                    <Icon name={paused ? "play" : "pause"} /> {paused ? t("timers.resume") : t("timers.pause")}
                   </button>
                 )}
-                <button className="btn" onClick={() => update(t.id, () => null)}>
-                  <Icon name={t.done ? "check" : "stop"} /> {t.done ? "OK" : "Stop"}
+                <button className="btn" onClick={() => update(timer.id, () => null)}>
+                  <Icon name={timer.done ? "check" : "stop"} /> {timer.done ? t("timers.ok") : t("timers.stop")}
                 </button>
               </div>
               <span className="t-bar" aria-hidden>
-                <i style={{ transform: `scaleX(${t.seconds ? 1 - left / t.seconds : 1})` }} />
+                <i style={{ transform: `scaleX(${timer.seconds ? 1 - left / timer.seconds : 1})` }} />
               </span>
             </li>
           );
@@ -240,22 +243,24 @@ function TimerTray({
 
 export function TimerPill({ label, seconds, recipeTitle }: { label: string; seconds: number; recipeTitle: string }) {
   const { start } = useTimers();
+  const t = useT();
   return (
     <button className="pill" onClick={() => start(label, seconds, recipeTitle)}>
-      <Icon name="clock" /> {label} · {formatDuration(seconds)}
-      <span className="visually-hidden">: start timer</span>
+      <Icon name="clock" /> {label} · {formatDuration(seconds, t)}
+      <span className="visually-hidden">{t("timers.startHidden")}</span>
     </button>
   );
 }
 
 export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; defaultLabel: string }) {
   const { start } = useTimers();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState("10");
   if (!open) {
     return (
       <button className="pill pill-ghost" onClick={() => setOpen(true)}>
-        <Icon name="plus" /> Timer
+        <Icon name="plus" /> {t("timers.add")}
       </button>
     );
   }
@@ -269,7 +274,7 @@ export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; d
         setOpen(false);
       }}
     >
-      <label htmlFor={`min-${defaultLabel}`}>Minutes</label>
+      <label htmlFor={`min-${defaultLabel}`}>{t("timers.minutes")}</label>
       <input
         id={`min-${defaultLabel}`}
         type="number"
@@ -280,9 +285,9 @@ export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; d
         onChange={(e) => setMinutes(e.target.value)}
         autoFocus
       />
-      <button className="btn btn-primary">Start</button>
+      <button className="btn btn-primary">{t("timers.start")}</button>
       <button type="button" className="btn" onClick={() => setOpen(false)}>
-        Cancel
+        {t("common.cancel")}
       </button>
     </form>
   );

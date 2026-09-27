@@ -2,19 +2,21 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { removeAvatar, updateAvatar, updateProfile, type FormState } from "@/app/actions";
+import { useT } from "@/lib/i18n/client";
 import { downscaleImage } from "@/lib/image";
 
 export function NameForm({ current }: { current: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateProfile, undefined);
+  const t = useT();
   return (
     <form action={action} className="form">
       <label className="field">
-        <span>Your name, as others see it</span>
+        <span>{t("profile.yourName")}</span>
         <input name="displayName" defaultValue={current} maxLength={60} autoComplete="name" required />
       </label>
       <div className="button-row">
         <button className="btn" disabled={pending}>
-          Save name
+          {t("profile.saveName")}
         </button>
       </div>
       {state?.error && <p className="error">{state.error}</p>}
@@ -26,10 +28,11 @@ export function NameForm({ current }: { current: string }) {
 export function AvatarForm({ hasAvatar }: { hasAvatar: boolean }) {
   const [pending, start] = useTransition();
   const [status, setStatus] = useState("");
+  const t = useT();
   return (
     <div className="form" style={{ marginTop: "var(--sp-5)" }}>
       <label className="field">
-        <span>Profile picture</span>
+        <span>{t("profile.picture")}</span>
         <input
           type="file"
           accept="image/*"
@@ -41,7 +44,7 @@ export function AvatarForm({ hasAvatar }: { hasAvatar: boolean }) {
             form.set("avatar", await downscaleImage(file, 512, 0.85));
             start(async () => {
               await updateAvatar(form);
-              setStatus("Picture updated.");
+              setStatus(t("profile.pictureUpdated"));
             });
             e.target.value = "";
           }}
@@ -55,15 +58,15 @@ export function AvatarForm({ hasAvatar }: { hasAvatar: boolean }) {
             onClick={() =>
               start(async () => {
                 await removeAvatar();
-                setStatus("Picture removed.");
+                setStatus(t("profile.pictureRemoved"));
               })
             }
           >
-            Remove picture
+            {t("profile.removePicture")}
           </button>
         </div>
       )}
-      <p role="status">{pending ? "Saving…" : status}</p>
+      <p role="status">{pending ? t("common.saving") : status}</p>
     </div>
   );
 }

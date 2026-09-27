@@ -2,6 +2,8 @@ import "server-only";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, recipes, users } from "@/db";
 import { embedText } from "@/lib/ai/extract";
+import type { Locale } from "@/lib/i18n/config";
+import { localNames } from "@/lib/ingredient-names";
 
 // Hybrid search with no LLM call in the loop:
 //  1. ingredient overlap  -> "I have leeks, eggs and feta"
@@ -11,8 +13,9 @@ import { embedText } from "@/lib/ai/extract";
 
 export type RecipeCard = {
   id: string;
+  /** In the reader's language when a translation exists. */
   title: string;
-  titleEnglish: string;
+  originalTitle: string;
   description: string | null;
   cuisine: string;
   course: string;
@@ -24,10 +27,10 @@ export type RecipeCard = {
   match?: { have: string[]; missing: number };
 };
 
-const cardColumns = {
+const cardColumns = (locale: Locale) => ({
   id: recipes.id,
-  title: recipes.title,
-  titleEnglish: recipes.titleEnglish,
+  title: sql<string>`coalesce(${recipes.translations}->${locale}->>'title', ${recipes.title})`,
+  originalTitle: recipes.title,
   description: recipes.description,
   cuisine: recipes.cuisine,
   course: recipes.course,
@@ -38,7 +41,7 @@ const cardColumns = {
   username: users.username,
   displayName: users.displayName,
   avatar: users.avatarUrl,
-};
+});
 
 type CardRow = {
   photos: string[];
@@ -53,13 +56,13 @@ const toCard = ({ photos, username, displayName, avatar, ...r }: CardRow): Recip
   addedBy: username ? { username, name: displayName || username, avatar } : null,
 });
 
-function cards() {
-  return db().select(cardColumns).from(recipes).leftJoin(users, eq(users.id, recipes.createdBy));
+function cards(locale: Locale) {
+  return db().select(cardColumns(locale)).from(recipes).leftJoin(users, eq(users.id, recipes.createdBy));
 }
 
 /** Newest first; optionally only the recipes one person added. */
-export async function recentRecipes(limit = 60, byUsername?: string): Promise<RecipeCard[]> {
-  const rows = await cards()
+export async function recentRecipes(locale: Locale, limit = 60, byUsername?: string): Promise<RecipeCard[]> {
+  const rows = await cards(locale)
     .where(and(isNull(recipes.duplicateOf), byUsername ? eq(users.username, byUsername) : undefined))
     .orderBy(desc(recipes.createdAt))
     .limit(limit);
@@ -75,13 +78,15 @@ export function queryVariants(q: string): string {
     if (w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
     return w;
   });
-  // Two copies keep multi-word names ("green onion") contiguous; "|" stops matches across the seam.
-  return ` ${words.join(" ")} | ${singular.join(" ")} `;
+  // Hebrew glues prepositions to words ("ופטה" = "and feta"): also try without up to two of them.
+  const unprefixed = words.map((w) => (/^[\u0590-\u05ff]{4,}$/.test(w) ? w.replace(/^[והבלמשכ]{1,2}(?=[\u0590-\u05ff]{3})/, "") : w));
+  // Separate copies keep multi-word names ("green onion") contiguous; "|" stops matches across seams.
+  return ` ${words.join(" ")} | ${singular.join(" ")} | ${unprefixed.join(" ")} `;
 }
 
-export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]> {
+export async function searchRecipes(q: string, locale: Locale, limit = 24): Promise<RecipeCard[]> {
   const query = q.trim();
-  if (!query) return recentRecipes(limit);
+  if (!query) return recentRecipes(locale, limit);
 
   const variants = queryVariants(query);
   const orQuery = (query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2).join(" | ");
@@ -91,6 +96,9 @@ export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]
       with matched as (
         select id, name from ingredients
         where ${variants} like '% ' || name || ' %'
+           -- names in other languages, e.g. "ביצים" for egg
+           or exists (select 1 from jsonb_each(names) l(code, list), jsonb_array_elements_text(l.list) n
+                      where ${variants} like '% ' || lower(n) || ' %')
       )
       select ri.recipe_id,
              array_agg(m.name order by m.name) as have,
@@ -106,7 +114,9 @@ export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]
       ? db().execute<{ id: string }>(sql`
           select id from recipes,
             to_tsvector('simple', title || ' ' || title_english || ' ' || coalesce(description, '') || ' '
-              || cuisine || ' ' || course || ' ' || array_to_string(tags, ' ')) doc,
+              || cuisine || ' ' || course || ' ' || array_to_string(tags, ' ') || ' '
+              || coalesce((select string_agg(concat_ws(' ', v->>'title', v->>'description'), ' ')
+                           from jsonb_each(translations) t(k, v)), '')) doc,
             to_tsquery('simple', ${orQuery}) tsq
           where doc @@ tsq
           order by ts_rank(doc, tsq) desc
@@ -140,13 +150,16 @@ export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]
   if (ranked.length === 0) return [];
 
   // Imports parked as possible duplicates stay hidden until someone decides.
-  const rows = await cards().where(and(inArray(recipes.id, ranked), isNull(recipes.duplicateOf)));
+  const rows = await cards(locale).where(and(inArray(recipes.id, ranked), isNull(recipes.duplicateOf)));
   const byId = new Map(rows.map((r) => [r.id, toCard(r)]));
+  const names = await localNames(byIngredient.rows.flatMap((r) => r.have), locale);
   return ranked
     .map((id) => {
       const card = byId.get(id);
       const m = matchInfo.get(id);
-      return card && m ? { ...card, match: { have: m.have, missing: m.missing } } : card;
+      return card && m
+        ? { ...card, match: { have: m.have.map((n) => names.get(n) ?? n), missing: m.missing } }
+        : card;
     })
     .filter((c): c is RecipeCard => !!c);
 }

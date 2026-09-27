@@ -105,6 +105,7 @@ export async function resolveDuplicate(
       ingredients: fresh.ingredients,
       steps: fresh.steps,
       enrichment: fresh.enrichment,
+      translations: fresh.translations,
       cuisine: fresh.cuisine,
       course: fresh.course,
       diet: fresh.diet,
@@ -126,9 +127,9 @@ export function canEdit(recipe: { createdBy: string | null }, actor: { userId: s
 }
 
 /** Imports by this person still waiting for a keep/replace decision. */
-export async function pendingDuplicates(userId: string, isAdmin: boolean) {
+export async function pendingDuplicates(userId: string, isAdmin: boolean, locale: string) {
   return db()
-    .select({ id: recipes.id, title: recipes.title })
+    .select({ id: recipes.id, title: sql<string>`coalesce(${recipes.translations}->${locale}->>'title', ${recipes.title})` })
     .from(recipes)
     .where(
 and(isNotNull(recipes.duplicateOf), isAdmin ? undefined : eq(recipes.createdBy, userId)),

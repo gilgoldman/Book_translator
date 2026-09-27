@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 import { Icon } from "./icons";
 
 const SIZES = [
-  { value: "normal", label: "Normal", aa: "1rem" },
-  { value: "large", label: "Large", aa: "1.25rem" },
-  { value: "xl", label: "Extra large", aa: "1.5rem" },
+  { value: "normal", label: "a11y.size.normal", aa: "1rem" },
+  { value: "large", label: "a11y.size.large", aa: "1.25rem" },
+  { value: "xl", label: "a11y.size.xl", aa: "1.5rem" },
 ] as const;
 
 const THEMES = [
-  { value: "system", label: "Like my phone" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+  { value: "system", label: "a11y.theme.system" },
+  { value: "light", label: "a11y.theme.light" },
+  { value: "dark", label: "a11y.theme.dark" },
 ] as const;
 
 /** Applied before paint by the inline script in the root layout (no flash). */
@@ -32,6 +33,7 @@ function setRootAttr(name: string, value: string | null) {
 
 /** "Text & colours": text size in three steps, light/dark, and high contrast. */
 export function A11yControls() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState("normal");
   const [theme, setTheme] = useState("system");
@@ -49,14 +51,14 @@ export function A11yControls() {
   return (
     <>
       <button className="btn" aria-expanded={open} aria-controls="display-sheet" onClick={() => setOpen(!open)}>
-        <Icon name="text" /> Text &amp; colours
+        <Icon name="text" /> {t("a11y.button")}
       </button>
       {open && (
-        <section id="display-sheet" className="sheet" aria-label="Text and colours">
+        <section id="display-sheet" className="sheet" aria-label={t("a11y.sheet")}>
           <div className="sheet-grid">
             <div>
               <span className="field-label" id="size-label">
-                Text size
+                {t("a11y.size")}
               </span>
               <div className="seg" role="radiogroup" aria-labelledby="size-label">
                 {SIZES.map((s) => (
@@ -73,28 +75,28 @@ export function A11yControls() {
                     <span className="aa" style={{ fontSize: s.aa }} aria-hidden>
                       Aa
                     </span>
-                    {s.label}
+                    {t(s.label)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
               <span className="field-label" id="theme-label">
-                Colours
+                {t("a11y.colours")}
               </span>
               <div className="seg" role="radiogroup" aria-labelledby="theme-label">
-                {THEMES.map((t) => (
+                {THEMES.map((th) => (
                   <button
-                    key={t.value}
+                    key={th.value}
                     role="radio"
-                    aria-checked={theme === t.value}
+                    aria-checked={theme === th.value}
                     onClick={() => {
-                      setRootAttr("data-theme", t.value === "system" ? null : t.value);
-                      save("cookbook.theme", t.value === "system" ? null : t.value);
-                      setTheme(t.value);
+                      setRootAttr("data-theme", th.value === "system" ? null : th.value);
+                      save("cookbook.theme", th.value === "system" ? null : th.value);
+                      setTheme(th.value);
                     }}
                   >
-                    {t.label}
+                    {t(th.label)}
                   </button>
                 ))}
               </div>
@@ -112,8 +114,10 @@ export function A11yControls() {
                 }}
               >
                 <span>
-                  High contrast
-                  <span className="state">{contrast ? "On" : "Off"} · stronger lines and text</span>
+                  {t("a11y.contrast")}
+                  <span className="state">
+                    {contrast ? t("a11y.on") : t("a11y.off")} · {t("a11y.contrastHint")}
+                  </span>
                 </span>
                 <span className="track" aria-hidden />
               </button>

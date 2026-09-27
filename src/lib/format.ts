@@ -1,10 +1,12 @@
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
+import type { Translator } from "@/lib/i18n/translate";
+
+export function formatDuration(seconds: number, t: Translator): string {
+  if (seconds < 60) return t("time.s", { n: seconds });
   const m = Math.round(seconds / 60);
-  if (m < 60) return `${m} min`;
+  if (m < 60) return t("time.min", { n: m });
   const h = Math.floor(m / 60);
   const rest = m % 60;
-  return rest ? `${h} h ${rest}` : `${h} h`;
+  return rest ? t("time.hMin", { h, m: rest }) : t("time.h", { n: h });
 }
 
 export function formatClock(seconds: number): string {
@@ -16,12 +18,9 @@ export function formatClock(seconds: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-export function formatMinutes(minutes: number | null): string | null {
-  return minutes ? formatDuration(minutes * 60) : null;
+export function formatMinutes(minutes: number | null, t: Translator): string | null {
+  return minutes ? formatDuration(minutes * 60, t) : null;
 }
-
-const RTL = new Set(["he", "ar", "fa", "ur", "yi"]);
-export const dirFor = (lang: string) => (RTL.has(lang) ? "rtl" : "ltr");
 
 export function titleCase(s: string) {
   return s.replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase());

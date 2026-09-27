@@ -17,6 +17,13 @@ parked until someone picks keep original / replace / keep both.
 Steps carry tap-to-start timers. Any recipe can be shared as a read-only link. Text size
 (three steps) and a high-contrast mode are one tap away; text contrast meets WCAG AAA.
 
+The app speaks **English and Hebrew** (right to left). Each person picks a language once (it
+follows them to every device and to the Telegram bot); before sign-in, the browser's language
+decides, and a button at the top switches. Every recipe is stored as it came in plus a
+translation into each other app language, made on import: only the words are translated, so
+quantities, timers, ratios and the units switch are shared. Readers can always flip to the
+original. Search and "I have a lot of…" / "I don't have…" work in both languages.
+
 ## Stack
 
 - Next.js 16 on Vercel
@@ -78,10 +85,19 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 
 Schema changes: edit `src/db/schema.ts`, then `npm run db:generate`.
 
+### Adding a language
+
+1. Add it to `LOCALES` in `src/lib/i18n/config.ts`.
+2. Copy `src/lib/i18n/messages/en.ts` to `<code>.ts`, translate, and register it in
+   `messages/index.ts`. TypeScript and `i18n.test.ts` flag any missing string or placeholder.
+3. Deploy, then `npm run translate` to give existing recipes and ingredients the new language
+   (recipes also translate themselves the first time someone opens them in it).
+4. Optional: phrasing for "I have a lot of…" in `src/lib/ingredient-intent.ts`.
+
 ### Switching LLM vendor
 
 Edit `src/lib/ai/models.ts` only: install the provider's `@ai-sdk/*` package and map the
-`extract`, `enrich`, `quick` and `text` (embedding) roles to its models. Prompts and schemas are
+`extract`, `enrich`, `translate`, `quick` and `text` (embedding) roles to its models. Prompts and schemas are
 shared. Voice notes need a model that accepts audio input. After changing the embedding model,
 run `npm run reembed`.
 

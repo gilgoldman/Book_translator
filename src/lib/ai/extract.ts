@@ -66,7 +66,7 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
    Round to simple whole parts (halves allowed) and name the family when one fits. Put seasonings and
    flavourings in "extras" relative to the base (e.g. "salt 2% of flour"). For dishes without a meaningful
    ratio (e.g. a salad), give the proportions of the main components anyway and say so in "insight".
-   Write "insight" in English.`;
+   Write every text in the recipe's language; the app translates it for other readers.`;
 
 export async function enrichRecipe(recipe: ExtractedRecipe): Promise<Enrichment> {
   const { output } = await generateText({

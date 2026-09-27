@@ -1,34 +1,34 @@
 import Link from "next/link";
-import { formatMinutes, titleCase } from "@/lib/format";
+import { formatMinutes } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/translate";
 import { Avatar } from "./avatar";
 import { Icon, SEASON_ICON } from "./icons";
 
-const SEASON_LABEL: Record<string, string> = {
-  spring: "Spring",
-  summer: "Summer",
-  autumn: "Autumn",
-  winter: "Winter",
-  "all-year": "All year",
-};
-
 /** The visible tags: season (colour + icon + word), cuisine, course, diet, time. */
-export function RecipeMeta({
+export async function RecipeMeta({
   r,
 }: {
   r: { cuisine: string; course: string; diet: string[]; season: string; totalMinutes: number | null };
 }) {
-  const time = formatMinutes(r.totalMinutes);
+  const t = await getT();
+  // Values come from fixed lists; an unknown one (older data) shows as stored.
+  const label = (key: string, fallback: string) => {
+    const text = t(key as MessageKey);
+    return text === key ? fallback : text;
+  };
+  const time = formatMinutes(r.totalMinutes, t);
   const diet = r.diet.filter((d) => d !== "meat" && d !== "kosher");
   return (
     <p className="tagline">
       <span className={`season season-${r.season}`}>
         <Icon name={SEASON_ICON[r.season] ?? "bowl"} />
-        {SEASON_LABEL[r.season] ?? r.season}
+        {label(`season.${r.season}`, r.season)}
       </span>
-      <span>{titleCase(r.cuisine)}</span>
-      <span>{titleCase(r.course)}</span>
+      <span>{label(`cuisine.${r.cuisine}`, r.cuisine)}</span>
+      <span>{label(`course.${r.course}`, r.course)}</span>
       {diet.map((d) => (
-        <span key={d}>{titleCase(d)}</span>
+        <span key={d}>{label(`diet.${d}`, d)}</span>
       ))}
       {time && (
         <span>
@@ -40,7 +40,7 @@ export function RecipeMeta({
 }
 
 /** "Added by …": who uploaded a recipe. Links to everything they added. */
-export function AddedBy({
+export async function AddedBy({
   by,
   link = true,
 }: {
@@ -48,9 +48,10 @@ export function AddedBy({
   link?: boolean;
 }) {
   if (!by) return null;
+  const t = await getT();
   const inner = (
     <>
-      <Avatar name={by.name} src={by.avatar} /> Added by {by.name}
+      <Avatar name={by.name} src={by.avatar} /> {t("common.addedBy", { name: by.name })}
     </>
   );
   return link ? (

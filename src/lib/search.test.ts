@@ -22,6 +22,12 @@ describe("queryVariants", () => {
     expect(matches("onions and green beans", "green onion")).toBe(false);
   });
 
+  it("matches Hebrew words with prepositions glued on", () => {
+    expect(matches("כרישה, ביצים ופטה", "פטה")).toBe(true);
+    expect(matches("כרישה, ביצים ופטה", "ביצים")).toBe(true);
+    expect(matches("עם הבצל", "בצל")).toBe(true);
+  });
+
   it("does not match inside other words", () => {
     expect(matches("eggplant", "egg")).toBe(false);
     expect(matches("glass", "glas")).toBe(false);

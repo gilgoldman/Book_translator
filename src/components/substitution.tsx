@@ -1,7 +1,11 @@
+"use client";
+
+import { useT } from "@/lib/i18n/client";
 import type { Substitution } from "@/lib/recipe-types";
 
 /** Ranked swaps; the first is the best bet. */
 export function SubstitutionCard({ result }: { result: Substitution }) {
+  const t = useT();
   return (
     <div className="substitution">
       <ol className="subs">
@@ -11,7 +15,7 @@ export function SubstitutionCard({ result }: { result: Substitution }) {
               {i + 1}
             </span>
             <p className="what">
-              {i === 0 && <span className="visually-hidden">Best option: </span>}
+              {i === 0 && <span className="visually-hidden">{t("subs.best")} </span>}
               {o.use} — {o.amount}
             </p>
             <p>{o.how}</p>

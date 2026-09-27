@@ -5,6 +5,7 @@ import { embedText, embeddingText, enrichRecipe, extractRecipe, type ExtractInpu
 import { findDuplicate, type DuplicateMatch } from "@/lib/dedupe";
 import { linkIngredients } from "@/lib/ingredient-links";
 import { randomToken } from "@/lib/tokens";
+import { ensureTranslations } from "@/lib/translations";
 import { fetchPage, pageToPrompt } from "./url";
 
 export type IncomingFile = { data: Uint8Array; mediaType: string; name: string };
@@ -23,7 +24,7 @@ export class NotARecipeError extends Error {
 export type IngestResult = { recipeId: string; duplicate: DuplicateMatch | null };
 
 /**
- * Store the raw input, then extract, enrich, embed and save. If the result looks like a
+ * Store the raw input, then extract, enrich, embed, translate and save. If the result looks like a
  * recipe already in the book, it is saved but parked (hidden from search) until someone
  * picks keep original / replace / keep both.
  */
@@ -32,10 +33,14 @@ export async function ingest(req: IngestRequest, userId: string | null): Promise
   try {
     const recipeId = await processSource(sourceId, req, userId);
     await db().update(sources).set({ status: "done" }).where(eq(sources.id, sourceId));
-    const duplicate = await findDuplicate(recipeId).catch((err) => {
-      console.error("duplicate check failed", err);
-      return null;
-    });
+    // Every app language gets its version now, so no one waits for it later.
+    const [duplicate] = await Promise.all([
+      findDuplicate(recipeId).catch((err) => {
+        console.error("duplicate check failed", err);
+        return null;
+      }),
+      ensureTranslations(recipeId),
+    ]);
     if (duplicate) {
       await db().update(recipes).set({ duplicateOf: duplicate.id }).where(eq(recipes.id, recipeId));
     }

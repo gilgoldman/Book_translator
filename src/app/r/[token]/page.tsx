@@ -1,31 +1,46 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { A11yControls } from "@/components/a11y-controls";
+import { LanguageSwitch } from "@/components/language-switch";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
 import { TimersProvider } from "@/components/timers";
+import { TranslationNote } from "@/components/translation-note";
 import { db, recipes, users } from "@/db";
-import { dirFor } from "@/lib/format";
+import { dirFor } from "@/lib/i18n/config";
+import { getT } from "@/lib/i18n/server";
+import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
-// Public, read-only page for a friend. Unguessable token, no login.
+// Public, read-only page for a friend. Unguessable token, no login. Shown in the
+// visitor's language (browser setting or the switch at the top).
 
 async function load(token: string) {
   return db().query.recipes.findFirst({ where: eq(recipes.shareToken, token) });
 }
 
 export async function generateMetadata({ params }: PageProps<"/r/[token]">) {
-  const r = await load((await params).token);
+  const [r, t] = await Promise.all([load((await params).token), getT()]);
+  const shown = r ? localizeRecipe(r, t.locale).recipe : null;
   return {
-    title: r?.title ?? "Recipe",
-    description: r?.description ?? undefined,
+    title: shown?.title ?? t("common.recipe"),
+    description: shown?.description ?? undefined,
     robots: { index: false },
     openGraph: r?.photos[0] ? { images: [r.photos[0]] } : undefined,
   };
 }
 
-export default async function SharedRecipe({ params }: PageProps<"/r/[token]">) {
-  const r = await load((await params).token);
+export default async function SharedRecipe({ params, searchParams }: PageProps<"/r/[token]">) {
+  const { token } = await params;
+  const r = await load(token);
   if (!r) notFound();
+  const t = await getT();
+  const showOriginal = (await searchParams).original === "1";
+  const localized = showOriginal
+    ? { recipe: r, status: "original" as const, language: r.language }
+    : localizeRecipe(r, t.locale);
+  if (localized.status === "pending") after(() => ensureTranslations(r.id, [t.locale]));
+  const shown = localized.recipe;
   const uploader = r.createdBy
     ? await db().query.users.findFirst({
         where: eq(users.id, r.createdBy),
@@ -37,9 +52,11 @@ export default async function SharedRecipe({ params }: PageProps<"/r/[token]">) 
       <main id="main" className="page shared">
         <div className="shared-bar">
           <span className="wordmark">
-            <span className="book" aria-hidden />A recipe from our cookbook
+            <span className="book" aria-hidden />
+            {t("share.from")}
           </span>
           <div className="appbar-actions">
+            <LanguageSwitch />
             <A11yControls />
           </div>
         </div>
@@ -50,10 +67,18 @@ export default async function SharedRecipe({ params }: PageProps<"/r/[token]">) 
             </div>
           )}
           <div className="r-body">
-            <header className="r-head" dir={dirFor(r.language)}>
+            <header className="r-head">
               <RecipeMeta r={r} />
-              <h1>{r.title}</h1>
-              {r.description && <p className="r-dek">{r.description}</p>}
+              <div lang={localized.language} dir={dirFor(localized.language)}>
+                <h1>{shown.title}</h1>
+                {shown.description && <p className="r-dek">{shown.description}</p>}
+              </div>
+              <TranslationNote
+                localized={localized.status}
+                original={r.language}
+                showingOriginal={showOriginal}
+                path={`/r/${token}`}
+              />
               <AddedBy
                 link={false}
                 by={
@@ -65,16 +90,16 @@ export default async function SharedRecipe({ params }: PageProps<"/r/[token]">) 
             </header>
             <RecipeView
               recipe={{
-                title: r.title,
-                language: r.language,
-                ingredients: r.ingredients,
-                steps: r.steps,
-                enrichment: r.enrichment,
+                title: shown.title,
+                language: localized.language,
+                ingredients: shown.ingredients,
+                steps: shown.steps,
+                enrichment: shown.enrichment,
               }}
             />
           </div>
         </article>
-        <footer className="shared-footer">Shared with love from our family cookbook</footer>
+        <footer className="shared-footer">{t("share.footer")}</footer>
       </main>
     </TimersProvider>
   );

@@ -1,23 +1,21 @@
 import "server-only";
-import { inArray, like, sql } from "drizzle-orm";
+import { like, sql } from "drizzle-orm";
 import { db, ingredients } from "@/db";
+import type { Locale } from "@/lib/i18n/config";
 import { singular } from "./ingredient-intent";
+import { canonicalFor } from "./ingredient-names";
 
 // Ingredient-first queries over the canonical ingredient graph.
 
 // Too common to be interesting as a pairing.
 const STAPLES = ["salt", "water", "black pepper", "pepper", "olive oil", "oil", "sugar", "vegetable oil"];
 
-/** Map free text ("Leeks") to the canonical name we store ("leek"). */
+/** Map free text in any app language ("Leeks", "כרישות") to the canonical name we store ("leek"). */
 export async function resolveIngredient(text: string): Promise<string> {
   const raw = text.trim().toLowerCase();
   const base = singular(raw);
-  const exact = await db()
-    .select({ name: ingredients.name })
-    .from(ingredients)
-    .where(inArray(ingredients.name, [raw, base]))
-    .limit(1);
-  if (exact[0]) return exact[0].name;
+  const known = await canonicalFor(raw);
+  if (known) return known;
   // "leek" -> "baby leek": the shortest name ending in the word.
   const close = await db()
     .select({ name: ingredients.name })
@@ -38,7 +36,7 @@ export type IngredientUse = {
 };
 
 /** Recipes that use the most of an ingredient: "I have a lot of leeks". */
-export async function recipesUsingMost(name: string, limit = 24): Promise<IngredientUse[]> {
+export async function recipesUsingMost(name: string, locale: Locale, limit = 24): Promise<IngredientUse[]> {
   const { rows } = await db().execute<{
     id: string;
     title: string;
@@ -47,14 +45,14 @@ export async function recipesUsingMost(name: string, limit = 24): Promise<Ingred
     photo: string | null;
     season: string;
   }>(sql`
-    select r.id, r.title, r.season, r.photos->>0 as photo,
+    select r.id, coalesce(r.translations->${locale}->>'title', r.title) as title, r.season, r.photos->>0 as photo,
            sum((e->>'grams')::numeric)::float as grams,
            string_agg(coalesce(e->>'metric', e->>'original'), ' + ') as amount
     from recipes r
     cross join lateral jsonb_array_elements(r.ingredients) e
     where lower(e->>'canonical') = ${name} and r.duplicate_of is null
     group by r.id
-    order by sum((e->>'grams')::numeric) desc nulls last, r.title
+    order by sum((e->>'grams')::numeric) desc nulls last, 2
     limit ${limit}`);
   return rows.map((r) => ({ ...r, grams: r.grams === null ? null : Number(r.grams) }));
 }

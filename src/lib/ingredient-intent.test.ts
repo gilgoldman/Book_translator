@@ -39,3 +39,23 @@ describe("singular", () => {
     expect(singular("molasses")).toBe("molasses");
   });
 });
+
+describe("parseIngredientIntent (Hebrew)", () => {
+  it("recognises abundance", () => {
+    expect(parseIngredientIntent("יש לי הרבה כרישות")).toEqual({ kind: "abundance", ingredient: "כרישות" });
+    expect(parseIngredientIntent("המון עגבניות, מה אפשר להכין?")).toEqual({ kind: "abundance", ingredient: "עגבניות" });
+    expect(parseIngredientIntent("צריך לגמור את הקישואים")).toEqual({ kind: "abundance", ingredient: "הקישואים" });
+  });
+
+  it("recognises substitutes", () => {
+    expect(parseIngredientIntent("אין לי רוויון")).toEqual({ kind: "substitute", ingredient: "רוויון" });
+    expect(parseIngredientIntent("נגמר לי החלב")).toEqual({ kind: "substitute", ingredient: "החלב" });
+    expect(parseIngredientIntent("במקום חמאה")).toEqual({ kind: "substitute", ingredient: "חמאה" });
+    expect(parseIngredientIntent("תחליף לביצים בעוגה")).toEqual({ kind: "substitute", ingredient: "ביצים" });
+  });
+
+  it("leaves ordinary searches alone", () => {
+    expect(parseIngredientIntent("עוף בלימון")).toBe(null);
+    expect(parseIngredientIntent("כרישה, ביצים, פטה")).toBe(null);
+  });
+});

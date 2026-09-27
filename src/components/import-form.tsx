@@ -2,9 +2,11 @@
 
 import { useActionState, useMemo, useRef, useState, startTransition } from "react";
 import { importRecipe, type FormState } from "@/app/actions";
+import { useT } from "@/lib/i18n/client";
 import { downscaleImage } from "@/lib/image";
 
 export function ImportForm() {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(importRecipe, undefined);
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
@@ -53,21 +55,22 @@ export function ImportForm() {
       }}
     >
       <label className="field" htmlFor="import-text">
-        <span>Paste a link or a recipe</span>
-        <span className="help">Or add photos or a voice note below. Anything typed here goes along as a note.</span>
+        <span>{t("import.label")}</span>
+        <span className="help">{t("import.help")}</span>
       </label>
       <textarea
         id="import-text"
         rows={6}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="https://… or the recipe text"
+        placeholder={t("import.placeholder")}
+        dir="auto"
         disabled={pending}
       />
 
       <div className="button-row">
         <label className="btn">
-          {photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""} chosen` : "Choose photos"}
+          {photos.length ? t("import.photos", { n: photos.length }) : t("import.choose")}
           <input
             type="file"
             accept="image/*,audio/*"
@@ -94,20 +97,20 @@ export function ImportForm() {
           disabled={pending}
           aria-pressed={recording}
         >
-          {recording ? "● Stop recording" : voice ? "Voice note ✓ (record again)" : "Record a voice note"}
+          {recording ? t("import.stop") : voice ? t("import.recordAgain") : t("import.record")}
         </button>
         {(photos.length > 0 || voice) && !pending && (
           <button type="button" className="btn" onClick={() => (setPhotos([]), setVoice(null))}>
-            Clear
+            {t("import.clear")}
           </button>
         )}
       </div>
       {voiceUrl && <audio controls src={voiceUrl} />}
 
       <button className="primary" disabled={!ready || pending || recording}>
-        {pending ? "Reading the recipe…" : "Add to cookbook"}
+        {pending ? t("import.reading") : t("import.submit")}
       </button>
-      {pending && <p role="status">Reading it now. This takes 15–40 seconds.</p>}
+      {pending && <p role="status">{t("import.status")}</p>}
       {state?.error && <p className="error" role="alert">{state.error}</p>}
     </form>
   );

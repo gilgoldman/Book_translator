@@ -160,3 +160,121 @@ The attack is an 8 ms exponential ramp, so the strike has no click, and the rele
 - Respect `prefers-reduced-motion`, `prefers-color-scheme` and the user's font size (all sizes in rem). Pinch zoom stays on.
 - For RTL, use `dir` per recipe and logical CSS properties (`margin-inline-start`, `padding-inline`). Timers and digits stay LTR within RTL text (`<bdi>`).
 - The chime is paired with a visual pulse and a system notification. Volume follows the device. Mute is available in the tray's long-press menu.
+
+---
+
+# Round 2 — Linne
+
+The owner chose **Direction B "Linne"**: one sans family, soft rounded surfaces, a calm photo-led library, and the current step shown as a quiet card. Linne's pine-green palette was dropped. This round tries three **warm stone** palettes on the same layout. Accessibility is a hard requirement because the owner's parents, about 70 years old, will use the app.
+
+Files:
+- `linne-oldbook.html`, `linne-kintsugi.html` and `linne-jerusalem.html` are the mockups. Each is one scrolling page with the library and search, the recipe in the Effective view with timers, the Ratios view, the duplicate prompt, ingredient-first with substitutions, sign-in and request access, the owner's approval list, and the palette and contrast footer.
+- `linne-tokens.css` is ready to drop into the app. Select a palette with `data-palette="oldbook | kintsugi | jerusalem"`. Each palette has light, dark (system or `data-theme`) and high-contrast (`data-contrast="high"`, light and dark) variants. The file also holds the type scale, spacing, radii, focus ring and text-size steps (`data-text-size="large | xl"`).
+
+## Palettes
+
+| | Old book | Kintsugi | Jerusalem stone (my own) |
+|---|---|---|---|
+| Idea | Aged paper, sepia/umber ink, bookbinding cloth: the family cookbook that lives by the stove | Stone and marble greys with warm whites. Gold only where things are joined | Honey limestone, olive-wood ink, terracotta and olive |
+| Page / card | `#F1E7D3` / `#FAF3E3` | `#EFEDE9` / `#FAF9F6` | `#F0E9DE` / `#FBF7F0` |
+| Ink / ink-2 | `#2A1C11` / `#4A3524` | `#1D1C1A` / `#43403B` | `#241A14` / `#4A3B30` |
+| Action | Oxblood `#6B1E24` | Charcoal stone `#2F2C28` | Terracotta `#8A3418` |
+| Second voice | Bottle green `#1E4A3A` (good, done, focus) | Gold `#B8913A`, decoration only. Bronze `#6E4F14` for any gold-family text | Olive `#4E5A26`. Focus is deep blue `#2E5A78`, so it never blends into terracotta |
+| Texture (page margins only, never behind cards) | Laid-paper grain and corner foxing | Pure-CSS marble: two veins and two clouds | Chisel-dressed diagonal lines, as on dressed Jerusalem stone |
+| Signature detail | Oxblood ribbon bookmark on the current step, headband dividers, and stacked page edges on cards | Gold seam dividers, a gold edge on the current step, and gold joins between ratio blocks | Arch dividers and wordmark, and a thick terracotta edge on the current step |
+
+**Why Jerusalem stone as the third palette:** it is the warm stone this family actually knows. The honey limestone ground is calmer than paper, and a deep terracotta accent reaches 7:1 without turning brown. I preferred it to basalt & clay (too dark by default) and hinoki & slate (too cool for "warm stone").
+
+**Recommendation: Old book.** It is the most "family cookbook" of the three. Oxblood actions are clearly different from ink, while Kintsugi's charcoal buttons read almost like text. Bottle green gives a second, non-red channel for "done" and "approved". The yellowed paper cuts glare for older eyes. Jerusalem stone is a close second, and it is the better pick if the owner wants the "stone" brief taken literally. Kintsugi is the most elegant, but its signature (gold) is by necessity decorative-only, so less of its character carries meaning.
+
+## Measured contrast (WCAG 2.x, computed by script, not estimated)
+
+"Textured page (worst point)" blends the page colour with the texture colour at the **sum** of all texture layer opacities. That is darker than any real pixel. In high contrast, textures are off. Target: every text pair is at least 7:1 in light and dark and at least 10:1 in high contrast. UI (borders, focus, season marks) is at least 4.5:1. Gold is decoration and has no target.
+
+**Old book**
+
+| Pair | Needs | Light | Dark | HC light | HC dark |
+|---|---|---|---|---|---|
+| Body text · ink on page | ≥ 7 : 1 | 13.45 | 15.03 | 18.89 | 21.00 |
+| Body text · ink on card | ≥ 7 : 1 | 14.93 | 13.88 | 19.36 | 19.72 |
+| Body text · ink on textured page (worst point) | ≥ 7 : 1 | 12.17 | 15.27 | — | — |
+| Secondary text · ink-2 on card | ≥ 7 : 1 | 10.40 | 9.96 | 16.50 | 16.86 |
+| Current step · ink on step card | ≥ 7 : 1 | 12.73 | 11.90 | 15.93 | 16.79 |
+| Button label · on accent | ≥ 7 : 1 | 10.44 | 8.59 | 13.55 | 13.50 |
+| Accent text · on card | ≥ 7 : 1 | 10.34 | 9.10 | 13.55 | 13.80 |
+| Secondary accent text · on card | ≥ 7 : 1 | 9.06 | 9.65 | 13.44 | 13.81 |
+| Approve / done text · on card | ≥ 7 : 1 | 9.06 | 9.65 | 13.44 | 13.81 |
+| Control borders · on card | ≥ 4.5 : 1 | 6.05 | 5.46 | 16.50 | 15.96 |
+| Focus ring · on page | ≥ 4.5 : 1 | 8.16 | 10.45 | 9.95 | 14.68 |
+| Season mark autumn · on card | ≥ 4.5 : 1 | 6.50 | 8.41 | 10.29 | 12.45 |
+| Ink on ratio block (flour) | ≥ 7 : 1 | 10.78 | 8.15 | 14.70 | 12.18 |
+
+**Kintsugi**
+
+| Pair | Needs | Light | Dark | HC light | HC dark |
+|---|---|---|---|---|---|
+| Body text · ink on page | ≥ 7 : 1 | 14.56 | 15.33 | 21.00 | 21.00 |
+| Body text · ink on card | ≥ 7 : 1 | 16.17 | 13.84 | 21.00 | 19.69 |
+| Body text · ink on textured page (worst point) | ≥ 7 : 1 | 12.09 | 13.51 | — | — |
+| Secondary text · ink-2 on card | ≥ 7 : 1 | 9.80 | 9.88 | 17.03 | 17.17 |
+| Current step · ink on step card | ≥ 7 : 1 | 14.84 | 12.51 | 19.31 | 16.43 |
+| Button label · on accent | ≥ 7 : 1 | 13.19 | 9.33 | 17.03 | 14.30 |
+| Accent text · on card | ≥ 7 : 1 | 13.19 | 9.58 | 17.03 | 14.37 |
+| Bronze text · on card | ≥ 7 : 1 | 7.15 | 9.58 | 11.33 | 14.37 |
+| Secondary accent text · on card | ≥ 7 : 1 | 7.15 | 9.58 | 11.33 | 14.37 |
+| Approve / done text · on card | ≥ 7 : 1 | 7.52 | 9.04 | 11.58 | 14.03 |
+| Control borders · on card | ≥ 4.5 : 1 | 5.76 | 5.47 | 17.03 | 16.55 |
+| Focus ring · on page | ≥ 4.5 : 1 | 5.61 | 10.61 | 10.19 | 15.33 |
+| Gold seam (decoration only) · on card | decoration | 2.79 | 7.67 | 5.31 | 13.40 |
+| Season mark autumn · on card | ≥ 4.5 : 1 | 6.48 | 7.99 | 10.36 | 12.57 |
+| Ink on ratio block (flour) | ≥ 7 : 1 | 11.78 | 8.01 | 17.04 | 12.18 |
+
+**Jerusalem stone**
+
+| Pair | Needs | Light | Dark | HC light | HC dark |
+|---|---|---|---|---|---|
+| Body text · ink on page | ≥ 7 : 1 | 14.13 | 15.08 | 19.20 | 21.00 |
+| Body text · ink on card | ≥ 7 : 1 | 15.95 | 13.56 | 19.50 | 19.62 |
+| Body text · ink on textured page (worst point) | ≥ 7 : 1 | 12.83 | 15.35 | — | — |
+| Secondary text · ink-2 on card | ≥ 7 : 1 | 10.04 | 9.85 | 17.03 | 17.23 |
+| Current step · ink on step card | ≥ 7 : 1 | 13.58 | 11.94 | 16.74 | 16.52 |
+| Button label · on accent | ≥ 7 : 1 | 7.77 | 8.08 | 10.86 | 13.23 |
+| Accent text · on card | ≥ 7 : 1 | 8.09 | 8.01 | 10.86 | 13.02 |
+| Secondary accent text · on card | ≥ 7 : 1 | 8.38 | 9.62 | 11.52 | 14.28 |
+| Approve / done text · on card | ≥ 7 : 1 | 7.34 | 9.54 | 11.41 | 14.65 |
+| Control borders · on card | ≥ 4.5 : 1 | 5.87 | 5.52 | 17.03 | 16.48 |
+| Focus ring · on page | ≥ 4.5 : 1 | 6.11 | 9.65 | 10.03 | 14.68 |
+| Season mark autumn · on card | ≥ 4.5 : 1 | 6.71 | 7.89 | 10.46 | 12.80 |
+| Ink on ratio block (flour) | ≥ 7 : 1 | 11.58 | 8.33 | 15.52 | 12.04 |
+
+## Type
+
+- **Atkinson Hyperlegible Next** (Latin) is the Braille Institute face for low vision. Its letterforms are clearly distinct (I l 1, 0 O, rn m), with open counters and generous spacing. It replaces Inter, which is compact and harder to read at a distance.
+- **Noto Sans Hebrew** (Hebrew) has sturdy, open forms and clear ב/כ, ד/ר and ה/ח. It is also Android's system Hebrew font, so Hebrew recipes look the same even when Google Fonts can't load.
+- The fallback stack is `system-ui, Roboto, Arial`. Every size is in rem, so the text-size control and the user's own browser setting both scale the whole UI.
+- Body text is 18 px with line-height 1.6, letter-spacing .012em and word-spacing .06em. Step text is 20 px on a phone and 23 px on a laptop, with line-height 1.55. The smallest text is 16 px, and it is used only for badges and captions.
+
+## Accessibility checklist (checked in Chromium at 360 px and 1280 px)
+
+- [x] Body text is at least 7:1 in light and dark, and at least 10:1 in high contrast, for all three palettes (tables above). No grey text is used for anything the user has to read. ink-2 is at least 7:1 everywhere, including placeholders.
+- [x] Large text and UI are at least 4.5:1: control borders, focus ring and season marks.
+- [x] The **"Aa" Text & colours** sheet in the header has three text sizes (Normal 100%, Large 125%, Extra large 150%) that set the root font size. At 150% on a 360 px phone there is no horizontal scroll on any page, in light, dark or high contrast (verified with `scrollWidth`). Buttons and grids wrap: the view tiles go from 2×2 to one column, and the timer actions stack.
+- [x] A **high-contrast** switch (`role="switch"`, with an On/Off word) sits next to the light/dark choice ("Like my phone", Light, Dark). The choice is remembered on the device, and pages still render without storage.
+- [x] Every button, link and field is at least 48×48 px at Normal size, checked for every visible control. The focus ring is 3 px with a 3 px offset. Kintsugi adds a faint gold halo outside the bronze ring.
+- [x] Colour is never the only signal:
+  - Season is a colour, an icon and a word.
+  - The current step has a "You are here" badge, a filled number, a border and `aria-current="step"`.
+  - Finished steps say "✓ done".
+  - The selected view tile has a ✓ badge.
+  - Ratio blocks carry patterns (dotted, striped, lined) as well as colours and names, and their parts can be counted.
+  - Diff rows use ≠, + and − next to the words.
+  - "You have 3 of 5" uses ✓ and ? shapes next to the sentence.
+- [x] Primary actions always have text labels next to their icons: Add recipe, Search, Show cups & spoons, Start timer, Pause, Stop, Approve, Decline, Keep original, Replace with new, Keep both.
+- [x] The four recipe views are large labelled tiles, each with an icon, a name and a one-line description ("Cook step by step", "As written", "The proportions", "The original"). They are at least 68 px tall and follow the `tablist` pattern with arrow, Home and End keys.
+- [x] **Timers:**
+  - The countdown is 36 px and tabular, with Pause/Resume and Stop buttons that carry text labels.
+  - A finished timer moves to the top of the tray and shows "Done!" and "Finished" with a bell. It gets a thick border, a striped bar and a pulse (the pulse is off under reduced motion).
+  - It plays the rin chime, vibrates, prefixes the tab title with a ✓, and is announced through an assertive live region: "Soften leeks timer is done."
+  - Its actions become "OK, dismiss" and "1 more minute".
+- [x] `prefers-reduced-motion` turns off all animation and transitions. Pinch zoom is not blocked.
+- [x] There are no console errors on any page or variant.

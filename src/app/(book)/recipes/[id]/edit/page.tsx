@@ -4,13 +4,18 @@ import { EditRecipeForm } from "@/components/edit-recipe-form";
 import { db, recipes } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
+import { dirFor, languageName } from "@/lib/i18n/config";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Edit recipe" };
+export async function generateMetadata() {
+  return { title: (await getT())("edit.pageTitle") };
+}
 // Changing ingredients or method re-reads the recipe with the LLM.
 export const maxDuration = 300;
 
 export default async function EditRecipePage({ params }: PageProps<"/recipes/[id]/edit">) {
   const session = await requireSession();
+  const t = await getT();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const r = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
@@ -19,11 +24,16 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
 
   return (
     <div className="narrow">
-      <p className="kicker">Edit</p>
-      <h1>{r.title}</h1>
+      <p className="kicker">{t("edit.kicker")}</p>
+      <h1 dir="auto">{r.title}</h1>
+      {/* Edits go to the original; translations follow. */}
+      {r.language !== t.locale && (
+        <p className="translation-note">{t("edit.originalNote", { language: languageName(r.language, t.locale) })}</p>
+      )}
       <div className="card">
         <EditRecipeForm
           id={r.id}
+          dir={dirFor(r.language)}
           values={{
             title: r.title,
             description: r.description ?? "",

@@ -21,5 +21,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon|manifest.webmanifest|sw.js).*)"],
+  // The UUID path is Vercel BotID's challenge script (rewritten by withBotId). It must load
+  // before sign-in, so it can't be redirected to /login. Matchers must be literal strings.
+  matcher: [
+    "/((?!_next/static|_next/image|icon|manifest.webmanifest|sw.js|149e9513-01fa-4fb0-aad4-566afd725d1b).*)",
+  ],
 };

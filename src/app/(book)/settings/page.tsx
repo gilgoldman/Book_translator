@@ -3,12 +3,16 @@ import { removeUser, setUserStatus } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
 import { db, users } from "@/db";
 import { requireAdmin } from "@/lib/auth";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "People" };
+export async function generateMetadata() {
+  return { title: (await getT())("people.title") };
+}
 
 /** Owner only: approve requests and manage who can use the cookbook. */
 export default async function PeoplePage() {
   await requireAdmin();
+  const t = await getT();
   const people = await db()
     .select({
       id: users.id,
@@ -30,14 +34,14 @@ export default async function PeoplePage() {
   return (
     <div className="narrow stack-sections">
       <div>
-        <p className="kicker">Owner</p>
-        <h1>People</h1>
+        <p className="kicker">{t("people.kicker")}</p>
+        <h1>{t("people.title")}</h1>
       </div>
 
       <section aria-labelledby="requests">
-        <h2 id="requests">Waiting for approval</h2>
+        <h2 id="requests">{t("people.waiting")}</h2>
         {pending.length === 0 ? (
-          <p className="muted">No one is waiting.</p>
+          <p className="muted">{t("people.noneWaiting")}</p>
         ) : (
           <ul className="people">
             {pending.map((p) => (
@@ -45,15 +49,15 @@ export default async function PeoplePage() {
                 <Avatar name={name(p)} src={p.avatar} />
                 <div className="who">
                   <b>{name(p)}</b>
-                  <span>@{p.username}</span>
+                  <span><bdi>@{p.username}</bdi></span>
                 </div>
                 {p.note && <blockquote>“{p.note}”</blockquote>}
                 <div className="button-row">
                   <form action={setUserStatus.bind(null, p.id, "approved")}>
-                    <button className="btn btn-primary">Approve</button>
+                    <button className="btn btn-primary">{t("people.approve")}</button>
                   </form>
                   <form action={setUserStatus.bind(null, p.id, "declined")}>
-                    <button className="btn danger">Decline</button>
+                    <button className="btn danger">{t("people.decline")}</button>
                   </form>
                 </div>
               </li>
@@ -63,7 +67,7 @@ export default async function PeoplePage() {
       </section>
 
       <section aria-labelledby="members">
-        <h2 id="members">Members</h2>
+        <h2 id="members">{t("people.members")}</h2>
         <ul className="people">
           {members.map((p) => (
             <li key={p.id} className="appr">
@@ -71,15 +75,15 @@ export default async function PeoplePage() {
               <div className="who">
                 <b>{name(p)}</b>
                 <span>
-                  @{p.username}
-                  {p.isAdmin ? " · owner" : ""}
-                  {p.telegram ? " · Telegram" : ""}
+                  <bdi>@{p.username}</bdi>
+                  {p.isAdmin ? ` · ${t("profile.owner")}` : ""}
+                  {p.telegram ? ` · ${t("people.telegram")}` : ""}
                 </span>
               </div>
               {!p.isAdmin && (
                 <div className="button-row">
                   <form action={setUserStatus.bind(null, p.id, "declined")}>
-                    <button className="btn danger">Remove access</button>
+                    <button className="btn danger">{t("people.removeAccess")}</button>
                   </form>
                 </div>
               )}
@@ -90,21 +94,21 @@ export default async function PeoplePage() {
 
       {declined.length > 0 && (
         <details>
-          <summary>Declined or removed ({declined.length})</summary>
+          <summary>{t("people.declined", { n: declined.length })}</summary>
           <ul className="people">
             {declined.map((p) => (
               <li key={p.id} className="appr">
                 <Avatar name={name(p)} src={p.avatar} />
                 <div className="who">
                   <b>{name(p)}</b>
-                  <span>@{p.username}</span>
+                  <span><bdi>@{p.username}</bdi></span>
                 </div>
                 <div className="button-row">
                   <form action={setUserStatus.bind(null, p.id, "approved")}>
-                    <button className="btn">Approve after all</button>
+                    <button className="btn">{t("people.approveAnyway")}</button>
                   </form>
                   <form action={removeUser.bind(null, p.id)}>
-                    <button className="btn danger">Delete account</button>
+                    <button className="btn danger">{t("people.deleteAccount")}</button>
                   </form>
                 </div>
               </li>

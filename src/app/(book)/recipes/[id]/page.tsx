@@ -2,15 +2,20 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { DuplicatePrompt } from "@/components/duplicate-prompt";
 import { Icon } from "@/components/icons";
 import { RecipeExtras } from "@/components/recipe-extras";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
+import { TranslationNote } from "@/components/translation-note";
 import { db, recipes, sources, users } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
-import { dirFor } from "@/lib/format";
+import { dirFor } from "@/lib/i18n/config";
+import { getT } from "@/lib/i18n/server";
+import { localNames } from "@/lib/ingredient-names";
+import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 async function load(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -18,19 +23,33 @@ async function load(id: string) {
 }
 
 export async function generateMetadata({ params }: PageProps<"/recipes/[id]">) {
-  const r = await load((await params).id);
-  return { title: r?.title ?? "Recipe" };
+  const [r, t] = await Promise.all([load((await params).id), getT()]);
+  return { title: r ? localizeRecipe(r, t.locale).recipe.title : t("common.recipe") };
 }
 
-export default async function RecipePage({ params }: PageProps<"/recipes/[id]">) {
+export default async function RecipePage({ params, searchParams }: PageProps<"/recipes/[id]">) {
   const session = await requireSession();
+  const t = await getT();
   const r = await load((await params).id);
   if (!r) notFound();
-  const [original, source, uploader] = await Promise.all([
+  const showOriginal = (await searchParams).original === "1";
+  const localized = showOriginal
+    ? { recipe: r, status: "original" as const, language: r.language }
+    : localizeRecipe(r, t.locale);
+  // Missing or out of date (an older recipe, or a failed call): make it now for next time.
+  if (localized.status === "pending") after(() => ensureTranslations(r.id, [t.locale]));
+  const shown = localized.recipe;
+
+  const [original, source, uploader, names] = await Promise.all([
     r.duplicateOf ? load(r.duplicateOf) : null,
     r.sourceId ? db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) }) : null,
     r.createdBy ? db().query.users.findFirst({ where: eq(users.id, r.createdBy) }) : null,
+    localNames(r.ingredients.map((i) => i.canonical), t.locale),
   ]);
+  if (original) {
+    const more = await localNames(original.ingredients.map((i) => i.canonical), t.locale);
+    more.forEach((v, k) => names.set(k, v));
+  }
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const editable = canEdit(r, session);
@@ -40,8 +59,9 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
       {original && (
         <DuplicatePrompt
           newId={r.id}
-          original={original}
+          original={{ ...original, title: localizeRecipe(original, t.locale).recipe.title }}
           freshIngredients={r.ingredients}
+          names={Object.fromEntries(names)}
           canReplace={canEdit(original, session)}
         />
       )}
@@ -52,11 +72,23 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
           </div>
         )}
         <div className="r-body">
-          <header className="r-head" dir={dirFor(r.language)}>
+          <header className="r-head">
             <RecipeMeta r={r} />
-            <h1>{r.title}</h1>
-            {r.title !== r.titleEnglish && <p className="subtitle">{r.titleEnglish}</p>}
-            {r.description && <p className="r-dek">{r.description}</p>}
+            <div lang={localized.language} dir={dirFor(localized.language)}>
+              <h1>{shown.title}</h1>
+              {shown.title !== r.title && (
+                <p className="subtitle" lang={r.language} dir={dirFor(r.language)}>
+                  {r.title}
+                </p>
+              )}
+              {shown.description && <p className="r-dek">{shown.description}</p>}
+            </div>
+            <TranslationNote
+              localized={localized.status}
+              original={r.language}
+              showingOriginal={showOriginal}
+              path={`/recipes/${r.id}`}
+            />
             <div className="button-row">
               <AddedBy
                 by={
@@ -69,10 +101,10 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
                     : null
                 }
               />
-              {r.servings && <span className="muted">Makes {r.servings}</span>}
+              {shown.servings && <span className="muted">{t("recipe.makes", { n: shown.servings })}</span>}
               {editable && (
                 <Link href={`/recipes/${r.id}/edit`} className="btn">
-                  <Icon name="edit" /> Edit
+                  <Icon name="edit" /> {t("common.edit")}
                 </Link>
               )}
             </div>
@@ -81,18 +113,19 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
           <RecipeView
             recipeId={r.id}
             recipe={{
-              title: r.title,
-              language: r.language,
-              ingredients: r.ingredients,
-              steps: r.steps,
-              enrichment: r.enrichment,
+              title: shown.title,
+              language: localized.language,
+              ingredients: shown.ingredients,
+              steps: shown.steps,
+              enrichment: shown.enrichment,
             }}
+            ingredientNames={Object.fromEntries(names)}
             source={source ? { kind: source.kind, url: source.url, files: source.files, text: source.text } : null}
           />
 
           {r.notes && (
-            <p className="notes">
-              <strong>Notes: </strong>
+            <p className="notes" dir="auto">
+              <strong>{t("recipe.notes")} </strong>
               {r.notes}
             </p>
           )}

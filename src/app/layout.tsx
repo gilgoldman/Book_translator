@@ -1,12 +1,19 @@
 import type { Metadata, Viewport } from "next";
 import { A11Y_BOOT_SCRIPT } from "@/components/a11y-controls";
+import { LOCALES } from "@/lib/i18n/config";
+import { I18nProvider } from "@/lib/i18n/client";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { getLocale, getT } from "@/lib/i18n/server";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: { default: "Cookbook", template: "%s · Cookbook" },
-  description: "Our family cookbook",
-  manifest: "/manifest.webmanifest",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return {
+    title: { default: t("app.title"), template: `%s · ${t("app.title")}` },
+    description: t("app.description"),
+    manifest: "/manifest.webmanifest",
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -17,9 +24,23 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+  const t = await getT();
   return (
-    <html lang="en" data-text-size="normal" suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={LOCALES[locale].dir}
+      data-text-size="normal"
+      suppressHydrationWarning
+      // Labels the stylesheet adds with ::after, in the reader's language.
+      style={
+        {
+          "--t-selected": JSON.stringify(`✓ ${t("css.selected")}`),
+          "--t-done": JSON.stringify(`✓ ${t("css.done")}`),
+        } as React.CSSProperties
+      }
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -32,9 +53,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         <a href="#main" className="skip-link">
-          Skip to content
+          {t("app.skip")}
         </a>
-        {children}
+        <I18nProvider locale={locale} messages={MESSAGES[locale]}>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

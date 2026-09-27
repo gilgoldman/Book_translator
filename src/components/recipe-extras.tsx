@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { addPhoto, deleteRecipe, saveNotes } from "@/app/actions";
+import { useT } from "@/lib/i18n/client";
 import { downscaleImage } from "@/lib/image";
 import { Icon } from "./icons";
 
@@ -14,6 +15,7 @@ type Props = {
 
 /** Everything that isn't cooking lives behind one quiet toggle. */
 export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
   const [pending, startTransition] = useTransition();
@@ -22,17 +24,18 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
   return (
     <section className="extras">
       <button className="extras-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="extras-body">
-        <Icon name={open ? "check" : "plus"} /> {open ? "Close" : "Notes, photos and sharing"}
+        <Icon name={open ? "check" : "plus"} /> {open ? t("extras.close") : t("extras.open")}
       </button>
       {open && (
         <div id="extras-body" className="extras-body">
           <label className="field">
-            <span>Your notes</span>
+            <span>{t("extras.notes")}</span>
             <textarea
               rows={3}
+              dir="auto"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Less sugar next time…"
+              placeholder={t("extras.notesPlaceholder")}
             />
           </label>
           <div className="button-row">
@@ -42,16 +45,16 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
               onClick={() =>
                 startTransition(async () => {
                   await saveNotes(id, draft);
-                  setStatus("Notes saved.");
+                  setStatus(t("extras.notesSaved"));
                 })
               }
             >
-              Save notes
+              {t("extras.saveNotes")}
             </button>
           </div>
 
           <label className="field">
-            <span>Add a photo of your dish</span>
+            <span>{t("extras.photo")}</span>
             <input
               type="file"
               accept="image/*"
@@ -62,7 +65,7 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
                 form.set("photo", await downscaleImage(file));
                 startTransition(async () => {
                   await addPhoto(id, form);
-                  setStatus("Photo added.");
+                  setStatus(t("extras.photoAdded"));
                 });
                 e.target.value = "";
               }}
@@ -70,8 +73,8 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
           </label>
 
           <div className="field">
-            <span>Share with a friend</span>
-            <p className="muted">They&apos;ll see a read-only page, no account needed.</p>
+            <span>{t("extras.share")}</span>
+            <p className="muted">{t("extras.shareHelp")}</p>
             <div className="button-row">
               <button
                 className="btn"
@@ -80,11 +83,11 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
                     await navigator.share({ url: shareUrl }).catch(() => {});
                   } else {
                     await navigator.clipboard.writeText(shareUrl);
-                    setStatus("Link copied.");
+                    setStatus(t("extras.copied"));
                   }
                 }}
               >
-                Share link
+                {t("extras.shareButton")}
               </button>
             </div>
           </div>
@@ -94,15 +97,15 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
               <button
                 className="btn danger"
                 onClick={() =>
-                  confirm("Delete this recipe for everyone? This can't be undone.") &&
+                  confirm(t("extras.deleteConfirm")) &&
                   startTransition(() => deleteRecipe(id))
                 }
               >
-                Delete recipe
+                {t("extras.delete")}
               </button>
             </div>
           )}
-          <p role="status">{pending ? "Saving…" : status}</p>
+          <p role="status">{pending ? t("common.saving") : status}</p>
         </div>
       )}
     </section>

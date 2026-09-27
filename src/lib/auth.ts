@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db, users, type User } from "@/db";
+import { isLocale, type Locale } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/translate";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session";
 
 const BCRYPT_COST = 12;
@@ -19,6 +21,7 @@ export type Session = {
   isAdmin: boolean;
   displayName: string;
   avatarUrl: string | null;
+  locale: Locale | null;
 };
 
 export function normalizeUsername(username: string) {
@@ -29,9 +32,9 @@ export function validUsername(username: string) {
   return /^[a-z0-9._-]{2,32}$/.test(normalizeUsername(username));
 }
 
-export function passwordProblem(password: string): string | null {
-  if (password.length < 10) return "Use at least 10 characters.";
-  if (password.length > 200) return "That password is too long.";
+export function passwordProblem(password: string): MessageKey | null {
+  if (password.length < 10) return "err.passwordShort";
+  if (password.length > 200) return "err.passwordLong";
   return null;
 }
 
@@ -59,6 +62,7 @@ export async function createUser(input: {
   isAdmin?: boolean;
   status?: User["status"];
   requestNote?: string;
+  locale?: Locale | null;
 }): Promise<User> {
   const [user] = await db()
     .insert(users)
@@ -69,6 +73,7 @@ export async function createUser(input: {
       isAdmin: input.isAdmin ?? false,
       status: input.status ?? "pending",
       requestNote: input.requestNote?.trim() || null,
+      locale: input.locale ?? null,
     })
     .returning();
   return user;
@@ -106,6 +111,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
     isAdmin: user.isAdmin,
     displayName: user.displayName || user.username,
     avatarUrl: user.avatarUrl,
+    locale: isLocale(user.locale) ? user.locale : null,
   };
 });
 

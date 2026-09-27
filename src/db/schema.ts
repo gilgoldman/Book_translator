@@ -11,6 +11,8 @@ import {
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
+import type { Locale } from "@/lib/i18n/config";
+import type { RecipeTranslation } from "@/lib/recipe-text";
 import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
 
 export const EMBEDDING_DIMENSIONS = 768;
@@ -30,6 +32,8 @@ export const users = pgTable("users", {
   // Bumped on password change / revoke: old session cookies stop working.
   sessionVersion: integer("session_version").notNull().default(0),
   telegramChatId: bigint("telegram_chat_id", { mode: "number" }).unique(),
+  // null: follow the browser (or Telegram) language.
+  locale: text("locale").$type<Locale>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -71,6 +75,8 @@ export const recipes = pgTable(
     tags: text("tags").array().notNull().default([]),
     notes: text("notes"),
     photos: jsonb("photos").$type<string[]>().notNull().default([]),
+    // The recipe's words in every other app language; numbers stay in the columns above.
+    translations: jsonb("translations").$type<Partial<Record<Locale, RecipeTranslation>>>().notNull().default({}),
     shareToken: text("share_token").notNull().unique(),
     sourceId: uuid("source_id").references(() => sources.id),
     // Set on a fresh import that looks like an existing recipe, until someone decides.
@@ -87,6 +93,8 @@ export const recipes = pgTable(
 export const ingredients = pgTable("ingredients", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
+  // Display names per language, singular first then plural: { he: ["כרישה", "כרישות"] }.
+  names: jsonb("names").$type<Partial<Record<Locale, string[]>>>().notNull().default({}),
 });
 
 export const recipeIngredients = pgTable(

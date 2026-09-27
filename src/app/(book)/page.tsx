@@ -6,11 +6,14 @@ import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { db, users } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { pendingDuplicates } from "@/lib/dedupe";
+import { getT } from "@/lib/i18n/server";
 import { parseIngredientIntent } from "@/lib/ingredient-intent";
+import type { Translator } from "@/lib/i18n/translate";
 import { recentRecipes, searchRecipes, type RecipeCard } from "@/lib/search";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await requireSession();
+  const t = await getT();
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
   const by = typeof params.by === "string" ? params.by : "";
@@ -23,21 +26,21 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   }
 
   const [results, waiting, person] = await Promise.all([
-    by ? recentRecipes(200, by) : searchRecipes(query),
-    query || by ? Promise.resolve([]) : pendingDuplicates(session.userId, session.isAdmin),
+    by ? recentRecipes(t.locale, 200, by) : searchRecipes(query, t.locale),
+    query || by ? Promise.resolve([]) : pendingDuplicates(session.userId, session.isAdmin, t.locale),
     by ? db().query.users.findFirst({ where: eq(users.username, by), columns: { displayName: true } }) : null,
   ]);
   const heading = by
-    ? `Added by ${person?.displayName || by}`
+    ? t("common.addedBy", { name: person?.displayName || by })
     : query
-      ? `Results for “${query}”`
-      : "Recently added";
+      ? t("home.resultsFor", { query })
+      : t("home.recent");
 
   return (
     <>
       <form className="search-form" action="/" role="search">
         <label className="search-label" htmlFor="q">
-          What would you like to cook?
+          {t("home.searchLabel")}
         </label>
         <div className="search">
           <Icon name="search" />
@@ -46,22 +49,31 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             name="q"
             type="search"
             defaultValue={query}
-            placeholder="What can I make with leeks, eggs, feta?"
+            placeholder={t("home.searchPlaceholder")}
             autoComplete="off"
             enterKeyHint="search"
           />
-          <button className="primary">Search</button>
+          <button className="primary">{t("home.search")}</button>
         </div>
         <p className="hint">
-          Try <em>leeks, eggs, feta</em> · <em>that lemony chicken</em> · <em>I have a lot of courgettes</em> ·{" "}
-          <em>no buttermilk</em>
+          {t("home.try")}{" "}
+          {t("home.examples")
+            .split("|")
+            .map((example, i) => (
+              <span key={example}>
+                {i > 0 && " · "}
+                <Link href={`/?q=${encodeURIComponent(example)}`}>
+                  <em>{example}</em>
+                </Link>
+              </span>
+            ))}
         </p>
       </form>
 
       {waiting.length > 0 && (
-        <section className="notice" aria-label="Imports waiting for a decision">
+        <section className="notice" aria-label={t("home.waitingLabel")}>
           <p>
-            <strong>These imports look like recipes you already have.</strong> Choose what to keep:
+            <strong>{t("home.waitingTitle")}</strong> {t("home.waitingChoose")}
           </p>
           <ul>
             {waiting.map((w) => (
@@ -75,24 +87,22 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       <div className="results-head">
         <h2>{heading}</h2>
-        {(query || by) && <Link href="/">Show everything</Link>}
+        {(query || by) && <Link href="/">{t("home.showAll")}</Link>}
       </div>
 
       {results.length === 0 ? (
         <div className="empty card">
           <p>
-            {query || by
-              ? "Nothing matches yet."
-              : "The book is empty. Add the first recipe: a photo, a link, a voice note or pasted text."}
+            {query || by ? t("home.nothing") : t("home.empty")}
           </p>
           <Link href="/add" className="btn btn-primary">
-            <Icon name="plus" /> Add a recipe
+            <Icon name="plus" /> {t("nav.add")}
           </Link>
         </div>
       ) : (
         <ul className="cards">
           {results.map((r) => (
-            <Card key={r.id} r={r} />
+            <Card key={r.id} r={r} t={t} />
           ))}
         </ul>
       )}
@@ -100,7 +110,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   );
 }
 
-function Card({ r }: { r: RecipeCard }) {
+function Card({ r, t }: { r: RecipeCard; t: Translator }) {
   return (
     <li className={`season-${r.season}`}>
       <article className="rcard">
@@ -114,17 +124,17 @@ function Card({ r }: { r: RecipeCard }) {
           )}
         </Link>
         <div className="body">
-          <h3>
+          <h3 dir="auto">
             <Link href={`/recipes/${r.id}`}>{r.title}</Link>
           </h3>
-          {r.title !== r.titleEnglish && <p className="sub">{r.titleEnglish}</p>}
+          {r.title !== r.originalTitle && <p className="sub" dir="auto">{r.originalTitle}</p>}
           <RecipeMeta r={r} />
           {r.match && (
             <div className="have">
               <strong>
                 {r.match.missing > 0
-                  ? `You have ${r.match.have.length} of ${r.match.have.length + r.match.missing}`
-                  : "You have everything"}
+                  ? t("home.haveSome", { have: r.match.have.length, total: r.match.have.length + r.match.missing })
+                  : t("home.haveAll")}
               </strong>
               <p className="miss">{r.match.have.join(", ")}</p>
             </div>

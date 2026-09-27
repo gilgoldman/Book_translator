@@ -218,9 +218,9 @@ code { font-size: .95em; background: var(--sunk); padding: .05em .35em; border-r
 .seg button { flex: 1 1 auto; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: .1em; min-height: 4rem; min-width: 5.5rem; padding: .5em .8em;
   border-radius: var(--r-md); border: var(--border-w) solid var(--border); background: var(--bg); color: var(--ink); font-weight: var(--fw-bold); line-height: 1.2; }
 .seg button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 2px var(--surface); }
-.seg button[aria-checked="true"]::after { content: "✓ selected"; font-size: .8em; font-weight: var(--fw-medium); }
+.seg button[aria-checked="true"]::after { content: var(--t-selected, "✓"); font-size: .8em; font-weight: var(--fw-medium); }
 .seg .aa { font-weight: var(--fw-heavy); line-height: 1; }
-.switch { display: flex; flex-wrap: wrap; width: 100%; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 4rem; padding: .5em .6em .5em 1em; border-radius: var(--r-md); border: var(--border-w) solid var(--border); background: var(--bg); text-align: start; font-weight: var(--fw-bold); }
+.switch { display: flex; flex-wrap: wrap; width: 100%; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 4rem; padding-block: .5em; padding-inline: 1em .6em; border-radius: var(--r-md); border: var(--border-w) solid var(--border); background: var(--bg); text-align: start; font-weight: var(--fw-bold); }
 .switch .track { flex: none; position: relative; width: 4.2rem; height: 2.4rem; border-radius: var(--r-pill); border: 2px solid var(--border); background: var(--sunk); }
 .switch .track::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: calc(2.4rem - 10px); height: calc(2.4rem - 10px); border-radius: 50%; background: var(--ink-2); transition: inset-inline-start var(--dur-2) var(--ease); }
 .switch[aria-checked="true"] .track { background: var(--accent); border-color: var(--accent); }
@@ -340,7 +340,7 @@ legend { font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
 .step.is-current .step-no { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .step.is-current::after { content: ""; position: absolute; top: -2px; inset-inline-end: 18px; width: 16px; height: 2.6rem; background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
 .step.is-current .step-head { padding-inline-end: 34px; }
-.step.is-done-step .step-head::after { content: "✓ done"; font-weight: var(--fw-bold); color: var(--good); }
+.step.is-done-step .step-head::after { content: var(--t-done, "✓"); font-weight: var(--fw-bold); color: var(--good); }
 .step .next { margin-top: var(--sp-4); }
 .step-timers { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
 .pill { display: inline-flex; align-items: center; gap: .45em; min-height: var(--tap); padding: .4em 1.1em .4em .8em; border-radius: var(--r-pill);
@@ -359,6 +359,7 @@ legend { font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
 .ingredient-button { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; min-height: var(--tap); padding: .5em 0; }
 .ingredient-button::after { content: " ›"; color: var(--ink-2); font-weight: var(--fw-bold); }
 .ingredient-button[aria-expanded="true"]::after { content: " ⌄"; }
+[dir="rtl"] .ingredient-button:not([aria-expanded="true"])::after { content: " ‹"; }
 .ingredient-button:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 .ingredient-panel { display: grid; gap: var(--sp-3); padding: var(--sp-2) 0 var(--sp-4); }
 .optional, .note { color: var(--ink-2); }
@@ -486,3 +487,14 @@ details > summary { min-height: var(--tap); display: flex; align-items: center; 
 .rcard h3 a::after { content: ""; position: absolute; inset: 0; }
 .rcard { position: relative; }
 .rcard .added-by, .rcard .have { position: relative; z-index: 1; }
+
+/* ---------- languages ---------- */
+.lang-switch { display: contents; }
+.auth-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.auth-top .wordmark { margin-bottom: 0; }
+.translation-note { color: var(--ink-2); font-size: var(--fs-sm); margin: 0 0 var(--sp-3); }
+.translation-note a { font-weight: var(--fw-bold); }
+.seg form { display: contents; }
+/* Usernames and passwords are Latin even on a Hebrew page. */
+input[name="username"], input[type="password"] { direction: ltr; text-align: start; }
+[dir="rtl"] input[name="username"], [dir="rtl"] input[type="password"] { text-align: right; }

@@ -1,6 +1,9 @@
 import "server-only";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db, users } from "@/db";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import type { Translator } from "@/lib/i18n/translate";
+import { translatorFor } from "@/lib/i18n/translator-for";
 
 // Minimal Telegram Bot API client. No SDK needed for a webhook bot.
 
@@ -57,6 +60,7 @@ export type TgUpdate = {
   message?: TgMessage;
   callback_query?: {
     id: string;
+    from?: { language_code?: string };
     data?: string;
     message?: { message_id: number; chat: { id: number } };
   };
@@ -64,6 +68,7 @@ export type TgUpdate = {
 
 export type TgMessage = {
   message_id: number;
+  from?: { language_code?: string };
   chat: { id: number; type: string };
   text?: string;
   caption?: string;
@@ -74,19 +79,20 @@ export type TgMessage = {
   document?: { file_id: string; mime_type?: string; file_name?: string };
 };
 
-/** Best-effort ping to the owner's Telegram (if linked and the bot is configured). */
-export async function notifyOwner(text: string) {
+/** Best-effort ping to the owner's Telegram (if linked and the bot is configured), in their language. */
+export async function notifyOwner(message: (t: Translator) => string) {
   if (!process.env.TELEGRAM_BOT_TOKEN) return;
   try {
     const owners = await db()
-      .select({ chatId: users.telegramChatId })
+      .select({ chatId: users.telegramChatId, locale: users.locale })
       .from(users)
       .where(and(eq(users.isAdmin, true), isNotNull(users.telegramChatId)));
     const appUrl = process.env.APP_URL?.replace(/\/$/, "");
     for (const o of owners) {
+      const t = translatorFor(isLocale(o.locale) ? o.locale : DEFAULT_LOCALE);
       await tg("sendMessage", {
         chat_id: o.chatId,
-        text: `${text}${appUrl ? `\n\nApprove at ${appUrl}/settings` : ""}`,
+        text: `${message(t)}${appUrl ? `\n\n${t("people.notifyApprove", { url: `${appUrl}/settings` })}` : ""}`,
       });
     }
   } catch (err) {

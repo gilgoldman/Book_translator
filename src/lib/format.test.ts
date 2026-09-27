@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { dirFor, formatClock, formatDuration, titleCase } from "./format";
+import { dirFor } from "./i18n/config";
+import { translatorFor } from "./i18n/translator-for";
+import { formatClock, formatDuration, titleCase } from "./format";
+
+const en = translatorFor("en");
+const he = translatorFor("he");
 
 describe("format", () => {
   it("formats durations for pills", () => {
-    expect(formatDuration(45)).toBe("45s");
-    expect(formatDuration(30 * 60)).toBe("30 min");
-    expect(formatDuration(90 * 60)).toBe("1 h 30");
-    expect(formatDuration(2 * 3600)).toBe("2 h");
+    expect(formatDuration(45, en)).toBe("45s");
+    expect(formatDuration(30 * 60, en)).toBe("30 min");
+    expect(formatDuration(90 * 60, en)).toBe("1 h 30");
+    expect(formatDuration(2 * 3600, en)).toBe("2 h");
+    expect(formatDuration(90 * 60, he)).toBe("1 שע׳ 30 דק׳");
   });
 
   it("formats clocks for running timers", () => {

@@ -19,6 +19,7 @@ const PATHS = {
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0",
   edit: "M4 20h4L19 9l-4-4L4 16Zm10-14 4 4",
   bell: "M6 16V11a6 6 0 1 1 12 0v5l2 2H4Zm4 4h4",
+  globe: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

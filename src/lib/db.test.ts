@@ -21,7 +21,16 @@ vi.mock("@/lib/ai/extract", () => ({
   },
 }));
 
-const { searchRecipes } = await import("./search");
+// Stand-in "translations": prefix the title, name ingredients he-<name>.
+vi.mock("@/lib/ai/translate", () => ({
+  translateRecipeText: async (text: { title: string }) => ({ ...text, title: `HE:${text.title}` }),
+  translateIngredientNames: async (list: string[]) =>
+    list.map((c) => ({ canonical: c, singular: `he-${c}`, plural: `he-${c}s` })),
+  canonicalIngredient: async () => "leek",
+}));
+
+const { searchRecipes, recentRecipes } = await import("./search");
+const { ensureTranslations, localizeRecipe } = await import("./translations");
 const { linkIngredients } = await import("./ingredient-links");
 const { findDuplicate, resolveDuplicate } = await import("./dedupe");
 const { goesWellWith, recipesUsingMost, resolveIngredient } = await import("./ingredients");
@@ -57,6 +66,8 @@ async function addRecipe(title: string, ingredients: string[], dim: number, tags
   return r.id;
 }
 
+afterAll(async () => pool?.end());
+
 describe.skipIf(!url)("search (database)", () => {
   beforeAll(async () => {
     await pool!.query("truncate recipes, ingredients, recipe_ingredients, rate_limits cascade");
@@ -67,33 +78,32 @@ describe.skipIf(!url)("search (database)", () => {
     await addRecipe("Lemon roast chicken", ["chicken", "lemon", "garlic"], 1, ["roast"]);
     await addRecipe("Shakshuka", ["egg", "tomato", "green onion", "feta cheese"], 3);
   });
-  afterAll(async () => pool?.end());
 
   it("ranks pantry matches and counts what is missing", async () => {
-    const [top] = await searchRecipes("I have leeks, eggs and feta cheese");
+    const [top] = await searchRecipes("I have leeks, eggs and feta cheese", "en");
     expect(top.title).toBe("Leek and feta tart");
     expect(top.match?.have).toEqual(["egg", "feta cheese", "leek"]);
     expect(top.match?.missing).toBe(2); // flour, butter; chive is optional
   });
 
   it("matches multi-word ingredients from plurals", async () => {
-    const results = await searchRecipes("green onions and tomatoes");
+    const results = await searchRecipes("green onions and tomatoes", "en");
     expect(results[0].title).toBe("Shakshuka");
   });
 
   it("finds by vague meaning", async () => {
-    const results = await searchRecipes("that citrusy thing");
+    const results = await searchRecipes("that citrusy thing", "en");
     expect(results[0].title).toBe("Lemon roast chicken");
   });
 
   it("finds by title words", async () => {
-    const results = await searchRecipes("shakshuka");
+    const results = await searchRecipes("shakshuka", "en");
     expect(results[0].title).toBe("Shakshuka");
   });
 
   it("ranks recipes by how much of an ingredient they use", async () => {
     expect(await resolveIngredient("Leeks")).toBe("leek");
-    const uses = await recipesUsingMost("leek");
+    const uses = await recipesUsingMost("leek", "en");
     expect(uses.map((u) => u.title)).toEqual(["Leek soup", "Leek and feta tart"]);
     expect(uses[0].grams).toBe(900);
     const pairs = await goesWellWith("leek");
@@ -102,7 +112,7 @@ describe.skipIf(!url)("search (database)", () => {
 
   it("spots a duplicate import and resolves each choice", async () => {
     const actor = { userId: "00000000-0000-0000-0000-000000000000", isAdmin: true };
-    const original = (await searchRecipes("shakshuka"))[0];
+    const original = (await searchRecipes("shakshuka", "en"))[0];
     await pool!.query("update recipes set notes = 'family favourite' where id = $1", [original.id]);
     const token = (await pool!.query("select share_token from recipes where id = $1", [original.id])).rows[0].share_token;
 
@@ -111,7 +121,7 @@ describe.skipIf(!url)("search (database)", () => {
     const match = await findDuplicate(a);
     expect(match?.id).toBe(original.id);
     await pool!.query("update recipes set duplicate_of = $2 where id = $1", [a, original.id]);
-    const ids = (await searchRecipes("shakshuka")).map((r) => r.id);
+    const ids = (await searchRecipes("shakshuka", "en")).map((r) => r.id);
     expect(ids[0]).toBe(original.id);
     expect(ids).not.toContain(a); // parked stays hidden
 
@@ -129,7 +139,7 @@ describe.skipIf(!url)("search (database)", () => {
     const c = await again();
     await pool!.query("update recipes set duplicate_of = $2 where id = $1", [c, original.id]);
     expect(await resolveDuplicate(c, "keep-both", actor)).toBe(c);
-    expect((await searchRecipes("shakshuka")).map((r) => r.id)).toContain(c);
+    expect((await searchRecipes("shakshuka", "en")).map((r) => r.id)).toContain(c);
   });
 
   it("does not call different dishes duplicates", async () => {
@@ -151,5 +161,51 @@ describe.skipIf(!url)("search (database)", () => {
       [id],
     );
     expect(rows.rows).toEqual([{ name: "rice", optional: false }]);
+  });
+});
+
+describe.skipIf(!url)("languages (database)", () => {
+  let tart: string;
+  beforeAll(async () => {
+    await pool!.query("truncate recipes, ingredients, recipe_ingredients cascade");
+    tart = await addRecipe("Leek and feta tart", ["leek", "egg", "feta cheese", "flour"], 2);
+    await addRecipe("Leek soup", ["leek", "potato"], 4);
+  });
+
+  const load = async (id: string) =>
+    (await testDb!.query.recipes.findFirst({ where: (r, { eq }) => eq(r.id, id) }))!;
+
+  it("translates once, and again after an edit", async () => {
+    expect(localizeRecipe(await load(tart), "he").status).toBe("pending");
+    await ensureTranslations(tart);
+    const translated = localizeRecipe(await load(tart), "he");
+    expect(translated.status).toBe("translated");
+    expect(translated.recipe.title).toBe("HE:Leek and feta tart");
+    expect(localizeRecipe(await load(tart), "en").status).toBe("original");
+
+    await pool!.query("update recipes set title = 'Leek & feta tart' where id = $1", [tart]);
+    expect(localizeRecipe(await load(tart), "he").status).toBe("pending");
+    await ensureTranslations(tart);
+    expect(localizeRecipe(await load(tart), "he").recipe.title).toBe("HE:Leek & feta tart");
+  });
+
+  it("names ingredients in every language", async () => {
+    const { rows } = await pool!.query("select names from ingredients where name = 'leek'");
+    expect(rows[0].names).toEqual({ he: ["he-leek", "he-leeks"] });
+  });
+
+  it("searches and answers in Hebrew", async () => {
+    await pool!.query(`update ingredients set names = '{"he": ["כרישה", "כרישות"]}' where name = 'leek'`);
+    await pool!.query(`update ingredients set names = '{"he": ["ביצה", "ביצים"]}' where name = 'egg'`);
+    await pool!.query(`update ingredients set names = '{"he": ["פטה"]}' where name = 'feta cheese'`);
+
+    const [top] = await searchRecipes("כרישות, ביצים ופטה", "he");
+    expect(top.title).toBe("HE:Leek & feta tart");
+    expect(top.originalTitle).toBe("Leek & feta tart");
+    expect(top.match?.have.sort()).toEqual(["ביצה", "כרישה", "פטה"].sort());
+
+    expect(await resolveIngredient("הכרישות")).toBe("leek");
+    expect((await recipesUsingMost("leek", "he")).map((u) => u.title)).toContain("HE:Leek & feta tart");
+    expect((await recentRecipes("he")).map((r) => r.title)).toContain("HE:Leek & feta tart");
   });
 });

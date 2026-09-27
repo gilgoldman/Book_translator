@@ -16,7 +16,7 @@ vi.mock("@/db", async () => ({ ...(await import("@/db/schema")), db: () => testD
 vi.mock("@/lib/ai/extract", () => ({
   embedText: async (q: string) => {
     const v = new Array(768).fill(0);
-    v[/lemon|citrus/i.test(q) ? 1 : /tart|pastry/i.test(q) ? 2 : 3] = 1;
+    v[/lemon|citrus/i.test(q) ? 1 : /tart|pastry/i.test(q) ? 2 : /eggs? dish/i.test(q) ? 3 : 5] = 1;
     return v;
   },
 }));
@@ -94,6 +94,11 @@ describe.skipIf(!url)("search (database)", () => {
   it("finds by vague meaning", async () => {
     const results = await searchRecipes("that citrusy thing", "en");
     expect(results[0].title).toBe("Lemon roast chicken");
+  });
+
+  it("returns nothing when no recipe fits, instead of the nearest one", async () => {
+    expect(await searchRecipes("What recipes do we have with peas?", "en")).toEqual([]);
+    expect(await searchRecipes("מה יש לנו עם אפונה?", "he")).toEqual([]);
   });
 
   it("finds by title words", async () => {

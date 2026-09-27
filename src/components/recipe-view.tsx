@@ -6,7 +6,7 @@ import { substituteInRecipe } from "@/app/actions";
 import { useT } from "@/lib/i18n/client";
 import { dirFor } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/translate";
-import type { Enrichment, Ingredient, Step, Substitution } from "@/lib/recipe-types";
+import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
 import { Icon, type IconName } from "./icons";
 import { SubstitutionCard } from "./substitution";
 import { AddTimer, TimerPill } from "./timers";
@@ -237,7 +237,7 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
             ) : (
               <strong key={j} className="ing">
                 {amount(seg, units) && `${amount(seg, units)} `}
-                {seg.text}
+                {segmentText(seg, recipe.ingredients)}
               </strong>
             ),
           ),

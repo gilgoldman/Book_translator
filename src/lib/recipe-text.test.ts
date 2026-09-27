@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyText, recipeText, type RecipeContent } from "./recipe-text";
+import { segmentText } from "./recipe-types";
 
 const ing = (name: string, metric: string, canonical = name) => ({
   group: null, name, canonical, original: `${metric} ${name}`, quantity: null, unit: null,
@@ -89,5 +90,15 @@ describe("recipe text", () => {
     expect(broken.ingredients).toEqual(recipe.ingredients);
     expect(broken.enrichment!.effectiveSteps[0].segments).toEqual(recipe.enrichment!.effectiveSteps[0].segments);
     expect(broken.enrichment!.effectiveSteps[0].timers[0].label).toBe("אידוי");
+  });
+});
+
+describe("segmentText", () => {
+  const ingredients = [{ name: "sugar" }, { name: "egg whites" }];
+  it("keeps the segment's own words", () => {
+    expect(segmentText({ text: "whites", ingredient: 1, metric: null, volume: null }, ingredients)).toBe("whites");
+  });
+  it("falls back to the ingredient's name when the model left it empty", () => {
+    expect(segmentText({ text: " ", ingredient: 0, metric: "100 g", volume: "½ cup" }, ingredients)).toBe("sugar");
   });
 });

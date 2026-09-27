@@ -29,7 +29,7 @@ original. Search and "I have a lot of…" / "I don't have…" work in both langu
 - Next.js 16 on Vercel
 - Neon Postgres + pgvector (via the Vercel Marketplace), Drizzle ORM
 - Vercel Blob for photos and voice notes
-- Vercel AI SDK with Gemini 3.8 Flash. All vendor choices live in `src/lib/ai/models.ts`.
+- Vercel AI SDK with Gemini 3.8 Flash, falling back to Gemini 3.5 Flash while 3.8 is overloaded. All vendor choices live in `src/lib/ai/models.ts`.
 - Username/password login (invite-only), signed session cookie
 
 ## Setup

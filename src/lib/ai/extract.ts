@@ -5,7 +5,7 @@ import {
   type Enrichment,
   type ExtractedRecipe,
 } from "@/lib/recipe-types";
-import { ai, embeddingOptions } from "./models";
+import { AI_MAX_RETRIES, ai, embeddingOptions } from "./models";
 
 export type ExtractInput =
   | { kind: "text"; text: string; url?: string }
@@ -42,6 +42,7 @@ export async function extractRecipe(input: ExtractInput): Promise<ExtractedRecip
 
   const { output } = await generateText({
     model: ai.languageModel("extract"),
+    maxRetries: AI_MAX_RETRIES,
     system: EXTRACT_SYSTEM,
     messages: [{ role: "user", content }],
     output: Output.object({ schema: extractedRecipeSchema }),
@@ -71,6 +72,7 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
 export async function enrichRecipe(recipe: ExtractedRecipe): Promise<Enrichment> {
   const { output } = await generateText({
     model: ai.languageModel("enrich"),
+    maxRetries: AI_MAX_RETRIES,
     system: ENRICH_SYSTEM,
     prompt: JSON.stringify({
       title: recipe.title,
@@ -118,6 +120,7 @@ export function embeddingText(r: {
 export async function embedText(value: string): Promise<number[]> {
   const { embedding } = await embed({
     model: ai.embeddingModel("text"),
+    maxRetries: AI_MAX_RETRIES,
     value,
     providerOptions: embeddingOptions,
   });

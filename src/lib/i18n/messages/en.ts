@@ -309,7 +309,7 @@ export const en = {
   "tg.slowDown": "Let's take a short break — try again soon.",
   "tg.reading": "Reading it… 🍳",
   "tg.failed": "Something went wrong reading that. Try again?",
-  "tg.busyRetrying": "Google's AI is busy right now. I'll keep trying for a few minutes and send the recipe as soon as it's in.",
+  "tg.busyRetrying": "Google's AI is busy right now. I'll keep trying for up to two minutes and send the recipe as soon as it's in.",
   "tg.stillBusy": "Google's AI is still busy. Please send it again in a little while.",
   "tg.nothingFor": "Nothing for “{query}” yet.",
   "tg.needsMore": "needs {n} more",

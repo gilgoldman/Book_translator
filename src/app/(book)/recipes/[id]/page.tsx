@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db, recipes, sources } from "@/db";
 import { DuplicatePrompt } from "@/components/duplicate-prompt";
+import { Icon } from "@/components/icons";
 import { RecipeExtras } from "@/components/recipe-extras";
-import { RecipeMeta } from "@/components/recipe-meta";
+import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
+import { db, recipes, sources, users } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
 import { dirFor } from "@/lib/format";
@@ -24,13 +26,17 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
   const session = await requireSession();
   const r = await load((await params).id);
   if (!r) notFound();
-  const original = r.duplicateOf ? await load(r.duplicateOf) : null;
-  const source = r.sourceId ? await db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) }) : null;
+  const [original, source, uploader] = await Promise.all([
+    r.duplicateOf ? load(r.duplicateOf) : null,
+    r.sourceId ? db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) }) : null,
+    r.createdBy ? db().query.users.findFirst({ where: eq(users.id, r.createdBy) }) : null,
+  ]);
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+  const editable = canEdit(r, session);
 
   return (
-    <article className={`recipe season-${r.season}`}>
+    <>
       {original && (
         <DuplicatePrompt
           newId={r.id}
@@ -39,36 +45,66 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
           canReplace={canEdit(original, session)}
         />
       )}
-      {r.photos[0] && <img src={r.photos[0]} alt="" className="hero" />}
-      <header dir={dirFor(r.language)}>
-        <h1>{r.title}</h1>
-        {r.title !== r.titleEnglish && <p className="muted subtitle">{r.titleEnglish}</p>}
-        {r.description && <p className="description">{r.description}</p>}
-        <RecipeMeta r={r} />
-        {r.servings && <p className="muted small">Makes {r.servings}</p>}
-      </header>
+      <article className={`recipe season-${r.season}`}>
+        {r.photos[0] && (
+          <div className="r-hero">
+            <img src={r.photos[0]} alt="" />
+          </div>
+        )}
+        <div className="r-body">
+          <header className="r-head" dir={dirFor(r.language)}>
+            <RecipeMeta r={r} />
+            <h1>{r.title}</h1>
+            {r.title !== r.titleEnglish && <p className="subtitle">{r.titleEnglish}</p>}
+            {r.description && <p className="r-dek">{r.description}</p>}
+            <div className="button-row">
+              <AddedBy
+                by={
+                  uploader
+                    ? {
+                        username: uploader.username,
+                        name: uploader.displayName || uploader.username,
+                        avatar: uploader.avatarUrl,
+                      }
+                    : null
+                }
+              />
+              {r.servings && <span className="muted">Makes {r.servings}</span>}
+              {editable && (
+                <Link href={`/recipes/${r.id}/edit`} className="btn">
+                  <Icon name="edit" /> Edit
+                </Link>
+              )}
+            </div>
+          </header>
 
-      <RecipeView
-        recipeId={r.id}
-        recipe={{
-          title: r.title,
-          language: r.language,
-          ingredients: r.ingredients,
-          steps: r.steps,
-          enrichment: r.enrichment,
-        }}
-        source={source ? { kind: source.kind, url: source.url, files: source.files, text: source.text } : null}
-      />
+          <RecipeView
+            recipeId={r.id}
+            recipe={{
+              title: r.title,
+              language: r.language,
+              ingredients: r.ingredients,
+              steps: r.steps,
+              enrichment: r.enrichment,
+            }}
+            source={source ? { kind: source.kind, url: source.url, files: source.files, text: source.text } : null}
+          />
 
-      {r.notes && <p className="notes">{r.notes}</p>}
+          {r.notes && (
+            <p className="notes">
+              <strong>Notes: </strong>
+              {r.notes}
+            </p>
+          )}
 
-      <RecipeExtras
-        id={r.id}
-        notes={r.notes}
-        shareUrl={`${origin}/r/${r.shareToken}`}
-        tags={{ cuisine: r.cuisine, course: r.course, season: r.season, diet: r.diet }}
-        canEdit={canEdit(r, session)}
-      />
-    </article>
+          <RecipeExtras
+            id={r.id}
+            notes={r.notes}
+            shareUrl={`${origin}/r/${r.shareToken}`}
+            canEdit={editable}
+          />
+        </div>
+      </article>
+    </>
   );
 }

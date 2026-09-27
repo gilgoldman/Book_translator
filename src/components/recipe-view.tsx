@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { substituteInRecipe } from "@/app/actions";
-import type { Substitution } from "@/lib/recipe-types";
-import { SubstitutionCard } from "./substitution";
-import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
 import { dirFor } from "@/lib/format";
+import type { Enrichment, Ingredient, Step, Substitution } from "@/lib/recipe-types";
+import { Icon, type IconName } from "./icons";
+import { SubstitutionCard } from "./substitution";
 import { AddTimer, TimerPill } from "./timers";
 
 export type RecipeViewData = {
@@ -25,8 +25,14 @@ export type SourceViewData = {
 } | null;
 
 type Units = "metric" | "volume";
-const VIEWS = ["effective", "classic", "ratios", "source"] as const;
-type View = (typeof VIEWS)[number];
+
+const VIEWS: { id: "effective" | "classic" | "ratios" | "source"; label: string; hint: string; icon: IconName }[] = [
+  { id: "effective", label: "Cook", hint: "Amounts inside each step", icon: "steps" },
+  { id: "classic", label: "Classic", hint: "List, then method", icon: "list" },
+  { id: "ratios", label: "Ratios", hint: "The proportions", icon: "scale" },
+  { id: "source", label: "Original", hint: "Photo, page or voice", icon: "source" },
+];
+type View = (typeof VIEWS)[number]["id"];
 
 function usePersistentUnits(): [Units, (u: Units) => void] {
   const [units, setUnits] = useState<Units>("metric");
@@ -59,11 +65,18 @@ export function RecipeView({
   source?: SourceViewData;
   withTimers?: boolean;
 }) {
-  const views = VIEWS.filter((v) => v !== "source" || source !== undefined);
+  const views = VIEWS.filter((v) => v.id !== "source" || source !== undefined);
   const [view, setView] = useState<View>("effective");
   const [units, setUnits] = usePersistentUnits();
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const dir = dirFor(recipe.language);
+
+  const select = (i: number) => {
+    const next = views[(i + views.length) % views.length];
+    setView(next.id);
+    tabs.current[(i + views.length) % views.length]?.focus();
+  };
 
   // Horizontal swipe between views on touch screens.
   const onTouchEnd = (e: React.TouchEvent) => {
@@ -72,35 +85,57 @@ export function RecipeView({
     if (!start) return;
     const dx = e.changedTouches[0].clientX - start.x;
     const dy = e.changedTouches[0].clientY - start.y;
-    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
-    const i = views.indexOf(view);
+    if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    const i = views.findIndex((v) => v.id === view);
     const next = views[Math.min(views.length - 1, Math.max(0, i + (dx < 0 ? 1 : -1)))];
-    setView(next);
+    setView(next.id);
   };
 
   return (
     <div className="recipe-view">
-      <div className="view-bar">
-        <nav className="view-tabs" role="tablist" aria-label="Recipe views">
-          {views.map((v) => (
-            <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}>
-              {v}
-            </button>
-          ))}
-        </nav>
-        {view !== "source" && (
+      <div className="views" role="tablist" aria-label="How to show this recipe">
+        {views.map((v, i) => (
           <button
-            className="units-toggle"
-            onClick={() => setUnits(units === "metric" ? "volume" : "metric")}
-            title="Switch units"
+            key={v.id}
+            ref={(el) => {
+              tabs.current[i] = el;
+            }}
+            role="tab"
+            id={`tab-${v.id}`}
+            aria-controls="view-panel"
+            aria-selected={view === v.id}
+            tabIndex={view === v.id ? 0 : -1}
+            onClick={() => setView(v.id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") select(i + (dir === "rtl" ? -1 : 1));
+              if (e.key === "ArrowLeft") select(i + (dir === "rtl" ? 1 : -1));
+            }}
           >
-            {units === "metric" ? "g · ml" : "cups"}
+            <Icon name={v.icon} />
+            <b>{v.label}</b>
+            <small>{v.hint}</small>
           </button>
-        )}
+        ))}
       </div>
 
+      {view !== "source" && view !== "ratios" && (
+        <div className="units-row">
+          <span className="muted">Amounts in</span>
+          <div className="seg" role="radiogroup" aria-label="Units">
+            <button role="radio" aria-checked={units === "metric"} onClick={() => setUnits("metric")}>
+              Grams &amp; ml
+            </button>
+            <button role="radio" aria-checked={units === "volume"} onClick={() => setUnits("volume")}>
+              Cups &amp; spoons
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
-        className="view-body"
+        id="view-panel"
+        role="tabpanel"
+        aria-labelledby={`tab-${view}`}
         dir={view === "ratios" ? "ltr" : dir}
         onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
         onTouchEnd={onTouchEnd}
@@ -119,38 +154,78 @@ export function RecipeView({
 const amount = (i: { metric: string | null; volume: string | null }, units: Units) =>
   (units === "metric" ? (i.metric ?? i.volume) : (i.volume ?? i.metric)) ?? "";
 
+/** Steps as cards; tap one to make it the current step, "Done · next step" moves on. */
+function StepList({
+  steps,
+  recipe,
+  withTimers,
+}: {
+  steps: { body: React.ReactNode; timers: { label: string; seconds: number }[] }[];
+  recipe: RecipeViewData;
+  withTimers: boolean;
+}) {
+  const [current, setCurrent] = useState(0);
+  return (
+    <ol className="steps">
+      {steps.map((s, i) => (
+        <li
+          key={i}
+          className={`step${i === current ? " is-current" : ""}${i < current ? " is-done-step" : ""}`}
+          aria-current={i === current ? "step" : undefined}
+        >
+          <div className="step-head">
+            <button className="step-no-button" onClick={() => setCurrent(i)} aria-label={`Step ${i + 1}: make current`}>
+              <span className="step-no">{i + 1}</span>
+            </button>
+            <span className="now-badge">Now</span>
+          </div>
+          <p>{s.body}</p>
+          {withTimers && <StepTimers timers={s.timers} recipe={recipe} step={i} />}
+          {i === current && i < steps.length - 1 && (
+            <button className="btn next" onClick={() => setCurrent(i + 1)}>
+              <Icon name="check" /> Done · next step
+            </button>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; units: Units; withTimers: boolean }) {
   const e = recipe.enrichment;
   if (!e) return <ClassicView recipe={recipe} units={units} withTimers={withTimers} />;
   return (
-    <>
-      <ul className="recap">
-        {e.recap.map((r, i) => (
-          <li key={i}>
-            <span className="qty">{amount(r, units)}</span> {r.name}
-          </li>
-        ))}
-      </ul>
-      <ol className="steps">
-        {e.effectiveSteps.map((s, i) => (
-          <li key={i}>
-            <p>
-              {s.segments.map((seg, j) =>
-                seg.ingredient === null ? (
-                  <span key={j}>{seg.text}</span>
-                ) : (
-                  <strong key={j} className="ing">
-                    {amount(seg, units) && <span className="qty">{amount(seg, units)} </span>}
-                    {seg.text}
-                  </strong>
-                ),
-              )}
-            </p>
-            {withTimers && <StepTimers timers={s.timers} recipe={recipe} step={i} />}
-          </li>
-        ))}
-      </ol>
-    </>
+    <div className="eff">
+      <aside className="recap" aria-labelledby="recap-title">
+        <h2 id="recap-title">You&apos;ll need</h2>
+        <ul>
+          {e.recap.map((r, i) => (
+            <li key={i}>
+              <span>{r.name}</span>
+              <span className="q">{amount(r, units)}</span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+      <StepList
+        recipe={recipe}
+        withTimers={withTimers}
+        steps={e.effectiveSteps.map((s) => ({
+          timers: s.timers,
+          body: s.segments.map((seg, j) =>
+            seg.ingredient === null ? (
+              <span key={j}>{seg.text}</span>
+            ) : (
+              <strong key={j} className="ing">
+                {amount(seg, units) && `${amount(seg, units)} `}
+                {seg.text}
+              </strong>
+            ),
+          ),
+        }))}
+      />
+    </div>
   );
 }
 
@@ -172,7 +247,9 @@ function ClassicView({
   });
   return (
     <div className="classic">
-      <section className="ingredients">
+      <section className="ingredients" aria-labelledby="ing-title">
+        <h2 id="ing-title">Ingredients</h2>
+        {recipeId && <p className="muted small">Tap an ingredient for swaps and other recipes.</p>}
         {[...groups.entries()].map(([group, list]) => (
           <div key={group}>
             {group && <h3>{group}</h3>}
@@ -182,7 +259,9 @@ function ClassicView({
                   {recipeId ? (
                     <IngredientRow ing={i} index={index} recipeId={recipeId} units={units} />
                   ) : (
-                    <IngredientText ing={i} units={units} />
+                    <p style={{ margin: ".5em 0" }}>
+                      <IngredientText ing={i} units={units} />
+                    </p>
                   )}
                 </li>
               ))}
@@ -190,14 +269,14 @@ function ClassicView({
           </div>
         ))}
       </section>
-      <ol className="steps">
-        {recipe.steps.map((s, i) => (
-          <li key={i}>
-            <p>{s.text}</p>
-            {withTimers && <StepTimers timers={s.timers} recipe={recipe} step={i} />}
-          </li>
-        ))}
-      </ol>
+      <section className="method" aria-labelledby="method-title">
+        <h2 id="method-title">Method</h2>
+        <StepList
+          recipe={recipe}
+          withTimers={withTimers}
+          steps={recipe.steps.map((s) => ({ body: s.text, timers: s.timers }))}
+        />
+      </section>
     </div>
   );
 }
@@ -227,11 +306,12 @@ function IngredientRow({ ing, index, recipeId, units }: { ing: Ingredient; index
         <div className="ingredient-panel">
           <div className="button-row">
             <button
-              className="secondary"
+              className="btn"
               disabled={pending}
               onClick={() =>
                 start(async () => {
                   try {
+                    setError(null);
                     setSwap(await substituteInRecipe(recipeId, index));
                   } catch {
                     setError("Couldn't get suggestions right now.");
@@ -241,7 +321,7 @@ function IngredientRow({ ing, index, recipeId, units }: { ing: Ingredient; index
             >
               {pending ? "Thinking…" : "Don't have it?"}
             </button>
-            <Link className="secondary button-link" href={`/ingredients/${encodeURIComponent(ing.canonical)}`}>
+            <Link className="btn" href={`/ingredients/${encodeURIComponent(ing.canonical)}`}>
               More with {ing.canonical}
             </Link>
           </div>
@@ -272,26 +352,51 @@ function StepTimers({
   );
 }
 
+/** Pattern + colour per role, so the ratio never relies on colour alone. */
+function roleClass(name: string, i: number) {
+  const n = name.toLowerCase();
+  if (/flour|grain|rice|oat|semolina|meal|starch|bread|pasta/.test(n)) return "c-grain";
+  if (/butter|fat|oil|lard|shortening|ghee/.test(n)) return "c-fat";
+  if (/egg|yolk|white/.test(n)) return "c-egg";
+  if (/cream|milk|cheese|yogurt|yoghurt|dairy|feta/.test(n)) return "c-dairy";
+  if (/water|stock|liquid|broth|juice|wine|vinegar|acid/.test(n)) return "c-liquid";
+  return ["c-grain", "c-fat", "c-liquid", "c-egg", "c-dairy"][i % 5];
+}
+
 function RatiosView({ recipe }: { recipe: RecipeViewData }) {
   const r = recipe.enrichment?.ratio;
   if (!r) return <p className="muted">No ratio yet for this recipe.</p>;
   const total = r.components.reduce((s, c) => s + c.parts, 0) || 1;
   return (
-    <div className="ratios">
-      {r.family && <p className="ratio-family">{r.family}</p>}
-      <p className="ratio-formula">{r.formula}</p>
-      <div className="ratio-bar" role="img" aria-label={`Ratio ${r.formula}`}>
-        {r.components.map((c, i) => (
-          <span key={i} className={`ratio-block tone-${i % 5}`} style={{ flexGrow: c.parts }}>
-            <span className="ratio-parts">{c.parts}</span>
-          </span>
-        ))}
+    <section className="ratio" aria-labelledby="ratio-title">
+      {r.family && <p className="kicker">{r.family}</p>}
+      <h2 id="ratio-title" className="r-num">
+        {r.formula}
+      </h2>
+      <p className="r-by">parts by weight</p>
+      <div className="stack" role="img" aria-label={`Ratio ${r.formula}: ${r.components.map((c) => `${c.parts} ${c.name}`).join(", ")}`}>
+        {r.components.map((c, i) => {
+          const whole = Math.floor(c.parts);
+          const half = c.parts - whole >= 0.25;
+          return (
+            <div key={i} className={`col ${roleClass(c.name, i)}`}>
+              <span className="n">{c.parts}</span>
+              <span className="blocks">
+                {Array.from({ length: Math.min(12, whole) }, (_, k) => (
+                  <i key={k} />
+                ))}
+                {half && <i className="half" />}
+              </span>
+              <span className="nm">{c.name}</span>
+            </div>
+          );
+        })}
       </div>
-      <ul className="ratio-legend">
+      <ul className="legend">
         {r.components.map((c, i) => (
-          <li key={i}>
-            <span className={`dot tone-${i % 5}`} aria-hidden />
-            <span className="ratio-name">{c.name}</span>
+          <li key={i} className={roleClass(c.name, i)}>
+            <span className="sw" aria-hidden />
+            <span>{c.name}</span>
             <span className="muted">
               {c.parts} {c.parts === 1 ? "part" : "parts"} · {Math.round((c.parts / total) * 100)}%
               {c.grams ? ` · ${Math.round(c.grams)} g here` : ""}
@@ -303,13 +408,13 @@ function RatiosView({ recipe }: { recipe: RecipeViewData }) {
         <ul className="ratio-extras">
           {r.extras.map((x, i) => (
             <li key={i}>
-              {x.name} <span className="muted">{x.amount}</span>
+              <strong>{x.name}</strong> — {x.amount}
             </li>
           ))}
         </ul>
       )}
       <p className="ratio-insight">{r.insight}</p>
-    </div>
+    </section>
   );
 }
 
@@ -320,7 +425,7 @@ function SourceView({ source }: { source: SourceViewData }) {
       {source.url && (
         <p>
           <a href={source.url} target="_blank" rel="noreferrer">
-            {new URL(source.url).hostname.replace(/^www\./, "")} ↗
+            Open the original page ({new URL(source.url).hostname.replace(/^www\./, "")}) ↗
           </a>
         </p>
       )}
@@ -329,7 +434,7 @@ function SourceView({ source }: { source: SourceViewData }) {
           <audio key={f.url} controls src={f.url} preload="none" />
         ) : f.mediaType.startsWith("image/") ? (
           <a key={f.url} href={f.url} target="_blank" rel="noreferrer">
-            <img src={f.url} alt="Original" className="source-image" />
+            <img src={f.url} alt="The original recipe" className="source-image" />
           </a>
         ) : null,
       )}

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { formatClock, formatDuration } from "@/lib/format";
+import { Icon } from "./icons";
 
 type Timer = {
   id: string;
@@ -179,41 +180,58 @@ function TimerTray({
 
   return (
     <aside className="timer-tray" aria-label="Timers">
-      {timers.map((t) => {
-        const left = remainingOf(t);
-        const paused = !t.endsAt && !t.done;
-        return (
-          <div key={t.id} className={`timer${t.done ? " is-done" : ""}`}>
-            <span
-              className="timer-progress"
-              style={{ transform: `scaleX(${t.seconds ? 1 - left / t.seconds : 1})` }}
-              aria-hidden
-            />
-            <span className="timer-label">{t.label}</span>
-            <span className="timer-time" aria-live={t.done ? "assertive" : "off"}>
-              {t.done ? "done" : formatClock(left)}
-            </span>
-            {!t.done && (
-              <button
-                className="timer-btn"
-                onClick={() =>
-                  update(t.id, (x) =>
-                    paused
-                      ? { ...x, endsAt: Date.now() + x.remaining * 1000 }
-                      : { ...x, endsAt: null, remaining: remainingOf(x) },
-                  )
-                }
-                aria-label={paused ? "Resume" : "Pause"}
-              >
-                {paused ? "▸" : "❙❙"}
-              </button>
-            )}
-            <button className="timer-btn" onClick={() => update(t.id, () => null)} aria-label="Dismiss">
-              ×
-            </button>
-          </div>
-        );
-      })}
+      <p className="tray-head">
+        <Icon name="clock" /> Timers
+      </p>
+      <ul className="tray-list">
+        {timers.map((t) => {
+          const left = remainingOf(t);
+          const paused = !t.endsAt && !t.done;
+          return (
+            <li key={t.id} className={`timer${t.done ? " is-done" : ""}${paused ? " is-paused" : ""}`}>
+              <div className="t-info">
+                <span className="t-label">{t.label}</span>
+                <span className="t-time" aria-live={t.done ? "assertive" : "off"}>
+                  {t.done ? "Done!" : formatClock(left)}
+                </span>
+                <span className="t-state">
+                  {t.done ? (
+                    <>
+                      <Icon name="bell" /> {t.recipeTitle}
+                    </>
+                  ) : paused ? (
+                    "Paused"
+                  ) : (
+                    `of ${formatDuration(t.seconds)}`
+                  )}
+                </span>
+              </div>
+              <div className="t-actions">
+                {!t.done && (
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      update(t.id, (x) =>
+                        paused
+                          ? { ...x, endsAt: Date.now() + x.remaining * 1000 }
+                          : { ...x, endsAt: null, remaining: remainingOf(x) },
+                      )
+                    }
+                  >
+                    <Icon name={paused ? "play" : "pause"} /> {paused ? "Resume" : "Pause"}
+                  </button>
+                )}
+                <button className="btn" onClick={() => update(t.id, () => null)}>
+                  <Icon name={t.done ? "check" : "stop"} /> {t.done ? "OK" : "Stop"}
+                </button>
+              </div>
+              <span className="t-bar" aria-hidden>
+                <i style={{ transform: `scaleX(${t.seconds ? 1 - left / t.seconds : 1})` }} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </aside>
   );
 }
@@ -223,8 +241,9 @@ function TimerTray({
 export function TimerPill({ label, seconds, recipeTitle }: { label: string; seconds: number; recipeTitle: string }) {
   const { start } = useTimers();
   return (
-    <button className="pill" onClick={() => start(label, seconds, recipeTitle)} title={`Start ${label} timer`}>
-      <span aria-hidden>◷</span> {label.toLowerCase()} · {formatDuration(seconds)}
+    <button className="pill" onClick={() => start(label, seconds, recipeTitle)}>
+      <Icon name="clock" /> {label} · {formatDuration(seconds)}
+      <span className="visually-hidden">: start timer</span>
     </button>
   );
 }
@@ -235,8 +254,8 @@ export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; d
   const [minutes, setMinutes] = useState("10");
   if (!open) {
     return (
-      <button className="pill pill-ghost" onClick={() => setOpen(true)} aria-label="Add a timer">
-        +
+      <button className="pill pill-ghost" onClick={() => setOpen(true)}>
+        <Icon name="plus" /> Timer
       </button>
     );
   }
@@ -250,7 +269,9 @@ export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; d
         setOpen(false);
       }}
     >
+      <label htmlFor={`min-${defaultLabel}`}>Minutes</label>
       <input
+        id={`min-${defaultLabel}`}
         type="number"
         inputMode="decimal"
         min="0.1"
@@ -258,10 +279,11 @@ export function AddTimer({ recipeTitle, defaultLabel }: { recipeTitle: string; d
         value={minutes}
         onChange={(e) => setMinutes(e.target.value)}
         autoFocus
-        aria-label="Minutes"
       />
-      <span>min</span>
-      <button className="pill">start</button>
+      <button className="btn btn-primary">Start</button>
+      <button type="button" className="btn" onClick={() => setOpen(false)}>
+        Cancel
+      </button>
     </form>
   );
 }

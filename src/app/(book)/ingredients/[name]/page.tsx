@@ -16,10 +16,11 @@ export default async function IngredientPage({ params, searchParams }: PageProps
   const name = await resolveIngredient(decodeURIComponent((await params).name));
   const { swap } = await searchParams;
   const [uses, pairs] = await Promise.all([recipesUsingMost(name), goesWellWith(name)]);
+  const most = Math.max(0, ...uses.map((u) => u.grams ?? 0));
 
   const swapSection = (
     <section aria-labelledby="swap">
-      <h2 id="swap">No {name}? Try instead</h2>
+      <h2 id="swap">No {name}? Try one of these</h2>
       <Suspense fallback={<p className="muted">Thinking of good swaps…</p>}>
         <Swaps name={name} />
       </Suspense>
@@ -27,7 +28,8 @@ export default async function IngredientPage({ params, searchParams }: PageProps
   );
 
   return (
-    <div className="ingredient-page">
+    <div className="ingredient-page narrow">
+      <p className="kicker">Ingredient</p>
       <h1>{titleCase(name)}</h1>
       {swap && swapSection}
 
@@ -40,8 +42,15 @@ export default async function IngredientPage({ params, searchParams }: PageProps
             {uses.map((u) => (
               <li key={u.id} className={`season-${u.season}`}>
                 <Link href={`/recipes/${u.id}`}>
-                  <span className="use-title">{u.title}</span>
-                  {u.amount && <span className="use-amount">{u.amount}</span>}
+                  <span className="top">
+                    <span>{u.title}</span>
+                    {u.amount && <span className="amt">{u.amount}</span>}
+                  </span>
+                  {most && u.grams ? (
+                    <span className="meter" aria-hidden>
+                      <i style={{ width: `${Math.max(6, Math.round((u.grams / most) * 100))}%` }} />
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             ))}
@@ -52,7 +61,7 @@ export default async function IngredientPage({ params, searchParams }: PageProps
       {pairs.length > 0 && (
         <section aria-labelledby="pairs">
           <h2 id="pairs">Goes well with</h2>
-          <ul className="pairs">
+          <ul className="chips">
             {pairs.map((p) => (
               <li key={p.name}>
                 <Link href={`/ingredients/${encodeURIComponent(p.name)}`} className="chip">

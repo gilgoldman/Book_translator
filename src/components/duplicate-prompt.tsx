@@ -19,33 +19,64 @@ export function DuplicatePrompt({
     freshIngredients.map((i) => i.canonical),
   );
   return (
-    <section className="duplicate" aria-labelledby="dup-title" role="region">
-      <h2 id="dup-title">Looks familiar</h2>
-      <p>
-        This looks like <Link href={`/recipes/${original.id}`}>{original.title}</Link>, which is already in the book.
-      </p>
+    <section className="dup" aria-labelledby="dup-title">
+      <p className="kicker">Looks familiar</p>
+      <h2 id="dup-title">
+        This looks like <Link href={`/recipes/${original.id}`}>{original.title}</Link>, already in the book
+      </h2>
+      <p className="muted">Until you choose, the new one stays out of search.</p>
       <ul className="diff">
-        {diff.added.length > 0 && <li>Only in the new one: {diff.added.join(", ")}</li>}
-        {diff.removed.length > 0 && <li>Only in the original: {diff.removed.join(", ")}</li>}
-        {diff.added.length + diff.removed.length === 0 && <li>Same ingredients.</li>}
+        {diff.added.length > 0 && (
+          <li>
+            <span className="mk" aria-hidden>
+              +
+            </span>
+            <span>
+              <strong>Only in the new one:</strong> {diff.added.join(", ")}
+            </span>
+          </li>
+        )}
+        {diff.removed.length > 0 && (
+          <li>
+            <span className="mk" aria-hidden>
+              −
+            </span>
+            <span>
+              <strong>Only in the original:</strong> {diff.removed.join(", ")}
+            </span>
+          </li>
+        )}
+        {diff.added.length + diff.removed.length === 0 && (
+          <li>
+            <span className="mk" aria-hidden>
+              =
+            </span>
+            <span>Same ingredients.</span>
+          </li>
+        )}
       </ul>
-      <div className="button-row">
+      <div className="choices">
         <form action={decideDuplicate.bind(null, newId, "keep-original")}>
-          <button className="secondary">Keep original</button>
+          <button className="choice primary">
+            <b>Keep original</b>
+            <span>Throw away this new import.</span>
+          </button>
         </form>
         {canReplace && (
           <form action={decideDuplicate.bind(null, newId, "replace")}>
-            <button className="secondary">Replace with new</button>
+            <button className="choice">
+              <b>Replace with new</b>
+              <span>Use the new version; keep notes, photos and the share link.</span>
+            </button>
           </form>
         )}
         <form action={decideDuplicate.bind(null, newId, "keep-both")}>
-          <button className="secondary">Keep both</button>
+          <button className="choice">
+            <b>Keep both</b>
+            <span>They&apos;re different enough to keep side by side.</span>
+          </button>
         </form>
       </div>
-      <p className="muted small">
-        Replacing keeps the original&apos;s notes, photos and share link. Until you choose, the new one stays out of
-        search.
-      </p>
     </section>
   );
 }

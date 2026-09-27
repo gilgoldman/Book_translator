@@ -1,16 +1,21 @@
 import type { Substitution } from "@/lib/recipe-types";
 
+/** Ranked swaps; the first is the best bet. */
 export function SubstitutionCard({ result }: { result: Substitution }) {
   return (
     <div className="substitution">
-      <ol>
+      <ol className="subs">
         {result.options.map((o, i) => (
           <li key={i}>
-            <p className="sub-use">
-              <strong>{o.use}</strong> — {o.amount}
+            <span className="rank" aria-hidden>
+              {i + 1}
+            </span>
+            <p className="what">
+              {i === 0 && <span className="visually-hidden">Best option: </span>}
+              {o.use} — {o.amount}
             </p>
             <p>{o.how}</p>
-            <p className="muted">{o.effect}</p>
+            <p className="how">{o.effect}</p>
           </li>
         ))}
       </ol>

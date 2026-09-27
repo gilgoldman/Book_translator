@@ -1,138 +1,117 @@
 import { asc } from "drizzle-orm";
-import { changePassword, logout, removeUser, setUserStatus } from "@/app/actions";
-import { SimpleForm } from "@/components/login-form";
+import { removeUser, setUserStatus } from "@/app/actions";
+import { Avatar } from "@/components/avatar";
 import { db, users } from "@/db";
-import { requireSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
-export const metadata = { title: "Settings" };
+export const metadata = { title: "People" };
 
-export default async function SettingsPage() {
-  const session = await requireSession();
-  const bot = process.env.TELEGRAM_BOT_USERNAME;
-  const people = session.isAdmin
-    ? await db()
-        .select({
-          id: users.id,
-          username: users.username,
-          displayName: users.displayName,
-          status: users.status,
-          note: users.requestNote,
-          isAdmin: users.isAdmin,
-          telegram: users.telegramChatId,
-        })
-        .from(users)
-        .orderBy(asc(users.createdAt))
-    : [];
+/** Owner only: approve requests and manage who can use the cookbook. */
+export default async function PeoplePage() {
+  await requireAdmin();
+  const people = await db()
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatar: users.avatarUrl,
+      status: users.status,
+      note: users.requestNote,
+      isAdmin: users.isAdmin,
+      telegram: users.telegramChatId,
+    })
+    .from(users)
+    .orderBy(asc(users.createdAt));
   const pending = people.filter((p) => p.status === "pending");
   const members = people.filter((p) => p.status === "approved");
   const declined = people.filter((p) => p.status === "declined");
+  const name = (p: (typeof people)[number]) => p.displayName || p.username;
 
   return (
-    <div className="narrow settings">
-      <h1>Settings</h1>
+    <div className="narrow stack-sections">
+      <div>
+        <p className="kicker">Owner</p>
+        <h1>People</h1>
+      </div>
 
-      {session.isAdmin && (
-        <section aria-labelledby="requests">
-          <h2 id="requests">Access requests</h2>
-          {pending.length === 0 ? (
-            <p className="muted">No one is waiting.</p>
-          ) : (
-            <ul className="people">
-              {pending.map((p) => (
-                <li key={p.id}>
-                  <p>
-                    <strong>{p.displayName ?? p.username}</strong> <span className="muted">@{p.username}</span>
-                  </p>
-                  {p.note && <p className="muted">“{p.note}”</p>}
-                  <div className="button-row">
-                    <form action={setUserStatus.bind(null, p.id, "approved")}>
-                      <button className="primary">Approve</button>
-                    </form>
-                    <form action={setUserStatus.bind(null, p.id, "declined")}>
-                      <button className="secondary">Decline</button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      {session.isAdmin && (
-        <section aria-labelledby="people">
-          <h2 id="people">People</h2>
+      <section aria-labelledby="requests">
+        <h2 id="requests">Waiting for approval</h2>
+        {pending.length === 0 ? (
+          <p className="muted">No one is waiting.</p>
+        ) : (
           <ul className="people">
-            {members.map((p) => (
-              <li key={p.id}>
-                <p>
-                  <strong>{p.displayName ?? p.username}</strong>{" "}
-                  <span className="muted">
-                    @{p.username}
-                    {p.isAdmin ? " · owner" : ""}
-                    {p.telegram ? " · Telegram" : ""}
-                  </span>
-                </p>
-                {!p.isAdmin && (
-                  <form action={setUserStatus.bind(null, p.id, "declined")}>
-                    <button className="secondary">Remove access</button>
+            {pending.map((p) => (
+              <li key={p.id} className="appr">
+                <Avatar name={name(p)} src={p.avatar} />
+                <div className="who">
+                  <b>{name(p)}</b>
+                  <span>@{p.username}</span>
+                </div>
+                {p.note && <blockquote>“{p.note}”</blockquote>}
+                <div className="button-row">
+                  <form action={setUserStatus.bind(null, p.id, "approved")}>
+                    <button className="btn btn-primary">Approve</button>
                   </form>
-                )}
+                  <form action={setUserStatus.bind(null, p.id, "declined")}>
+                    <button className="btn danger">Decline</button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>
-          {declined.length > 0 && (
-            <details>
-              <summary>Declined ({declined.length})</summary>
-              <ul className="people">
-                {declined.map((p) => (
-                  <li key={p.id}>
-                    <p>
-                      {p.displayName ?? p.username} <span className="muted">@{p.username}</span>
-                    </p>
-                    <div className="button-row">
-                      <form action={setUserStatus.bind(null, p.id, "approved")}>
-                        <button className="secondary">Approve after all</button>
-                      </form>
-                      <form action={removeUser.bind(null, p.id)}>
-                        <button className="secondary danger">Delete account</button>
-                      </form>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </section>
-      )}
-
-      <section aria-labelledby="telegram">
-        <h2 id="telegram">Telegram</h2>
-        {bot ? (
-          <p>
-            Open <a href={`https://t.me/${bot}`}>@{bot}</a> and send <code>/login {session.username} your-password</code>.
-            Then send it photos, links, voice notes or questions.
-          </p>
-        ) : (
-          <p className="muted">The Telegram bot isn&apos;t set up yet.</p>
         )}
       </section>
 
-      <section aria-labelledby="password">
-        <h2 id="password">Change password</h2>
-        <SimpleForm
-          action={changePassword}
-          submit="Change password"
-          fields={[
-            { name: "current", label: "Current password", type: "password", autoComplete: "current-password" },
-            { name: "next", label: "New password (10+ characters)", type: "password", autoComplete: "new-password" },
-          ]}
-        />
+      <section aria-labelledby="members">
+        <h2 id="members">Members</h2>
+        <ul className="people">
+          {members.map((p) => (
+            <li key={p.id} className="appr">
+              <Avatar name={name(p)} src={p.avatar} />
+              <div className="who">
+                <b>{name(p)}</b>
+                <span>
+                  @{p.username}
+                  {p.isAdmin ? " · owner" : ""}
+                  {p.telegram ? " · Telegram" : ""}
+                </span>
+              </div>
+              {!p.isAdmin && (
+                <div className="button-row">
+                  <form action={setUserStatus.bind(null, p.id, "declined")}>
+                    <button className="btn danger">Remove access</button>
+                  </form>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <form action={logout}>
-        <button className="secondary">Sign out</button>
-      </form>
+      {declined.length > 0 && (
+        <details>
+          <summary>Declined or removed ({declined.length})</summary>
+          <ul className="people">
+            {declined.map((p) => (
+              <li key={p.id} className="appr">
+                <Avatar name={name(p)} src={p.avatar} />
+                <div className="who">
+                  <b>{name(p)}</b>
+                  <span>@{p.username}</span>
+                </div>
+                <div className="button-row">
+                  <form action={setUserStatus.bind(null, p.id, "approved")}>
+                    <button className="btn">Approve after all</button>
+                  </form>
+                  <form action={removeUser.bind(null, p.id)}>
+                    <button className="btn danger">Delete account</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

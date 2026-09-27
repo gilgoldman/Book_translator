@@ -1,6 +1,6 @@
 import "server-only";
-import { and, desc, inArray, isNull, sql } from "drizzle-orm";
-import { db, recipes } from "@/db";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { db, recipes, users } from "@/db";
 import { embedText } from "@/lib/ai/extract";
 
 // Hybrid search with no LLM call in the loop:
@@ -20,6 +20,7 @@ export type RecipeCard = {
   season: string;
   totalMinutes: number | null;
   photo: string | null;
+  addedBy: { username: string; name: string; avatar: string | null } | null;
   match?: { have: string[]; missing: number };
 };
 
@@ -34,16 +35,32 @@ const cardColumns = {
   season: recipes.season,
   totalMinutes: recipes.totalMinutes,
   photos: recipes.photos,
+  username: users.username,
+  displayName: users.displayName,
+  avatar: users.avatarUrl,
 };
 
-type CardRow = { photos: string[] } & Omit<RecipeCard, "photo" | "match">;
-const toCard = ({ photos, ...r }: CardRow): RecipeCard => ({ ...r, photo: photos[0] ?? null });
+type CardRow = {
+  photos: string[];
+  username: string | null;
+  displayName: string | null;
+  avatar: string | null;
+} & Omit<RecipeCard, "photo" | "match" | "addedBy">;
 
-export async function recentRecipes(limit = 60): Promise<RecipeCard[]> {
-  const rows = await db()
-    .select(cardColumns)
-    .from(recipes)
-    .where(isNull(recipes.duplicateOf))
+const toCard = ({ photos, username, displayName, avatar, ...r }: CardRow): RecipeCard => ({
+  ...r,
+  photo: photos[0] ?? null,
+  addedBy: username ? { username, name: displayName || username, avatar } : null,
+});
+
+function cards() {
+  return db().select(cardColumns).from(recipes).leftJoin(users, eq(users.id, recipes.createdBy));
+}
+
+/** Newest first; optionally only the recipes one person added. */
+export async function recentRecipes(limit = 60, byUsername?: string): Promise<RecipeCard[]> {
+  const rows = await cards()
+    .where(and(isNull(recipes.duplicateOf), byUsername ? eq(users.username, byUsername) : undefined))
     .orderBy(desc(recipes.createdAt))
     .limit(limit);
   return rows.map(toCard);
@@ -123,10 +140,7 @@ export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]
   if (ranked.length === 0) return [];
 
   // Imports parked as possible duplicates stay hidden until someone decides.
-  const rows = await db()
-    .select(cardColumns)
-    .from(recipes)
-    .where(and(inArray(recipes.id, ranked), isNull(recipes.duplicateOf)));
+  const rows = await cards().where(and(inArray(recipes.id, ranked), isNull(recipes.duplicateOf)));
   const byId = new Map(rows.map((r) => [r.id, toCard(r)]));
   return ranked
     .map((id) => {

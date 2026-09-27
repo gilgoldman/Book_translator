@@ -34,7 +34,9 @@ Steps carry tap-to-start timers. Any recipe can be shared as a read-only link. T
 5. Open the site and sign in as `gilgoldman` (or `OWNER_USERNAME`) with the password you want:
    on an empty database only that username can create the owner account. Change it later under
    **Settings**.
-6. Family and friends use **Request access** on the sign-in page; approve them under **Settings**.
+6. Family and friends use **Ask for access** on the sign-in page; approve them under **People**.
+   Everyone manages their name, picture, password and the recipes they added under their profile;
+   every recipe shows who added it.
    Approved members can add recipes, notes and photos; changing tags or deleting is limited to
    whoever added the recipe, and managing people to the owner.
 
@@ -87,4 +89,7 @@ run `npm run reembed`.
 
 `design/` holds the design research: `BRIEF.md`, three visual directions as static pages, and
 `tokens.css` for the recommended one. Round 2 explores the chosen Linne direction in three warm-stone
-palettes (`linne-*.html`). The app currently uses interim styling.
+palettes (`linne-*.html`). The app uses **Old book** (`linne-oldbook.html`); its tokens are in
+`src/app/globals.css`, generated from `design/linne-tokens.css`.
+
+Setup checklist for the owner: `docs/setup-todo.html`.

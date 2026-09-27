@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/ai/extract", () => ({ embedText: vi.fn() }));
-vi.mock("@/db", () => ({ db: vi.fn(), recipes: {} }));
+vi.mock("@/db", () => ({ db: vi.fn(), recipes: {}, users: {} }));
 
 const { queryVariants } = await import("./search");
 

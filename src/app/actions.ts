@@ -5,7 +5,7 @@ import { checkBotId } from "botid/server";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { db, recipes, users } from "@/db";
+import { db, recipes, sources, users } from "@/db";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
 import {
   checkCredentials,
@@ -22,10 +22,10 @@ import {
   validUsername,
 } from "@/lib/auth";
 import { canEdit, resolveDuplicate, type DuplicateChoice } from "@/lib/dedupe";
-import { ingest, NotARecipeError, type IngestRequest } from "@/lib/ingest";
+import { ingest, NotARecipeError, restructureRecipe, type IngestRequest } from "@/lib/ingest";
 import { findUrl } from "@/lib/ingest/url";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
-import type { Substitution } from "@/lib/recipe-types";
+import { COURSES, CUISINES, DIETS, SEASONS, type Substitution } from "@/lib/recipe-types";
 import { notifyOwner } from "@/lib/telegram";
 
 // `values` echoes non-secret fields so a failed submit doesn't make people retype them.
@@ -116,6 +116,37 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
   return { ok: "Password changed. Other devices have been signed out." };
 }
 
+// ---------- profile ----------
+
+export async function updateProfile(_: FormState, form: FormData): Promise<FormState> {
+  const session = await requireSession();
+  const displayName = String(form.get("displayName") ?? "").trim().slice(0, 60);
+  if (!displayName) return { error: "Please enter a name." };
+  await db().update(users).set({ displayName }).where(eq(users.id, session.userId));
+  revalidatePath("/", "layout");
+  return { ok: "Saved." };
+}
+
+export async function updateAvatar(form: FormData) {
+  const session = await requireSession();
+  const file = form.get("avatar");
+  if (!(file instanceof File) || file.size === 0 || !file.type.startsWith("image/")) return;
+  if (file.size > 2_000_000) throw new Error("That picture is too large.");
+  const blob = await put(`avatars/${session.userId}.jpg`, file, {
+    access: "public",
+    addRandomSuffix: true,
+    contentType: file.type,
+  });
+  await db().update(users).set({ avatarUrl: blob.url }).where(eq(users.id, session.userId));
+  revalidatePath("/", "layout");
+}
+
+export async function removeAvatar() {
+  const session = await requireSession();
+  await db().update(users).set({ avatarUrl: null }).where(eq(users.id, session.userId));
+  revalidatePath("/", "layout");
+}
+
 // ---------- owner: people ----------
 
 export async function setUserStatus(userId: string, status: "approved" | "declined") {
@@ -131,7 +162,12 @@ export async function setUserStatus(userId: string, status: "approved" | "declin
 export async function removeUser(userId: string) {
   const owner = await requireAdmin();
   if (userId === owner.userId) return;
-  await db().delete(users).where(and(eq(users.id, userId), ne(users.isAdmin, true)));
+  const target = await db().query.users.findFirst({ where: and(eq(users.id, userId), ne(users.isAdmin, true)) });
+  if (!target) return;
+  // Their recipes stay in the book, just without an uploader.
+  await db().update(recipes).set({ createdBy: null }).where(eq(recipes.createdBy, userId));
+  await db().update(sources).set({ createdBy: null }).where(eq(sources.createdBy, userId));
+  await db().delete(users).where(eq(users.id, userId));
   revalidatePath("/settings");
 }
 
@@ -198,7 +234,7 @@ async function editableRecipe(id: string) {
   return { session, recipe, allowed: canEdit(recipe, session) };
 }
 
-// Anyone signed in can keep notes and add photos; tags and deletion belong to the
+// Anyone signed in can keep notes and add photos; editing and deletion belong to the
 // person who added the recipe (or the owner).
 
 export async function saveNotes(id: string, notes: string) {
@@ -206,16 +242,6 @@ export async function saveNotes(id: string, notes: string) {
   await db()
     .update(recipes)
     .set({ notes: notes.slice(0, 5000), updatedAt: new Date() })
-    .where(eq(recipes.id, id));
-  revalidatePath(`/recipes/${id}`);
-}
-
-export async function saveTags(id: string, tags: { cuisine: string; course: string; season: string; diet: string[] }) {
-  const { allowed } = await editableRecipe(id);
-  if (!allowed) throw new Error("Only whoever added this recipe can change its tags.");
-  await db()
-    .update(recipes)
-    .set({ ...tags, updatedAt: new Date() })
     .where(eq(recipes.id, id));
   revalidatePath(`/recipes/${id}`);
 }
@@ -238,12 +264,75 @@ export async function addPhoto(id: string, form: FormData) {
   revalidatePath(`/recipes/${id}`);
 }
 
-export async function deleteRecipe(id: string) {
+const oneOf = <T extends string>(list: readonly T[], value: FormDataEntryValue | null, fallback: T): T =>
+  list.includes(value as T) ? (value as T) : fallback;
+
+const minutes = (v: FormDataEntryValue | null) => {
+  const n = parseInt(String(v ?? ""), 10);
+  return Number.isFinite(n) && n > 0 && n < 100_000 ? n : null;
+};
+
+/**
+ * Edit a recipe. Details save as typed; if the ingredients or method text changed, the
+ * recipe is re-read by the LLM so every view (effective, ratios, units, search) stays right.
+ */
+export async function updateRecipe(id: string, _: FormState, form: FormData): Promise<FormState> {
+  const { allowed } = await editableRecipe(id);
+  if (!allowed) return { error: "Only whoever added this recipe can edit it." };
+  const current = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
+  if (!current) return { error: "Recipe not found." };
+
+  const title = String(form.get("title") ?? "").trim().slice(0, 200);
+  if (!title) return { error: "The recipe needs a title." };
+  // Browsers submit textareas with \r\n line breaks.
+  const text = (name: string) => String(form.get(name) ?? "").replace(/\r\n?/g, "\n").trim();
+  const ingredientsText = text("ingredients");
+  const methodText = text("method");
+
+  await db()
+    .update(recipes)
+    .set({
+      title,
+      description: String(form.get("description") ?? "").trim().slice(0, 1000) || null,
+      servings: String(form.get("servings") ?? "").trim().slice(0, 60) || null,
+      prepMinutes: minutes(form.get("prepMinutes")),
+      cookMinutes: minutes(form.get("cookMinutes")),
+      totalMinutes: minutes(form.get("totalMinutes")),
+      cuisine: oneOf(CUISINES, form.get("cuisine"), current.cuisine as (typeof CUISINES)[number]),
+      course: oneOf(COURSES, form.get("course"), current.course as (typeof COURSES)[number]),
+      season: oneOf(SEASONS, form.get("season"), current.season as (typeof SEASONS)[number]),
+      diet: form.getAll("diet").filter((d): d is (typeof DIETS)[number] => DIETS.includes(d as never)),
+      notes: String(form.get("notes") ?? "").trim().slice(0, 5000) || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(recipes.id, id));
+
+  const contentChanged =
+    ingredientsText !== current.ingredients.map((i) => i.original).join("\n").trim() ||
+    methodText !== current.steps.map((s) => s.text).join("\n\n").trim();
+  if (contentChanged) {
+    if (!ingredientsText || !methodText) return { error: "Ingredients and method can't be empty." };
+    try {
+      await restructureRecipe(id, { title, ingredients: ingredientsText, method: methodText });
+    } catch (err) {
+      console.error("re-reading recipe failed", err);
+      return { error: "Details saved, but re-reading the ingredients and method failed. Try again?" };
+    }
+  }
+  revalidatePath(`/recipes/${id}`);
+  revalidatePath("/profile");
+  redirect(`/recipes/${id}`);
+}
+
+export async function deleteRecipe(id: string, back: "/" | "/profile" = "/") {
   const { allowed } = await editableRecipe(id);
   if (!allowed) throw new Error("Only whoever added this recipe can delete it.");
+  // Parked duplicates of this recipe have nothing left to compare with.
+  await db().update(recipes).set({ duplicateOf: null }).where(eq(recipes.duplicateOf, id));
   await db().delete(recipes).where(eq(recipes.id, id));
   revalidatePath("/");
-  redirect("/");
+  revalidatePath("/profile");
+  redirect(back);
 }
 
 // ---------- ingredient-first ----------

@@ -57,6 +57,7 @@ describe("renderRecipe", () => {
   it("renders the effective view with inline quantities and escaped text", () => {
     const out = renderRecipe(recipe, "effective");
     expect(out).toContain("<b>Pâte brisée</b>");
+    expect(renderRecipe({ ...recipe, addedBy: "Gil" }, "effective")).toContain("Added by Gil");
     expect(out).toContain("<b>200 g butter</b>");
     expect(out).toContain("&amp; &lt;chill&gt;");
     expect(out).toContain("⏱ chill 1 h");

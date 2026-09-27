@@ -18,6 +18,7 @@ export type TgRecipe = {
   ingredients: Ingredient[];
   steps: Step[];
   enrichment: Enrichment | null;
+  addedBy?: string | null;
 };
 
 export type TgSource = { kind: string; url: string | null; files: { url: string; mediaType: string }[]; text: string | null } | null;
@@ -37,7 +38,8 @@ function header(r: TgRecipe) {
     .filter(Boolean)
     .join(" · ");
   const sub = r.title !== r.titleEnglish ? `\n<i>${esc(r.titleEnglish)}</i>` : "";
-  return `<b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>`;
+  const by = r.addedBy ? `\nAdded by ${esc(r.addedBy)}` : "";
+  return `<b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>${by}`;
 }
 
 const timerNote = (timers: { label: string; seconds: number }[]) =>

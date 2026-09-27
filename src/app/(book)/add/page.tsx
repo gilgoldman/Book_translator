@@ -7,8 +7,11 @@ export const maxDuration = 300;
 export default function AddPage() {
   return (
     <div className="narrow">
+      <p className="kicker">New recipe</p>
       <h1>Add a recipe</h1>
-      <ImportForm />
+      <div className="card">
+        <ImportForm />
+      </div>
     </div>
   );
 }

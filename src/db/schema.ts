@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
   displayName: text("display_name"),
+  avatarUrl: text("avatar_url"),
   passwordHash: text("password_hash").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
   // New sign-ups wait for the owner's approval.

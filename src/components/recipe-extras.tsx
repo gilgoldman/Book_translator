@@ -1,47 +1,57 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addPhoto, deleteRecipe, saveNotes, saveTags } from "@/app/actions";
-import { COURSES, CUISINES, DIETS, SEASONS } from "@/lib/recipe-types";
-import { titleCase } from "@/lib/format";
+import { addPhoto, deleteRecipe, saveNotes } from "@/app/actions";
 import { downscaleImage } from "@/lib/image";
+import { Icon } from "./icons";
 
 type Props = {
   id: string;
   canEdit: boolean;
   notes: string | null;
   shareUrl: string;
-  tags: { cuisine: string; course: string; season: string; diet: string[] };
 };
 
 /** Everything that isn't cooking lives behind one quiet toggle. */
-export function RecipeExtras({ id, canEdit, notes, shareUrl, tags }: Props) {
+export function RecipeExtras({ id, canEdit, notes, shareUrl }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
-  const [t, setT] = useState(tags);
   const [pending, startTransition] = useTransition();
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState("");
 
   return (
     <section className="extras">
-      <button className="extras-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open ? "− less" : "+ notes, photos, tags, share"}
+      <button className="extras-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="extras-body">
+        <Icon name={open ? "check" : "plus"} /> {open ? "Close" : "Notes, photos and sharing"}
       </button>
       {open && (
-        <div className="extras-body">
+        <div id="extras-body" className="extras-body">
           <label className="field">
-            <span>Notes</span>
+            <span>Your notes</span>
             <textarea
               rows={3}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              onBlur={() => draft !== (notes ?? "") && startTransition(() => saveNotes(id, draft))}
               placeholder="Less sugar next time…"
             />
           </label>
+          <div className="button-row">
+            <button
+              className="btn"
+              disabled={pending || draft === (notes ?? "")}
+              onClick={() =>
+                startTransition(async () => {
+                  await saveNotes(id, draft);
+                  setStatus("Notes saved.");
+                })
+              }
+            >
+              Save notes
+            </button>
+          </div>
 
           <label className="field">
-            <span>Add a photo</span>
+            <span>Add a photo of your dish</span>
             <input
               type="file"
               accept="image/*"
@@ -50,82 +60,49 @@ export function RecipeExtras({ id, canEdit, notes, shareUrl, tags }: Props) {
                 if (!file) return;
                 const form = new FormData();
                 form.set("photo", await downscaleImage(file));
-                startTransition(() => addPhoto(id, form));
+                startTransition(async () => {
+                  await addPhoto(id, form);
+                  setStatus("Photo added.");
+                });
                 e.target.value = "";
               }}
             />
           </label>
 
-          {canEdit && (
-            <div className="field tag-fields">
-              <span>Tags</span>
-              <select value={t.cuisine} onChange={(e) => setT({ ...t, cuisine: e.target.value })}>
-                {CUISINES.map((c) => (
-                  <option key={c} value={c}>
-                    {titleCase(c)}
-                  </option>
-                ))}
-              </select>
-              <select value={t.course} onChange={(e) => setT({ ...t, course: e.target.value })}>
-                {COURSES.map((c) => (
-                  <option key={c} value={c}>
-                    {titleCase(c)}
-                  </option>
-                ))}
-              </select>
-              <select value={t.season} onChange={(e) => setT({ ...t, season: e.target.value })}>
-                {SEASONS.map((c) => (
-                  <option key={c} value={c}>
-                    {titleCase(c)}
-                  </option>
-                ))}
-              </select>
-              <div className="diet-checks">
-                {DIETS.map((d) => (
-                  <label key={d}>
-                    <input
-                      type="checkbox"
-                      checked={t.diet.includes(d)}
-                      onChange={(e) =>
-                        setT({ ...t, diet: e.target.checked ? [...t.diet, d] : t.diet.filter((x) => x !== d) })
-                      }
-                    />
-                    {d}
-                  </label>
-                ))}
-              </div>
-              <button className="quiet" onClick={() => startTransition(() => saveTags(id, t))}>
-                save tags
+          <div className="field">
+            <span>Share with a friend</span>
+            <p className="muted">They&apos;ll see a read-only page, no account needed.</p>
+            <div className="button-row">
+              <button
+                className="btn"
+                onClick={async () => {
+                  if (navigator.share) {
+                    await navigator.share({ url: shareUrl }).catch(() => {});
+                  } else {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setStatus("Link copied.");
+                  }
+                }}
+              >
+                Share link
               </button>
             </div>
-          )}
-
-          <div className="field">
-            <span>Share</span>
-            <button
-              className="quiet"
-              onClick={async () => {
-                if (navigator.share) {
-                  await navigator.share({ url: shareUrl }).catch(() => {});
-                } else {
-                  await navigator.clipboard.writeText(shareUrl);
-                  setCopied(true);
-                }
-              }}
-            >
-              {copied ? "link copied" : "share a read-only link"}
-            </button>
           </div>
 
           {canEdit && (
-            <button
-              className="quiet danger"
-              onClick={() => confirm("Delete this recipe?") && startTransition(() => deleteRecipe(id))}
-            >
-              delete recipe
-            </button>
+            <div className="button-row">
+              <button
+                className="btn danger"
+                onClick={() =>
+                  confirm("Delete this recipe for everyone? This can't be undone.") &&
+                  startTransition(() => deleteRecipe(id))
+                }
+              >
+                Delete recipe
+              </button>
+            </div>
           )}
-          {pending && <p className="muted">saving…</p>}
+          <p role="status">{pending ? "Saving…" : status}</p>
         </div>
       )}
     </section>

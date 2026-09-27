@@ -9,13 +9,20 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const firstRun = !(await hasAnyUser());
   return (
     <main id="main" className="page narrow login-page">
-      <h1 className="brand">Cookbook</h1>
-      <LoginForm firstRun={firstRun} next={typeof next === "string" ? next : "/"} />
-      {!firstRun && (
-        <p className="small">
-          New here? <Link href="/register">Request access</Link>
-        </p>
-      )}
+      <p className="wordmark">
+        <span className="book" aria-hidden />
+        Our cookbook
+      </p>
+      <div className="headband" aria-hidden />
+      <section className="auth" aria-labelledby="signin-title">
+        <h1 id="signin-title">{firstRun ? "Set up the cookbook" : "Sign in"}</h1>
+        <LoginForm firstRun={firstRun} next={typeof next === "string" ? next : "/"} />
+        {!firstRun && (
+          <p style={{ marginTop: "var(--sp-5)" }}>
+            New here? <Link href="/register">Ask for access</Link>
+          </p>
+        )}
+      </section>
     </main>
   );
 }

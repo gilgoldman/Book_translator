@@ -52,17 +52,22 @@ export function ImportForm() {
         void submit();
       }}
     >
+      <label className="field" htmlFor="import-text">
+        <span>Paste a link or a recipe</span>
+        <span className="help">Or add photos or a voice note below. Anything typed here goes along as a note.</span>
+      </label>
       <textarea
+        id="import-text"
         rows={6}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Paste a link or a recipe…"
+        placeholder="https://… or the recipe text"
         disabled={pending}
       />
 
-      <div className="import-row">
-        <label className="pill">
-          {photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""}` : "photo"}
+      <div className="button-row">
+        <label className="btn">
+          {photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""} chosen` : "Choose photos"}
           <input
             type="file"
             accept="image/*,audio/*"
@@ -82,24 +87,27 @@ export function ImportForm() {
             }}
           />
         </label>
-        <button type="button" className={`pill${recording ? " is-recording" : ""}`} onClick={toggleRecording} disabled={pending}>
-          {recording ? "● stop" : voice ? "voice note ✓" : "record voice"}
+        <button
+          type="button"
+          className={`btn${recording ? " danger" : ""}`}
+          onClick={toggleRecording}
+          disabled={pending}
+          aria-pressed={recording}
+        >
+          {recording ? "● Stop recording" : voice ? "Voice note ✓ (record again)" : "Record a voice note"}
         </button>
         {(photos.length > 0 || voice) && !pending && (
-          <button type="button" className="pill pill-ghost" onClick={() => (setPhotos([]), setVoice(null))}>
-            clear
+          <button type="button" className="btn" onClick={() => (setPhotos([]), setVoice(null))}>
+            Clear
           </button>
         )}
       </div>
       {voiceUrl && <audio controls src={voiceUrl} />}
-      {(photos.length > 0 || voice) && (
-        <p className="muted">Anything typed above is sent along as a note.</p>
-      )}
 
       <button className="primary" disabled={!ready || pending || recording}>
         {pending ? "Reading the recipe…" : "Add to cookbook"}
       </button>
-      {pending && <p className="muted">This takes 15–40 seconds.</p>}
+      {pending && <p role="status">Reading it now. This takes 15–40 seconds.</p>}
       {state?.error && <p className="error" role="alert">{state.error}</p>}
     </form>
   );

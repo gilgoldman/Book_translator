@@ -266,7 +266,10 @@ async function showRecipe(chatId: number, id: string, view: TgView, messageId?: 
     view === "source" && r.sourceId
       ? ((await db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) })) ?? null)
       : null;
-  const text = renderRecipe(r, view, source);
+  const uploader = r.createdBy
+    ? await db().query.users.findFirst({ where: eq(users.id, r.createdBy), columns: { displayName: true, username: true } })
+    : null;
+  const text = renderRecipe({ ...r, addedBy: uploader ? uploader.displayName || uploader.username : null }, view, source);
   const reply_markup = viewKeyboard(r.id, view, appUrl());
   return messageId ? edit(chatId, messageId, text, { reply_markup }) : send(chatId, text, { reply_markup });
 }

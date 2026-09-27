@@ -13,7 +13,13 @@ let dummyHash: Promise<string> | undefined;
 
 export const OWNER_USERNAME = normalizeUsername(process.env.OWNER_USERNAME ?? "gilgoldman");
 
-export type Session = { userId: string; username: string; isAdmin: boolean };
+export type Session = {
+  userId: string;
+  username: string;
+  isAdmin: boolean;
+  displayName: string;
+  avatarUrl: string | null;
+};
 
 export function normalizeUsername(username: string) {
   return username.trim().toLowerCase();
@@ -94,7 +100,13 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (!payload) return null;
   const user = await db().query.users.findFirst({ where: eq(users.id, payload.userId) });
   if (!user || user.status !== "approved" || user.sessionVersion !== payload.v) return null;
-  return { userId: user.id, username: user.username, isAdmin: user.isAdmin };
+  return {
+    userId: user.id,
+    username: user.username,
+    isAdmin: user.isAdmin,
+    displayName: user.displayName || user.username,
+    avatarUrl: user.avatarUrl,
+  };
 });
 
 export async function requireSession(): Promise<Session> {

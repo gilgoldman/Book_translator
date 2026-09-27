@@ -57,7 +57,7 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
    - "effectiveSteps": rewrite the method into concise, action-first steps where every quantity is embedded
      at the moment it is used, e.g. "Whisk [100 g flour] with [1 egg] and [a pinch of salt] until smooth."
      Express each step as segments: plain text segments have ingredient=null, metric=null, volume=null;
-     ingredient segments give the ingredient index, its name as text, and the amount used in that step in
+     ingredient segments give the ingredient index, its name as text (never empty, no amount), and the amount used in that step in
      both metric and US volume (split amounts correctly when an ingredient is used in several steps).
      Merge trivial steps, split overloaded ones, keep all timers. Keep the recipe's language.
 

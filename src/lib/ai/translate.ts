@@ -13,6 +13,7 @@ const SYSTEM = `You translate recipes for a family cookbook.
   the words and units into what cooks in that language write ("2 tbsp" -> "2 כפות").
 - "effectiveSteps" segments: reorder or re-split them so the sentence reads naturally, but keep
   every ingredient segment's "ingredient" index, and its "metric"/"volume" amounts (translated).
+  An ingredient segment's "text" is the ingredient's translated name and is never empty.
   Plain text segments have ingredient, metric and volume set to null. Mind the spaces between segments.
 - Never add, drop or merge ingredients, steps or timers.`;
 

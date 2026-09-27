@@ -79,7 +79,9 @@ export type ExtractedRecipe = z.infer<typeof extractedRecipeSchema>;
 
 // Effective view: steps as segments so embedded quantities can follow the units toggle.
 export const effectiveSegmentSchema = z.object({
-  text: z.string().describe("Plain text, or the ingredient name when this segment is an ingredient"),
+  text: z
+    .string()
+    .describe("Plain text, or the ingredient's name when this segment is an ingredient (never empty; no amounts here)"),
   ingredient: z
     .number()
     .int()
@@ -89,6 +91,12 @@ export const effectiveSegmentSchema = z.object({
   volume: z.string().nullable().describe('Amount used here in US volume, e.g. "¾ cup"; null for plain text'),
 });
 export type EffectiveSegment = z.infer<typeof effectiveSegmentSchema>;
+
+/** What an ingredient segment shows: its own words, or the ingredient's name when the model left them out. */
+export function segmentText(seg: EffectiveSegment, ingredients: { name: string }[]): string {
+  if (seg.ingredient === null || seg.text.trim()) return seg.text;
+  return ingredients[seg.ingredient]?.name ?? "";
+}
 
 export const ratioSchema = z.object({
   family: z

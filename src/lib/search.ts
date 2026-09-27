@@ -84,12 +84,29 @@ export function queryVariants(q: string): string {
   return ` ${words.join(" ")} | ${singular.join(" ")} | ${unprefixed.join(" ")} `;
 }
 
+// Question words that would match almost any recipe's text ("what recipes do we have with peas").
+const FILLER = new Set(
+  (
+    "what which how can could make cook recipe recipes dish dishes something anything have has got any all the " +
+    "and with for from into using use some that this those these our your you are was were there here want " +
+    "מה איזה אילו איך אפשר להכין לבשל מתכון מתכונים מנה מנות יש לנו לי משהו עם של את גם בבקשה רוצה"
+  ).split(" "),
+);
+
+/**
+ * Closest a recipe must be to the query's meaning (cosine distance) to count on meaning alone.
+ * Without a cutoff the nearest recipe always "matches", even for things the book doesn't have.
+ */
+const MAX_MEANING_DISTANCE = 0.35;
+
 export async function searchRecipes(q: string, locale: Locale, limit = 24): Promise<RecipeCard[]> {
   const query = q.trim();
   if (!query) return recentRecipes(locale, limit);
 
   const variants = queryVariants(query);
-  const orQuery = (query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2).join(" | ");
+  const orQuery = (query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
+    .filter((w) => w.length > 2 && !FILLER.has(w))
+    .join(" | ");
 
   const [byIngredient, byText, byMeaning] = await Promise.all([
     db().execute<{ recipe_id: string; have: string[]; missing: number }>(sql`
@@ -124,11 +141,17 @@ export async function searchRecipes(q: string, locale: Locale, limit = 24): Prom
       : Promise.resolve({ rows: [] as { id: string }[] }),
     embedText(query)
       .then((vec) =>
-        db().execute<{ id: string }>(sql`
-          select id from recipes where embedding is not null
-          order by embedding <=> ${JSON.stringify(vec)}::vector
+        db().execute<{ id: string; distance: number }>(sql`
+          select id, embedding <=> ${JSON.stringify(vec)}::vector as distance from recipes
+          where embedding is not null
+          order by distance
           limit 40`),
       )
+      .then(({ rows }) => {
+        // Logged so the cutoff can be tuned against real searches.
+        console.info("meaning search", JSON.stringify({ query, closest: rows.slice(0, 3).map((r) => Number(r.distance).toFixed(3)) }));
+        return { rows: rows.filter((r) => Number(r.distance) <= MAX_MEANING_DISTANCE) };
+      })
       .catch((err) => {
         console.error("embedding search failed", err);
         return { rows: [] as { id: string }[] };

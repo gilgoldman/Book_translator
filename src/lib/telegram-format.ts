@@ -1,6 +1,6 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey, Translator } from "@/lib/i18n/translate";
-import type { Enrichment, Ingredient, Step, Substitution } from "@/lib/recipe-types";
+import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
 
 // Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit).
 
@@ -70,7 +70,7 @@ export function renderRecipe(r: TgRecipe, view: TgView, t: Translator, source: T
     parts.push(e.recap.map((x) => `· ${x.metric ? `${esc(x.metric)} ` : ""}${esc(x.name)}`).join("\n"), "");
     e.effectiveSteps.forEach((s, i) => {
       const text = s.segments
-        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(seg.metric) + " " : ""}${esc(seg.text)}</b>`))
+        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(seg.metric) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
         .join("");
       parts.push(`${i + 1}. ${text}${timerNote(s.timers, t)}`);
     });

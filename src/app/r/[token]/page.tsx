@@ -10,7 +10,7 @@ import { TranslationNote } from "@/components/translation-note";
 import { db, recipes, users } from "@/db";
 import { dirFor } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
-import { ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 // Public, read-only page for a friend. Unguessable token, no login. Shown in the
 // visitor's language (browser setting or the switch at the top).
@@ -39,7 +39,7 @@ export default async function SharedRecipe({ params, searchParams }: PageProps<"
   const localized = showOriginal
     ? { recipe: r, status: "original" as const, language: r.language }
     : localizeRecipe(r, t.locale);
-  if (localized.status === "pending") after(() => ensureTranslations(r.id, [t.locale]));
+  if (localized.status === "pending" || enrichmentOutdated(r)) after(() => ensureTranslations(r.id, [t.locale]));
   const shown = localized.recipe;
   const uploader = r.createdBy
     ? await db().query.users.findFirst({

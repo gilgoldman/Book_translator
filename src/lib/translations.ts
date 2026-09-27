@@ -2,16 +2,18 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, recipes, type Recipe } from "@/db";
+import { enrichRecipe } from "@/lib/ai/extract";
 import { translateRecipeText } from "@/lib/ai/translate";
 import { LOCALE_CODES, LOCALES, type Locale } from "@/lib/i18n/config";
 import { ensureIngredientNames } from "@/lib/ingredient-names";
 import { applyText, recipeText, type RecipeContent } from "@/lib/recipe-text";
+import { ENRICHMENT_VERSION } from "@/lib/recipe-types";
 
 // Every recipe is stored in the language it came in, plus a translation into each other
 // app language. A translation remembers a hash of the words it was made from, so an edit
 // makes it stale and it is redone.
 
-const PROMPT_VERSION = "1";
+const PROMPT_VERSION = "2";
 
 export function textHash(r: RecipeContent) {
   return createHash("sha256").update(PROMPT_VERSION).update(JSON.stringify(recipeText(r))).digest("hex").slice(0, 16);
@@ -39,14 +41,28 @@ export function localizeRecipe<R extends RecipeContent & Pick<Recipe, "language"
   return { recipe: applyText(r, tr), status: "translated", language: locale };
 }
 
+/** Effective steps written by an older format, which can mix up words and ingredient names. */
+export const enrichmentOutdated = (r: Pick<RecipeContent, "enrichment">) =>
+  !!r.enrichment && (r.enrichment.version ?? 1) < ENRICHMENT_VERSION;
+
 /**
  * Translate a recipe into every app language (or just `only`) that lacks a current
- * translation. Failures are logged, not thrown: the original still shows, and the next
- * view retries.
+ * translation, after rewriting its effective steps if they are in an old format. Failures
+ * are logged, not thrown: the original still shows, and the next view retries.
  */
 export async function ensureTranslations(recipeId: string, only?: Locale[]): Promise<void> {
-  const r = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) });
+  let r = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) });
   if (!r) return;
+  if (enrichmentOutdated(r)) {
+    // Rewrite old effective steps first, so the translations are made from the new ones.
+    try {
+      const enrichment = await enrichRecipe(r);
+      await db().update(recipes).set({ enrichment }).where(eq(recipes.id, recipeId));
+      r = { ...r, enrichment };
+    } catch (err) {
+      console.error(`re-enriching ${recipeId} failed`, err);
+    }
+  }
   const hash = textHash(r);
   const text = recipeText(r);
   const todo = targetLocales(r.language).filter(

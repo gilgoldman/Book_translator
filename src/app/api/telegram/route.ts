@@ -30,7 +30,7 @@ import {
   viewKeyboard,
   type TgView,
 } from "@/lib/telegram-format";
-import { ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 export const maxDuration = 300;
 
@@ -315,7 +315,7 @@ async function showRecipe(chatId: number, id: string, view: TgView, t: Translato
   let r = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
   if (!r) return send(chatId, esc(t("tg.gone")));
   // We're already off the request path, so an older recipe can be translated right here.
-  if (localizeRecipe(r, t.locale).status === "pending") {
+  if (localizeRecipe(r, t.locale).status === "pending" || enrichmentOutdated(r)) {
     await ensureTranslations(r.id, [t.locale]);
     r = (await db().query.recipes.findFirst({ where: eq(recipes.id, id) })) ?? r;
   }

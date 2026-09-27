@@ -1,7 +1,9 @@
 import { embed, generateText, Output, type UserContent } from "ai";
 import {
-  enrichmentSchema,
+  ENRICHMENT_VERSION,
+  enrichmentOutputSchema,
   extractedRecipeSchema,
+  writtenToSegments,
   type Enrichment,
   type ExtractedRecipe,
 } from "@/lib/recipe-types";
@@ -56,9 +58,11 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
    - "recap": a compact ingredient list (merge duplicates, keep the recipe's language).
    - "effectiveSteps": rewrite the method into concise, action-first steps where every quantity is embedded
      at the moment it is used, e.g. "Whisk [100 g flour] with [1 egg] and [a pinch of salt] until smooth."
-     Express each step as segments: plain text segments have ingredient=null, metric=null, volume=null;
-     ingredient segments give the ingredient index, its name as text (never empty, no amount), and the amount used in that step in
-     both metric and US volume (split amounts correctly when an ingredient is used in several steps).
+     Write each step's "text" with a marker {0}, {1}… where each ingredient goes, and list those ingredients
+     in "ingredients" in marker order: its index, its name as the sentence would say it (never empty, no amount),
+     and just the amount used in that step in both metric and US volume (split amounts correctly when an
+     ingredient is used in several steps). The example above is "Whisk {0} with {1} and {2} until smooth."
+     with ingredients flour 100 g, egg 1, salt a pinch. Every marker appears once; never put the name in "text".
      Merge trivial steps, split overloaded ones, keep all timers. Keep the recipe's language.
 
 2. The "ratio" view in the spirit of Michael Ruhlman's "Ratio": reduce the recipe to its structural core
@@ -69,7 +73,11 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
    ratio (e.g. a salad), give the proportions of the main components anyway and say so in "insight".
    Write every text in the recipe's language; the app translates it for other readers.`;
 
-export async function enrichRecipe(recipe: ExtractedRecipe): Promise<Enrichment> {
+type EnrichInput = Pick<ExtractedRecipe, "title" | "servings" | "steps"> & {
+  ingredients: Pick<ExtractedRecipe["ingredients"][number], "name" | "original" | "grams" | "ml" | "metric" | "volume" | "note">[];
+};
+
+export async function enrichRecipe(recipe: EnrichInput): Promise<Enrichment> {
   const { output } = await generateText({
     model: ai.languageModel("enrich"),
     maxRetries: AI_MAX_RETRIES,
@@ -89,9 +97,23 @@ export async function enrichRecipe(recipe: ExtractedRecipe): Promise<Enrichment>
       })),
       steps: recipe.steps,
     }),
-    output: Output.object({ schema: enrichmentSchema }),
+    output: Output.object({ schema: enrichmentOutputSchema }),
   });
-  return output;
+  const known = (i: number) => i >= 0 && i < recipe.ingredients.length;
+  return {
+    recap: output.recap,
+    ratio: output.ratio,
+    effectiveSteps: output.effectiveSteps.map((s) => ({
+      timers: s.timers,
+      // An ingredient index that points nowhere still reads fine as plain words.
+      segments: writtenToSegments(s.text, s.ingredients).segments.map((seg) =>
+        seg.ingredient === null || known(seg.ingredient)
+          ? seg
+          : { text: [seg.metric, seg.text].filter(Boolean).join(" "), ingredient: null, metric: null, volume: null },
+      ),
+    })),
+    version: ENRICHMENT_VERSION,
+  };
 }
 
 export function embeddingText(r: {

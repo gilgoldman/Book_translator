@@ -15,7 +15,7 @@ import { canEdit } from "@/lib/dedupe";
 import { dirFor } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 import { localNames } from "@/lib/ingredient-names";
-import { ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 async function load(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -37,7 +37,7 @@ export default async function RecipePage({ params, searchParams }: PageProps<"/r
     ? { recipe: r, status: "original" as const, language: r.language }
     : localizeRecipe(r, t.locale);
   // Missing or out of date (an older recipe, or a failed call): make it now for next time.
-  if (localized.status === "pending") after(() => ensureTranslations(r.id, [t.locale]));
+  if (localized.status === "pending" || enrichmentOutdated(r)) after(() => ensureTranslations(r.id, [t.locale]));
   const shown = localized.recipe;
 
   const [original, source, uploader, names] = await Promise.all([

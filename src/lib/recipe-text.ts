@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
-import { effectiveSegmentSchema } from "@/lib/recipe-types";
+import { segmentsToWritten, writtenToSegments } from "@/lib/recipe-types";
 
 // A recipe's words, apart from its numbers. Translation is a function from this shape to
 // the same shape in another language; applying it swaps the words and keeps every
@@ -26,9 +26,10 @@ export const recipeTextSchema = z.object({
   recap: z.array(z.object({ name: z.string(), metric: nullableText, volume: nullableText })),
   effectiveSteps: z.array(
     z.object({
-      segments: z
-        .array(effectiveSegmentSchema)
-        .describe("Re-segment freely for natural word order; keep each ingredient index and its amounts"),
+      text: z.string().describe("The step; {0}, {1}… mark where its ingredients go. Keep every marker once, move them freely"),
+      ingredients: z
+        .array(z.object({ name: z.string(), metric: nullableText, volume: nullableText }))
+        .describe("Same length and order as given"),
       timers: z.array(z.string()),
     }),
   ),
@@ -70,7 +71,14 @@ export function recipeText(r: RecipeContent): RecipeText {
     })),
     steps: r.steps.map((s) => ({ text: s.text, timers: s.timers.map((t) => t.label) })),
     recap: e?.recap ?? [],
-    effectiveSteps: (e?.effectiveSteps ?? []).map((s) => ({ segments: s.segments, timers: s.timers.map((t) => t.label) })),
+    effectiveSteps: (e?.effectiveSteps ?? []).map((s) => {
+      const { text, ingredients } = segmentsToWritten(s.segments);
+      return {
+        text,
+        ingredients: ingredients.map(({ name, metric, volume }) => ({ name, metric, volume })),
+        timers: s.timers.map((t) => t.label),
+      };
+    }),
     ratio: e
       ? {
           family: e.ratio.family,
@@ -106,16 +114,26 @@ export function applyText<R extends RecipeContent>(r: R, text: RecipeText): R {
   let enrichment = r.enrichment;
   if (enrichment) {
     const e = enrichment;
-    const validSegments = (segments: RecipeText["effectiveSteps"][number]["segments"]) =>
-      segments.every((s) => s.ingredient === null || (s.ingredient >= 0 && s.ingredient < r.ingredients.length));
+    // The translated sentence, with each marker filled by the original ingredient link and
+    // the translated name and amounts. Any marker missing, repeated or unknown: keep the original.
+    const translatedSegments = (segments: Enrichment["effectiveSteps"][number]["segments"], t: RecipeText["effectiveSteps"][number]) => {
+      const original = segmentsToWritten(segments).ingredients;
+      if (!t.text.trim() || !sameLength(original, t.ingredients)) return segments;
+      const filled = writtenToSegments(
+        t.text,
+        original.map((o, k) => ({ ...t.ingredients[k], name: t.ingredients[k].name || o.name, ingredient: o.ingredient })),
+      );
+      return filled.complete ? filled.segments : segments;
+    };
     const tr = text.ratio;
     enrichment = {
+      ...e,
       recap: sameLength(e.recap, text.recap) ? text.recap : e.recap,
       effectiveSteps: sameLength(e.effectiveSteps, text.effectiveSteps)
         ? e.effectiveSteps.map((s, k) => {
             const t = text.effectiveSteps[k];
             return {
-              segments: t.segments.length && validSegments(t.segments) ? t.segments : s.segments,
+              segments: translatedSegments(s.segments, t),
               timers: sameLength(s.timers, t.timers) ? s.timers.map((x, j) => ({ ...x, label: t.timers[j] })) : s.timers,
             };
           })

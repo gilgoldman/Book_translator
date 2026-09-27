@@ -120,21 +120,96 @@ export const ratioSchema = z.object({
 });
 export type Ratio = z.infer<typeof ratioSchema>;
 
-export const enrichmentSchema = z.object({
+/** Bump when stored effective steps should be rewritten; older ones redo themselves when opened. */
+export const ENRICHMENT_VERSION = 2;
+
+export type Enrichment = {
+  recap: { name: string; metric: string | null; volume: string | null }[];
+  effectiveSteps: { segments: EffectiveSegment[]; timers: TimerSpec[] }[];
+  ratio: Ratio;
+  /** Missing on recipes enriched before version 2. */
+  version?: number;
+};
+
+// How the model writes an effective step: the sentence with {0}, {1}… where the step's
+// ingredients go, and those ingredients listed apart. The sentence's words and the
+// ingredient names can't bleed into each other; code turns this into segments.
+export const stepIngredientSchema = z.object({
+  ingredient: z.number().int().describe("Index into the ingredients array"),
+  name: z.string().describe('The ingredient as the sentence calls it, without any amount, e.g. "flour", "egg whites"'),
+  metric: z.string().nullable().describe('Amount used in this step in metric, e.g. "100 g", "2 (≈100 g)"; null if none'),
+  volume: z.string().nullable().describe('Amount used in this step in US volume, e.g. "¾ cup", "2"; null if none'),
+});
+export type StepIngredient = z.infer<typeof stepIngredientSchema>;
+
+export const writtenStepSchema = z.object({
+  text: z
+    .string()
+    .describe('The step with {0}, {1}… where ingredients[0], ingredients[1]… go, e.g. "Whisk {0} with {1} until smooth."'),
+  ingredients: z.array(stepIngredientSchema).describe("The ingredients this step uses, in the order of their markers"),
+  timers: z.array(timerSchema),
+});
+export type WrittenStep = z.infer<typeof writtenStepSchema>;
+
+/** What the enrich model returns; `writtenToSegments` turns its steps into stored segments. */
+export const enrichmentOutputSchema = z.object({
   recap: z
     .array(z.object({ name: z.string(), metric: z.string().nullable(), volume: z.string().nullable() }))
     .describe("Short ingredient recap for the effective view, one line per ingredient, merged duplicates"),
-  effectiveSteps: z
-    .array(
-      z.object({
-        segments: z.array(effectiveSegmentSchema),
-        timers: z.array(timerSchema),
-      }),
-    )
-    .describe("Rewritten concise steps with quantities embedded inline"),
+  effectiveSteps: z.array(writtenStepSchema).describe("Rewritten concise steps with quantities embedded inline"),
   ratio: ratioSchema,
 });
-export type Enrichment = z.infer<typeof enrichmentSchema>;
+
+const MARKER = /\{(\d+)\}/g;
+
+/**
+ * Segments from a written step. `complete` is false when a marker points nowhere or an
+ * ingredient is left out or used twice; bad markers are dropped from the segments.
+ */
+export function writtenToSegments(
+  text: string,
+  ingredients: StepIngredient[],
+): { segments: EffectiveSegment[]; complete: boolean } {
+  const segments: EffectiveSegment[] = [];
+  const used = ingredients.map(() => 0);
+  let complete = true;
+  let plain = "";
+  const flush = () => {
+    if (plain) segments.push({ text: plain, ingredient: null, metric: null, volume: null });
+    plain = "";
+  };
+  let last = 0;
+  for (const m of text.matchAll(MARKER)) {
+    plain += text.slice(last, m.index);
+    last = m.index + m[0].length;
+    const k = Number(m[1]);
+    const ing = ingredients[k];
+    if (!ing) {
+      complete = false;
+      continue;
+    }
+    used[k]++;
+    flush();
+    segments.push({ text: ing.name, ingredient: ing.ingredient, metric: ing.metric, volume: ing.volume });
+  }
+  plain += text.slice(last);
+  flush();
+  return { segments, complete: complete && used.every((n) => n === 1) };
+}
+
+/** The reverse: a stored step as a sentence with markers, for translating. */
+export function segmentsToWritten(segments: EffectiveSegment[]): { text: string; ingredients: StepIngredient[] } {
+  const ingredients: StepIngredient[] = [];
+  let text = "";
+  for (const s of segments) {
+    if (s.ingredient === null) text += s.text.replace(MARKER, "($1)");
+    else {
+      text += `{${ingredients.length}}`;
+      ingredients.push({ ingredient: s.ingredient, name: s.text, metric: s.metric, volume: s.volume });
+    }
+  }
+  return { text, ingredients };
+}
 
 export const substitutionSchema = z.object({
   options: z

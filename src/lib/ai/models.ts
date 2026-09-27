@@ -17,8 +17,11 @@ const MODEL_ID = process.env.LLM_MODEL ?? "gemini-3.8-flash";
 // Used when the main model is overloaded (503) or out of quota (429).
 const FALLBACK_MODEL_ID = process.env.LLM_FALLBACK_MODEL ?? "gemini-3.5-flash";
 
-/** Attempts per call on top of the first, with growing waits (2 s, 4 s, 8 s). */
-export const AI_MAX_RETRIES = 3;
+/**
+ * Attempts per call on top of the first (waits 2 s, 4 s). Kept short on purpose: the backup
+ * model handles overload, and the Telegram bot retries whole imports on top of this.
+ */
+export const AI_MAX_RETRIES = 2;
 
 type ThinkingLevel = "low" | "medium" | "high";
 

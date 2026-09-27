@@ -34,9 +34,8 @@ import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 export const maxDuration = 300;
 
-// Waits between whole-import retries when the AI is busy, and the time one attempt may take.
-const BUSY_WAITS_MS = [30_000, 60_000, 90_000];
-const ATTEMPT_BUDGET_MS = 90_000;
+// Waits between whole-import retries when the AI is busy. The person never waits more than a minute between tries.
+const BUSY_WAITS_MS = [20_000, 40_000, 60_000];
 
 const ALBUM_WAIT_MS = 2500;
 const appUrl = () => process.env.APP_URL?.replace(/\/$/, "");
@@ -219,15 +218,18 @@ async function importAndReply(
   try {
     const req = await build();
     let result: Awaited<ReturnType<typeof ingest>> | null = null;
+    let longestAttempt = 0;
     for (let attempt = 0; !result; attempt++) {
+      const attemptStart = Date.now();
       try {
         result = await ingest(req, userId);
       } catch (err) {
-        // Google's AI is overloaded: say so, then keep trying while this function has time left.
+        // Google's AI is overloaded: say so, then keep trying while this function has time left
+        // for another attempt as long as the slowest one so far.
+        longestAttempt = Math.max(longestAttempt, Date.now() - attemptStart);
         const wait = BUSY_WAITS_MS[attempt];
-        if (!isAiBusy(err) || wait === undefined || Date.now() - started + wait + ATTEMPT_BUDGET_MS > maxDuration * 1000) {
-          throw err;
-        }
+        const timeLeft = maxDuration * 1000 - (Date.now() - started);
+        if (!isAiBusy(err) || wait === undefined || wait + longestAttempt + 10_000 > timeLeft) throw err;
         console.warn(`telegram import: AI busy, retrying in ${wait / 1000}s`);
         if (attempt === 0) await edit(chatId, status.message_id, esc(t("tg.busyRetrying")));
         await new Promise((r) => setTimeout(r, wait));

@@ -11,10 +11,11 @@ const SYSTEM = `You translate recipes for a family cookbook.
   local names of ingredients and dishes; keep a dish's name when it is normally left as is.
 - Amount strings ("metric", "volume", "amount"): keep numbers, fractions and symbols, translate
   the words and units into what cooks in that language write ("2 tbsp" -> "2 כפות").
-- "effectiveSteps" segments: reorder or re-split them so the sentence reads naturally, but keep
-  every ingredient segment's "ingredient" index, and its "metric"/"volume" amounts (translated).
-  An ingredient segment's "text" is the ingredient's translated name and is never empty.
-  Plain text segments have ingredient, metric and volume set to null. Mind the spaces between segments.
+- "effectiveSteps": "text" is a sentence where {0}, {1}… mark where the step's ingredients go.
+  Translate the sentence and move the markers wherever the target language puts those words,
+  keeping each marker exactly once and never writing an ingredient's name or amount in "text".
+  Translate each entry of "ingredients" in place: "name" is the ingredient's name (never empty),
+  "metric"/"volume" its amounts.
 - Never add, drop or merge ingredients, steps or timers.`;
 
 export async function translateRecipeText(text: RecipeText, languageName: string): Promise<RecipeText> {

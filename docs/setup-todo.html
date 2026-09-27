@@ -57,7 +57,7 @@
     <li><label><input type="checkbox" data-id="env"><span><span class="what">Add environment variables</span>
       <span class="how">Project → <b>Settings → Environment Variables</b>: <code>AUTH_SECRET</code>, <code>GOOGLE_GENERATIVE_AI_API_KEY</code>, and <code>APP_URL</code> (your site address, e.g. <code>https://your-cookbook.vercel.app</code>).</span></span></label></li>
     <li><label><input type="checkbox" data-id="deploy"><span><span class="what">Deploy</span>
-      <span class="how">Deployments → Redeploy. The database tables are created during the build. The book starts empty.</span></span></label></li>
+      <span class="how">Deployments → ⋯ → Redeploy. Do this after <b>every</b> env var change: a deployment only sees the variables that existed when it was built. The database tables are created during the build. The book starts empty.</span></span></label></li>
   </ol>
 
   <h2>4 · First sign-in</h2>

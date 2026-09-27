@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Koyomi — Direction C</title>
+<meta name="description" content="Cookbook design direction C: an almanac and ledger — IBM Plex, indigo, a grid of squares.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #FAF9F5; --raised: #FFFFFF; --sunk: #F0EEE7;
+  --ink: #141414; --ink-2: #45443F; --ink-3: #6A6862;
+  --grid: #E5E2D9; --grid-strong: #C9C5B9;
+  --ai: #2A4A6E; --ai-soft: #E2E8EF; --on-ai: #FAF9F5;
+  --spring: #C4707E; --summer: #4E8A66; --autumn: #BD6330; --winter: #3E5A78; --allyear: #8B877E;
+  --spring-tint: #F5E5E8; --summer-tint: #E2EEE6; --autumn-tint: #F5E4D8; --winter-tint: #E1E7EE; --allyear-tint: #ECEAE4;
+  --r-grain: #D9CBA6; --r-fat: #E8D394; --r-liquid: #BBD0D7; --r-egg: #E9B85C; --r-dairy: #E3DCC7;
+  --sans: "IBM Plex Sans", "IBM Plex Sans Hebrew", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --step-size: 1.3125rem;
+  --ease: cubic-bezier(.2,.7,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0F1215; --raised: #161A1E; --sunk: #0B0D10;
+    --ink: #E7E5E0; --ink-2: #B0AEA8; --ink-3: #8A8882;
+    --grid: #252A30; --grid-strong: #39404A;
+    --ai: #9DB8D8; --ai-soft: #1B2633; --on-ai: #0F1215;
+    --spring: #E3A1AC; --summer: #86C0A0; --autumn: #E39462; --winter: #8FAACB; --allyear: #A39C90;
+    --spring-tint: #2E2327; --summer-tint: #1A2721; --autumn-tint: #2F2219; --winter-tint: #1A2330; --allyear-tint: #1F2124;
+    --r-grain: #6F6549; --r-fat: #7D6C3A; --r-liquid: #3F565E; --r-egg: #8C6A28; --r-dairy: #595444;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0F1215; --raised: #161A1E; --sunk: #0B0D10;
+  --ink: #E7E5E0; --ink-2: #B0AEA8; --ink-3: #8A8882;
+  --grid: #252A30; --grid-strong: #39404A;
+  --ai: #9DB8D8; --ai-soft: #1B2633; --on-ai: #0F1215;
+  --spring: #E3A1AC; --summer: #86C0A0; --autumn: #E39462; --winter: #8FAACB; --allyear: #A39C90;
+  --spring-tint: #2E2327; --summer-tint: #1A2721; --autumn-tint: #2F2219; --winter-tint: #1A2330; --allyear-tint: #1F2124;
+  --r-grain: #6F6549; --r-fat: #7D6C3A; --r-liquid: #3F565E; --r-egg: #8C6A28; --r-dairy: #595444;
+}
+@media (min-width: 900px) { :root { --step-size: 1.5rem; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 1.0625rem; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-underline-offset: .2em; text-decoration-color: var(--grid-strong); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+.ico, .glyph { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.18em; flex: none; }
+.mono, .label { font-family: var(--mono); }
+.label { font-size: .75rem; color: var(--ink-3); margin: 0 0 12px; letter-spacing: .02em; }
+.quiet { color: var(--ink-2); }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 700px) { .wrap { padding: 0 40px; } }
+
+.intro { padding: 48px 0 40px; border-bottom: 1px solid var(--ink); }
+.intro .kicker { font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); margin: 0 0 20px; }
+.intro h1 { font-size: clamp(2.5rem, 9vw, 4.5rem); font-weight: 300; letter-spacing: -.03em; line-height: 1; margin: 0 0 20px; }
+.intro h1 small { font-size: .4em; color: var(--ai); font-weight: 400; margin-left: .4em; letter-spacing: .1em; vertical-align: .6em; }
+.intro p { max-width: 38em; color: var(--ink-2); margin: 0 0 10px; }
+.tools { display: flex; gap: 0; margin-top: 24px; font-family: var(--mono); font-size: .8125rem; flex-wrap: wrap; }
+.tools button { border: 1px solid var(--grid-strong); padding: 10px 14px; margin: 0 -1px -1px 0; }
+.screen { padding: 48px 0 72px; border-bottom: 1px solid var(--grid-strong); }
+.screen-label { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); margin: 0 0 32px; display: flex; gap: 12px; }
+.screen-label::after { content: ""; flex: 1; border-bottom: 1px solid var(--grid); transform: translateY(-.45em); }
+
+/* marks */
+.s-spring { --season: var(--spring); --season-tint: var(--spring-tint); }
+.s-summer { --season: var(--summer); --season-tint: var(--summer-tint); }
+.s-autumn { --season: var(--autumn); --season-tint: var(--autumn-tint); }
+.s-winter { --season: var(--winter); --season-tint: var(--winter-tint); }
+.s-allyear { --season: var(--allyear); --season-tint: var(--allyear-tint); }
+.sq { display: inline-block; width: 12px; height: 12px; background: var(--season); flex: none; }
+.code { font-family: var(--mono); font-size: .75rem; text-transform: uppercase; border: 1px solid var(--ai); color: var(--ai); padding: 1px 4px; line-height: 1.3; letter-spacing: .04em; }
+.diet { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); }
+
+/* library: almanac + ledger */
+.almanac { display: grid; grid-template-columns: auto 1fr; gap: 4px 20px; align-items: end; padding-bottom: 24px; border-bottom: 1px solid var(--ink); }
+.almanac .big { grid-row: span 2; width: 64px; height: 64px; background: var(--season); color: var(--on-ai); display: grid; place-items: center; font-size: 1.75rem; font-weight: 300; }
+.almanac .when { font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); }
+.almanac .ko { font-size: clamp(1.5rem, 5vw, 2.25rem); font-weight: 300; letter-spacing: -.02em; line-height: 1.15; }
+.appbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; font-family: var(--mono); font-size: .8125rem; }
+.appbar nav { display: flex; gap: 20px; }
+.search { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--grid-strong); padding: 16px 0; }
+.search .prompt { font-family: var(--mono); color: var(--ai); font-size: 1.25rem; }
+.search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); outline: none; font: 400 1.375rem var(--sans); }
+.search input::placeholder { color: var(--ink-3); }
+.search kbd { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); border: 1px solid var(--grid-strong); padding: 2px 6px; }
+.facets { display: flex; flex-wrap: wrap; gap: 0; margin: 16px 0 32px; font-family: var(--mono); font-size: .75rem; }
+.facets button { padding: 8px 12px; border: 1px solid var(--grid); margin: 0 -1px -1px 0; color: var(--ink-2); min-height: 36px; }
+.facets button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.ledger { width: 100%; border-collapse: collapse; }
+.ledger th { font-family: var(--mono); font-size: .6875rem; font-weight: 400; color: var(--ink-3); text-align: left; padding: 0 12px 8px 0; border-bottom: 1px solid var(--ink); }
+.ledger td { padding: 16px 12px 16px 0; border-bottom: 1px solid var(--grid); vertical-align: baseline; }
+.ledger td.n { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); width: 3.5em; }
+.ledger .t { font-size: 1.1875rem; font-weight: 500; letter-spacing: -.01em; }
+.ledger .t a { text-decoration: none; }
+.ledger .t a:hover { text-decoration: underline; }
+.ledger .s { display: block; font-size: .9375rem; color: var(--ink-2); font-weight: 400; }
+.ledger .m { display: block; font-family: var(--mono); font-size: .75rem; color: var(--ai); margin-top: 2px; }
+.ledger td.meta { white-space: nowrap; color: var(--ink-2); }
+.ledger td.meta > * { margin-right: 10px; vertical-align: middle; }
+.ledger td.time { font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); text-align: right; padding-right: 0; white-space: nowrap; }
+[dir="rtl"] .t, [lang="he"] { font-family: "IBM Plex Sans Hebrew", var(--sans); }
+@media (max-width: 640px) {
+  .ledger thead { display: none; }
+  .ledger tr { display: grid; grid-template-columns: 2.5em 1fr auto; border-bottom: 1px solid var(--grid); padding: 14px 0; }
+  .ledger td { border: 0; padding: 0; }
+  .ledger td.meta { grid-column: 2; margin-top: 8px; }
+  .ledger td.time { grid-column: 3; grid-row: 1; }
+}
+
+/* recipe */
+.r-top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); margin-bottom: 24px; }
+.r-top a { text-decoration: none; display: inline-flex; gap: 4px; align-items: center; min-height: 44px; }
+.r-head { display: grid; gap: 8px; border-top: 1px solid var(--ink); padding-top: 20px; }
+@media (min-width: 900px) { .r-head { grid-template-columns: 1fr 300px; column-gap: 64px; } }
+.r-head h1 { font-size: clamp(2.25rem, 8vw, 3.75rem); font-weight: 300; letter-spacing: -.035em; line-height: 1.02; margin: 0; }
+.r-dek { font-size: 1.125rem; color: var(--ink-2); margin: 8px 0 0; max-width: 32em; }
+.r-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; font-size: .875rem; align-self: end; border-top: 1px solid var(--grid); }
+@media (min-width: 900px) { .r-facts { grid-row: 1 / span 2; grid-column: 2; border-top: 0; } }
+.r-facts dt, .r-facts dd { padding: 7px 0; border-bottom: 1px solid var(--grid); margin: 0; }
+.r-facts dt { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); padding-right: 20px; padding-top: 9px; }
+.r-facts dd { display: flex; gap: 8px; align-items: center; }
+.r-bar { display: flex; justify-content: space-between; align-items: stretch; margin: 36px 0 32px; border: 1px solid var(--ink); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+[role=tablist] { display: flex; overflow-x: auto; scrollbar-width: none; flex: 1; }
+[role=tab] { flex: 1; padding: 12px 10px; font-size: .875rem; border-right: 1px solid var(--grid-strong); color: var(--ink-2); white-space: nowrap; min-height: 48px; }
+[role=tab][aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.units { font-family: var(--mono); font-size: .75rem; padding: 0 14px; color: var(--ink-3); white-space: nowrap; }
+.units[aria-pressed="false"] .u-m, .units[aria-pressed="true"] .u-v { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.eff { display: grid; gap: 32px; }
+@media (min-width: 900px) { .eff { grid-template-columns: 1fr 300px; gap: 64px; } .recap { grid-column: 2; grid-row: 1; position: sticky; top: 90px; align-self: start; } }
+.recap table { width: 100%; border-collapse: collapse; font-size: .9375rem; }
+.recap td { padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.recap td.q { font-family: var(--mono); font-size: .875rem; text-align: right; font-weight: 400; color: var(--ink); }
+.recap tr.h td { font-family: var(--mono); font-size: .6875rem; color: var(--ink-3); padding-top: 16px; border-bottom-color: var(--grid-strong); }
+.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 3em 1fr; padding: 20px 0 24px; border-bottom: 1px solid var(--grid); font-size: var(--step-size); line-height: 1.5; font-weight: 400; letter-spacing: -.005em; }
+.steps li > * { grid-column: 2; }
+.steps li::before { content: counter(step, decimal-leading-zero); grid-row: 1 / span 2; font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); padding-top: .55em; }
+.steps li.is-current { box-shadow: inset 3px 0 0 var(--ai); background: linear-gradient(90deg, var(--ai-soft), transparent 70%); padding-left: 0; }
+.steps li.is-current::before { color: var(--ai); padding-left: 14px; }
+.steps p { margin: 0; }
+.q { font-weight: 500; box-shadow: inset 0 -.32em 0 var(--ai-soft); }
+.pill { justify-self: start; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 6px 12px; min-height: 36px; border: 1px solid var(--grid-strong); font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); }
+.pill:hover { border-color: var(--ink); color: var(--ink); }
+.pill.is-running { background: var(--ai); border-color: var(--ai); color: var(--on-ai); }
+.pill.is-running .ico { animation: breathe 2s var(--ease) infinite; }
+.pill.is-done { border-color: var(--season); color: var(--ink); box-shadow: inset 4px 0 0 var(--season); }
+@keyframes breathe { 50% { opacity: .35; } }
+
+.extras { margin-top: 24px; border: 1px solid var(--grid); }
+.extras summary { list-style: none; cursor: pointer; padding: 12px 14px; font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); min-height: 44px; }
+.extras summary::-webkit-details-marker { display: none; }
+.extras summary::before { content: "[+] "; } .extras[open] summary::before { content: "[–] "; }
+.extras-body { padding: 0 14px 16px; font-size: .9375rem; }
+.note { color: var(--ink-2); margin: 0 0 12px; }
+.add-photo { font-family: var(--mono); font-size: .8125rem; border: 1px dashed var(--grid-strong); padding: 14px 18px; display: inline-flex; gap: 6px; align-items: center; }
+.tag-edit { display: grid; grid-template-columns: max-content 1fr; margin: 16px 0 0; }
+.tag-edit dt, .tag-edit dd { padding: 6px 0; border-top: 1px solid var(--grid); margin: 0; }
+.tag-edit dt { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); padding-right: 24px; padding-top: 9px; }
+
+.classic { display: grid; gap: 32px; }
+@media (min-width: 900px) { .classic { grid-template-columns: 300px 1fr; gap: 64px; } }
+.ing { list-style: none; margin: 0 0 24px; padding: 0; }
+.ing li { display: grid; grid-template-columns: 7em 1fr; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.amt { font-family: var(--mono); font-size: .875rem; padding-top: .15em; }
+.method p { font-size: 1.125rem; max-width: 34em; }
+.source { display: grid; gap: 28px; }
+@media (min-width: 900px) { .source { grid-template-columns: 300px 1fr; gap: 64px; } }
+.source-photo { margin: 0; border: 1px solid var(--grid); padding: 16px; background: var(--sunk); }
+.source-photo svg { width: 100%; display: block; }
+.sp-card { fill: var(--raised); } .sp-ink { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; }
+figcaption { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); margin-top: 10px; }
+.voice { display: flex; align-items: center; gap: 14px; border: 1px solid var(--grid-strong); padding: 6px 14px 6px 6px; margin-bottom: 20px; }
+.voice-play { width: 44px; height: 44px; background: var(--ink); color: var(--bg); display: grid; place-items: center; }
+.voice-play .ico { fill: currentColor; stroke: none; }
+.wave { flex: 1; height: 24px; fill: none; stroke: var(--ai); stroke-width: 1.2; }
+.voice-time { font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); }
+
+.tray { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: stretch; background: var(--bg); border: 1px solid var(--ink); margin-top: 32px; }
+.tray[hidden] { display: none; }
+.tray-list { list-style: none; margin: 0; padding: 0; display: flex; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.t-btn { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding: 8px 18px 10px 14px; border-right: 1px solid var(--grid-strong); min-height: 56px; white-space: nowrap; text-align: left; }
+.t-label { font-size: .75rem; color: var(--ink-3); }
+.t-time { font-family: var(--mono); font-size: 1.25rem; line-height: 1.2; font-weight: 500; }
+.t-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
+.t-bar i { display: block; height: 100%; background: var(--ai); transform-origin: left; transition: transform 1s linear; }
+.timer.is-done .t-btn { background: var(--season-tint, var(--autumn-tint)); }
+.timer.is-done .t-time { color: var(--autumn); }
+.tray-add { width: 56px; display: grid; place-items: center; border-left: 1px solid var(--ink); color: var(--ink-2); }
+
+/* ratios: masu squares */
+.ratios { display: grid; gap: 56px; }
+@media (min-width: 900px) { .ratios { grid-template-columns: 1fr 1fr; gap: 64px; } }
+.r-name { font-size: 1.5rem; font-weight: 400; letter-spacing: -.02em; margin: 0; }
+.r-num { font-family: var(--mono); font-size: 2.25rem; margin: 6px 0 24px; letter-spacing: -.02em; color: var(--ai); }
+.masu { display: grid; gap: 0; border-top: 1px solid var(--ink); }
+.masu-row { display: grid; grid-template-columns: 7.5em 1fr auto; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.masu-row dt { font-size: .9375rem; color: var(--ink-2); }
+.cells { display: flex; gap: 0; }
+.cells i { width: 36px; height: 36px; background: var(--c); border: 1px solid var(--bg); outline: 1px solid var(--grid-strong); outline-offset: -1px; }
+@media (min-width: 700px) { .cells i { width: 44px; height: 44px; } }
+.masu-row dd { margin: 0; font-family: var(--mono); font-size: .9375rem; text-align: right; min-width: 4.5em; }
+.c-grain { --c: var(--r-grain); } .c-fat { --c: var(--r-fat); } .c-liquid { --c: var(--r-liquid); } .c-egg { --c: var(--r-egg); } .c-dairy { --c: var(--r-dairy); }
+.r-scale { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-family: var(--mono); font-size: .8125rem; color: var(--ink-3); }
+.r-scale input { width: 5em; font: 500 1rem var(--mono); color: var(--ink); background: var(--raised); border: 1px solid var(--grid-strong); padding: 8px; text-align: center; }
+.r-note { font-size: .875rem; color: var(--ink-3); margin: 10px 0 0; }
+.seasonings { grid-column: 1 / -1; border-top: 1px solid var(--ink); padding-top: 16px; }
+.seasonings p:last-child { margin: 0; color: var(--ink-2); }
+
+/* share: index card */
+.card-page { background: var(--sunk); padding: 24px 12px; }
+@media (min-width: 700px) { .card-page { padding: 64px 40px; } }
+.share { max-width: 720px; margin: 0 auto; background: var(--raised); padding: 32px 20px 24px; background-image: linear-gradient(var(--grid) 1px, transparent 1px); background-size: 100% 32px; background-position: 0 23px; border-top: 6px solid var(--season); }
+@media (min-width: 700px) { .share { padding: 48px 56px 32px; } }
+.share .no { font-family: var(--mono); font-size: .75rem; color: var(--ink-3); display: flex; justify-content: space-between; margin: 0 0 28px; line-height: 32px; }
+.share h1 { font-size: clamp(2rem, 7vw, 3rem); font-weight: 300; letter-spacing: -.03em; line-height: 1.07; margin: 0 0 8px; }
+.share .dek { color: var(--ink-2); margin: 0 0 32px; line-height: 32px; }
+.share-cols { display: grid; gap: 24px; line-height: 32px; }
+@media (min-width: 700px) { .share-cols { grid-template-columns: 220px 1fr; gap: 40px; } }
+.share h2 { font-family: var(--mono); font-size: .75rem; font-weight: 400; color: var(--ai); margin: 0; line-height: 32px; }
+.share ul { list-style: none; margin: 0; padding: 0; font-size: .9375rem; }
+.share ol { margin: 0; padding-left: 1.4em; font-size: .9375rem; }
+.share-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 32px; font-family: var(--mono); font-size: .75rem; color: var(--ink-3); line-height: 32px; flex-wrap: wrap; }
+.share-foot span { display: inline-flex; gap: 8px; align-items: center; }
+
+.legend { display: grid; gap: 32px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.legend ul { list-style: none; margin: 0; padding: 0; font-size: .9375rem; color: var(--ink-2); }
+.legend li { display: flex; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.legend .glyph { width: 20px; height: 20px; }
+.legend .jp { margin-left: auto; font-family: var(--mono); font-size: .75rem; color: var(--ink-3); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- course glyphs: 24x24, 1.4 stroke, round caps. One per course. -->
+    <symbol id="c-breakfast" viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="8" ry="6.5"/><circle cx="12" cy="13" r="2.6"/></symbol>
+    <symbol id="c-starter" viewBox="0 0 24 24"><path d="M4 14h16"/><path d="M6.5 14c.8 2.4 2.9 3.5 5.5 3.5s4.7-1.1 5.5-3.5"/></symbol>
+    <symbol id="c-soup" viewBox="0 0 24 24"><path d="M3.5 11h17c0 4.7-3.8 8-8.5 8s-8.5-3.3-8.5-8z"/><path d="M9 7.5c0-1.2 1-1.3 1-2.5M13 7.5c0-1.2 1-1.3 1-2.5"/></symbol>
+    <symbol id="c-salad" viewBox="0 0 24 24"><path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z"/><path d="M5 19 13 11"/></symbol>
+    <symbol id="c-main" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/></symbol>
+    <symbol id="c-side" viewBox="0 0 24 24"><path d="M6 11h12c0 3.3-2.7 6-6 6s-6-2.7-6-6z"/><path d="M9.5 17.5h5"/></symbol>
+    <symbol id="c-bake" viewBox="0 0 24 24"><path d="M4 17V11c0-3 3.6-5 8-5s8 2 8 5v6z"/><path d="M9 9.5l1.5 2M13 9l1.5 2"/></symbol>
+    <symbol id="c-sweet" viewBox="0 0 24 24"><path d="M4 17 19 8.5V17z"/><path d="M4 17V14l15-8.5v3"/></symbol>
+    <symbol id="c-drink" viewBox="0 0 24 24"><path d="M6 8h10v6a5 5 0 0 1-10 0z"/><path d="M16 10h1.5a2 2 0 0 1 0 4H16"/></symbol>
+    <symbol id="c-pantry" viewBox="0 0 24 24"><rect x="6" y="8" width="12" height="12" rx="2"/><path d="M8 5h8v3H8z"/></symbol>
+    <!-- ui -->
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 13V9.5M10 3.5h4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 4v11M8 8l4-4 4 4M5 13v6h14v-6"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2V10a4.5 4.5 0 0 0-9 0v4z"/><path d="M10.5 19h3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+  </defs>
+</svg>
+
+<header class="intro">
+  <div class="wrap">
+    <p class="kicker">direction_c / the cookbook</p>
+    <h1>Koyomi<small>暦</small></h1>
+    <p><strong>Rationale:</strong> the cookbook as an almanac and a ledger — one type superfamily (IBM Plex, with Hebrew and Japanese siblings), squares instead of boxes, indigo ink, and the day’s microseason opening the library.</p>
+    <p>The most systematic direction: every number is monospaced, every ratio is counted in squares.</p>
+    <div class="tools">
+      <button type="button" data-theme-toggle>light / dark</button>
+      <button type="button" data-chime-demo>hear chime (5 s)</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="screen" aria-labelledby="l1">
+  <div class="wrap">
+    <p class="screen-label" id="l1">01 library</p>
+    <header class="appbar"><span>cookbook</span><nav><a href="#">+ import</a><a href="#">gil</a></nav></header>
+    <div class="almanac s-autumn">
+      <span class="big" aria-hidden="true">秋</span>
+      <span class="when">sat 27 sep · 秋分 autumn equinox · kō 46 of 72</span>
+      <span class="ko">Thunder ceases to sound</span>
+    </div>
+    <form class="search" role="search" onsubmit="return false">
+      <span class="prompt" aria-hidden="true">›</span>
+      <input type="search" value="that lemony chicken thing" aria-label="Search recipes" placeholder="leeks, eggs, feta…">
+      <kbd>/</kbd>
+    </form>
+    <div class="facets" role="group" aria-label="Filter">
+      <button type="button" class="on">autumn</button><button type="button">all seasons</button><button type="button">main</button><button type="button">baking</button><button type="button">veg</button><button type="button">cuisine…</button>
+    </div>
+    <table class="ledger">
+      <thead><tr><th>no.</th><th>recipe</th><th>marks</th><th style="text-align:right">time</th></tr></thead>
+      <tbody>
+        <tr class="s-summer"><td class="n">031</td><td class="t"><a href="#">Chicken with preserved lemon &amp; olives</a><span class="s">The lemony chicken thing — braised, olives, a lot of parsley</span><span class="m">match: lemon · chicken</span></td><td class="meta"><span class="sq" title="Summer"></span><span class="code" title="Moroccan">ma</span><svg class="glyph" role="img" aria-label="Main"><use href="#c-main"/></svg><span class="diet">gf df</span></td><td class="time">1 h 10</td></tr>
+        <tr class="s-spring"><td class="n">058</td><td class="t"><a href="#">Avgolemono</a><span class="s">Egg-lemon soup with rice and shredded chicken</span><span class="m">match: lemon · chicken</span></td><td class="meta"><span class="sq" title="Spring"></span><span class="code" title="Greek">gr</span><svg class="glyph" role="img" aria-label="Soup"><use href="#c-soup"/></svg><span class="diet">gf</span></td><td class="time">45 m</td></tr>
+        <tr class="s-allyear" dir="rtl" lang="he"><td class="n" dir="ltr">064</td><td class="t"><a href="#">עוף בלימון ושום</a><span class="s">עוף צלוי עם לימון שלם, שום ותימין</span><span class="m" dir="ltr" lang="en">match: lemon · chicken</span></td><td class="meta" dir="ltr"><span class="sq" title="All year"></span><span class="code" title="Israeli">il</span><svg class="glyph" role="img" aria-label="Main"><use href="#c-main"/></svg><span class="diet">gf df</span></td><td class="time" dir="ltr">1 h 30</td></tr>
+        <tr class="s-autumn"><td class="n">047</td><td class="t"><a href="#recipe">Leek &amp; feta tart</a><span class="s">Pâte brisée, soft leeks, a savoury custard</span></td><td class="meta"><span class="sq" title="Autumn"></span><span class="code" title="French">fr</span><svg class="glyph" role="img" aria-label="Main"><use href="#c-main"/></svg><span class="diet">veg</span></td><td class="time">1 h 40</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="screen" id="recipe" aria-labelledby="l2">
+  <div class="wrap">
+    <p class="screen-label" id="l2">02 recipe / effective, two timers running</p>
+    <article class="recipe s-autumn">
+      <div class="r-top"><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-back"/></svg>library</a><span>no. 047</span></div>
+      <header class="r-head">
+        <div>
+          <h1>Leek &amp; feta tart</h1>
+          <p class="r-dek">Pâte brisée, soft leeks and a savoury custard. A Sunday tart that keeps.</p>
+        </div>
+        <dl class="r-facts">
+          <dt>season</dt><dd><span class="sq"></span>Autumn, into winter</dd>
+          <dt>cuisine</dt><dd><span class="code">fr</span>French</dd>
+          <dt>course</dt><dd><svg class="glyph" aria-hidden="true"><use href="#c-main"/></svg>Main</dd>
+          <dt>diet</dt><dd>Vegetarian</dd>
+          <dt>makes</dt><dd>6 slices · 1 h 40</dd>
+        </dl>
+      </header>
+      <div class="r-bar">
+        <div role="tablist" aria-label="Recipe views">
+          <button role="tab" id="tab-effective" aria-controls="panel-effective" aria-selected="true">Effective</button>
+          <button role="tab" id="tab-classic" aria-controls="panel-classic" aria-selected="false" tabindex="-1">Classic</button>
+          <button role="tab" id="tab-ratios" aria-controls="panel-ratios" aria-selected="false" tabindex="-1">Ratios</button>
+          <button role="tab" id="tab-source" aria-controls="panel-source" aria-selected="false" tabindex="-1">Source</button>
+        </div>
+        <button class="units" type="button" data-units aria-pressed="false" aria-label="Show volume units"><span class="u-m">g</span>/<span class="u-v">cup</span></button>
+      </div>
+      <div id="panel-effective" role="tabpanel" aria-labelledby="tab-effective">
+        <div class="eff">
+          <aside class="recap" aria-label="Ingredients at a glance">
+            <table>
+              <tr class="h"><td colspan="2">pastry</td></tr>
+              <tr><td>flour</td><td class="q" data-v="1¾ c + 2 T">240 g</td></tr>
+              <tr><td>cold butter</td><td class="q" data-v="11 T">160 g</td></tr>
+              <tr><td>ice water</td><td class="q" data-v="⅓ c">80 g</td></tr>
+              <tr class="h"><td colspan="2">filling</td></tr>
+              <tr><td>leeks</td><td class="q">3</td></tr>
+              <tr><td>eggs</td><td class="q">3</td></tr>
+              <tr><td>crème fraîche</td><td class="q" data-v="1¼ c">300 g</td></tr>
+              <tr><td>feta</td><td class="q" data-v="¾ c">120 g</td></tr>
+            </table>
+          </aside>
+          <div>
+            <ol class="steps">
+            <li>
+              <p>Rub <b class="q" data-v="1¾ cups + 2 tbsp flour">240 g flour</b> and <b class="q">½ tsp salt</b> with <b class="q" data-v="11 tbsp cold butter">160 g cold butter</b>, cubed, until the pieces are the size of peas. Stir in <b class="q" data-v="⅓ cup ice water">80 g ice water</b> with a fork until it just holds.</p>
+            </li>
+            <li>
+              <p>Press into a flat disc, wrap, and chill.</p>
+              <button class="pill" type="button" data-label="chill dough" data-sec="1800" data-start-left="1261"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>chill 30 min</button>
+            </li>
+            <li>
+              <p>Roll to <b class="q" data-v="⅛ in">3 mm</b>, line a <b class="q" data-v="9-inch">23 cm</b> tin and blind-bake at <b class="q" data-v="375 °F">190 °C</b> with paper and beans.</p>
+              <button class="pill" type="button" data-label="blind-bake" data-sec="1200"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>bake 20 min</button>
+            </li>
+            <li class="is-current">
+              <p>Meanwhile, slice <b class="q">3 leeks</b> into thin coins and sweat them in <b class="q" data-v="2 tbsp butter">30 g butter</b> with <b class="q">a pinch of salt</b> until soft and sweet, not browned.</p>
+              <button class="pill" type="button" data-label="sweat leeks" data-sec="720" data-start-left="250"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>12 min</button>
+            </li>
+            <li>
+              <p>Whisk <b class="q">3 eggs</b> with <b class="q" data-v="1¼ cups crème fraîche">300 g crème fraîche</b>, <b class="q">a grating of nutmeg</b> and black pepper.</p>
+            </li>
+            <li>
+              <p>Scatter the leeks and <b class="q" data-v="¾ cup crumbled feta">120 g feta</b> over the shell, pour in the custard and bake at <b class="q" data-v="340 °F">170 °C</b> until just set, with a slight wobble.</p>
+              <button class="pill" type="button" data-label="bake tart" data-sec="1920"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>bake 32 min</button>
+            </li>
+            <li>
+              <p>Let it rest before slicing. Good warm, better at room temperature.</p>
+              <button class="pill" type="button" data-label="rest" data-sec="600"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>rest 10 min</button>
+            </li>
+          </ol>
+
+            <details class="extras">
+          <summary>Notes, photos &amp; tags</summary>
+          <div class="extras-body">
+            <p class="note">Oct ’25 — used half feta, half goat’s cheese. Blind-bake a little longer in the old oven.</p>
+            <div class="extras-row">
+              <button type="button" class="add-photo"><svg class="ico"><use href="#i-plus"/></svg>Add photo</button>
+            </div>
+            <dl class="tag-edit">
+              <dt>Cuisine</dt><dd>French</dd>
+              <dt>Course</dt><dd>Main</dd>
+              <dt>Diet</dt><dd>Vegetarian</dd>
+              <dt>Season</dt><dd>Autumn · winter</dd>
+            </dl>
+          </div>
+        </details>
+
+          </div>
+        </div>
+      </div>
+      <div id="panel-classic" role="tabpanel" aria-labelledby="tab-classic" hidden>
+          <div class="classic">
+            <div>
+              <h3 class="label">Pastry</h3>
+              <ul class="ing">
+                <li><span class="amt" data-v="1¾ cups + 2 tbsp">240 g</span> plain flour</li>
+                <li><span class="amt" data-v="11 tbsp">160 g</span> cold butter, cubed</li>
+                <li><span class="amt" data-v="⅓ cup">80 g</span> ice water</li>
+                <li><span class="amt">½ tsp</span> fine salt</li>
+              </ul>
+              <h3 class="label">Filling</h3>
+              <ul class="ing">
+                <li><span class="amt">3</span> leeks</li>
+                <li><span class="amt" data-v="2 tbsp">30 g</span> butter</li>
+                <li><span class="amt">3</span> eggs</li>
+                <li><span class="amt" data-v="1¼ cups">300 g</span> crème fraîche</li>
+                <li><span class="amt" data-v="¾ cup">120 g</span> feta</li>
+                <li><span class="amt"></span> nutmeg, pepper</li>
+              </ul>
+            </div>
+            <div class="method">
+              <h3 class="label">Method</h3>
+              <p>Rub the flour and salt with the butter until pea-sized; stir in the water until it just holds. Press into a disc, wrap and chill for 30 minutes.</p>
+              <p>Roll to 3 mm, line a 23 cm tin and blind-bake at 190 °C for 20 minutes. Meanwhile sweat the sliced leeks in butter with a pinch of salt, about 12 minutes.</p>
+              <p>Whisk the eggs, crème fraîche, nutmeg and pepper. Fill the shell with leeks and feta, pour over the custard and bake at 170 °C for 30–35 minutes. Rest 10 minutes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-ratios" role="tabpanel" aria-labelledby="tab-ratios" hidden></div>
+
+        <div id="panel-source" role="tabpanel" aria-labelledby="tab-source" hidden>
+          <div class="source">
+            <figure class="source-photo">
+              <svg viewBox="0 0 300 380" role="img" aria-label="Photo of a handwritten recipe card">
+                <rect x="18" y="14" width="264" height="352" rx="4" class="sp-card" transform="rotate(-2 150 190)"/>
+                <g class="sp-ink" transform="rotate(-2 150 190)">
+                  <path d="M48 62c20-6 40 4 60-2s34 2 52-3"/><path d="M48 96h170M48 116h150M48 136h176M48 156h120"/>
+                  <path d="M48 196h168M48 216h160M48 236h140M48 256h172M48 276h96M48 306h150M48 326h110"/>
+                </g>
+              </svg>
+              <figcaption>Photo · sent via Telegram · 12 Sep</figcaption>
+            </figure>
+            <div class="source-meta">
+              <div class="voice">
+                <button class="voice-play" type="button" aria-label="Play voice note"><svg class="ico"><use href="#i-play"/></svg></button>
+                <svg class="wave" viewBox="0 0 200 24" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12h6l2-6 3 12 3-9 3 6 3-3h6l2-8 3 14 3-10 3 6 2-2h8l3-7 2 12 3-9 3 5h10l2-4 3 8 3-6 3 3h12l2-7 3 12 2-8 3 4h14l3-5 2 9 3-6h16l2-3 3 6 2-4h20"/></svg>
+                <span class="voice-time">0:48</span>
+              </div>
+              <p class="quiet">“…Mum’s version uses crème fraîche, not cream, and she never measures the nutmeg.”</p>
+              <p class="quiet">Originally from <a href="#">a torn page, c. 1998</a></p>
+            </div>
+          </div>
+        </div>
+
+      <div class="tray" hidden>
+        <ul class="tray-list" aria-label="Running timers" aria-live="polite"></ul>
+        <button class="tray-add" type="button" data-add-timer aria-label="Add a timer"><svg class="ico"><use href="#i-plus"/></svg></button>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l3">
+  <div class="wrap">
+    <p class="screen-label" id="l3">03 ratios</p>
+    <div id="ratio-src">
+      <div class="ratios">
+        <div class="ratio">
+          <p class="label">pastry</p>
+          <h3 class="r-name">Pâte brisée</h3>
+          <p class="r-num">3:2:1</p>
+          <dl class="masu" role="img" aria-label="3 parts flour, 2 parts fat, 1 part water">
+            <div class="masu-row"><dt>flour</dt><span class="cells c-grain"><i></i><i></i><i></i></span><dd data-parts="3">240 g</dd></div>
+            <div class="masu-row"><dt>fat</dt><span class="cells c-fat"><i></i><i></i></span><dd data-parts="2">160 g</dd></div>
+            <div class="masu-row"><dt>water</dt><span class="cells c-liquid"><i></i></span><dd data-parts="1">80 g</dd></div>
+          </dl>
+          <label class="r-scale">1 part = <input data-part inputmode="decimal" value="80" aria-label="Grams per part"> g</label>
+        </div>
+        <div class="ratio">
+          <p class="label">filling</p>
+          <h3 class="r-name">Savoury custard</h3>
+          <p class="r-num">2:1</p>
+          <dl class="masu" role="img" aria-label="2 parts dairy, 1 part egg">
+            <div class="masu-row"><dt>crème fraîche</dt><span class="cells c-dairy"><i></i><i></i></span><dd data-parts="2">300 g</dd></div>
+            <div class="masu-row"><dt>egg</dt><span class="cells c-egg"><i></i></span><dd data-parts="1">150 g</dd></div>
+          </dl>
+          <label class="r-scale">1 part = <input data-part inputmode="decimal" value="150" aria-label="Grams per part"> g</label>
+          <p class="r-note">1 egg ≈ 50 g</p>
+        </div>
+        <div class="seasonings">
+          <p class="label">seasoning / the rest</p>
+          <p>½ tsp salt · 3 leeks in 30 g butter · 120 g feta · nutmeg · pepper</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l4">
+  <div class="wrap">
+    <p class="screen-label" id="l4">04 share page</p>
+    <div class="card-page">
+      <article class="share s-autumn">
+        <p class="no"><span>no. 047 · from gil’s cookbook</span><span>autumn</span></p>
+        <h1>Leek &amp; feta tart</h1>
+        <p class="dek">Pâte brisée, soft leeks and a savoury custard.</p>
+        <div class="share-cols">
+          <div><h2>ingredients</h2><ul><li>240 g flour</li><li>160 g cold butter</li><li>80 g ice water</li><li>½ tsp salt</li><li>3 leeks, 30 g butter</li><li>3 eggs</li><li>300 g crème fraîche</li><li>120 g feta</li><li>nutmeg, pepper</li></ul></div>
+          <div><h2>method</h2><ol>
+            <li>Rub flour and salt with butter until pea-sized; add the water. Chill 30 min.</li>
+            <li>Roll to 3 mm, line a 23 cm tin, blind-bake 20 min at 190 °C.</li>
+            <li>Sweat the leeks in butter, 12 min.</li>
+            <li>Whisk eggs, crème fraîche, nutmeg, pepper.</li>
+            <li>Fill, pour, bake 30–35 min at 170 °C. Rest 10.</li></ol></div>
+        </div>
+        <footer class="share-foot"><span><span class="code">fr</span><svg class="glyph" aria-hidden="true"><use href="#c-main"/></svg>veg</span><span>3:2:1 · 2:1</span></footer>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l5">
+  <div class="wrap">
+    <p class="screen-label" id="l5">05 marks</p>
+    <div class="legend">
+      <div><p class="label">season / square</p><ul>
+        <li class="s-spring"><span class="sq"></span>Spring<span class="jp">春</span></li><li class="s-summer"><span class="sq"></span>Summer<span class="jp">夏</span></li><li class="s-autumn"><span class="sq"></span>Autumn<span class="jp">秋</span></li><li class="s-winter"><span class="sq"></span>Winter<span class="jp">冬</span></li><li class="s-allyear"><span class="sq"></span>All year<span class="jp">—</span></li></ul></div>
+      <div><p class="label">cuisine / code</p><ul><li><span class="code">fr</span>French</li><li><span class="code">jp</span>Japanese</li><li><span class="code">il</span>Israeli</li><li><span class="code">ma</span>Moroccan</li></ul></div>
+      <div><p class="label">course / vessel</p><ul><li><svg class="glyph"><use href="#c-main"/></svg>Main</li><li><svg class="glyph"><use href="#c-soup"/></svg>Soup</li><li><svg class="glyph"><use href="#c-bake"/></svg>Baking</li><li><svg class="glyph"><use href="#c-sweet"/></svg>Sweet</li></ul></div>
+      <div><p class="label">diet / abbreviation</p><ul><li><span class="diet">veg</span>Vegetarian</li><li><span class="diet">vgn</span>Vegan</li><li><span class="diet">gf</span>Gluten-free</li><li><span class="diet">df</span>Dairy-free</li></ul></div>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+/* Preview-only behaviour: theme, units, tabs, ratio scaling, timers, chime. */
+(function () {
+  var root = document.documentElement;
+  var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+
+  /* theme toggle (preview) */
+  $$('[data-theme-toggle]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+    });
+  });
+
+  /* ratios: cloned into the recipe's Ratios tab */
+  var src = document.getElementById('ratio-src'), dst = document.getElementById('panel-ratios');
+  if (src && dst) dst.innerHTML = src.innerHTML;
+
+  /* metric <-> volume */
+  $$('[data-units]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var vol = root.dataset.units !== 'volume';
+      root.dataset.units = vol ? 'volume' : 'metric';
+      $$('[data-v]').forEach(function (el) {
+        if (!el.dataset.m) el.dataset.m = el.textContent;
+        el.textContent = vol ? el.dataset.v : el.dataset.m;
+      });
+      $$('[data-units]').forEach(function (x) { x.setAttribute('aria-pressed', String(vol)); });
+    });
+  });
+
+  /* tabs */
+  $$('[role=tablist]').forEach(function (list) {
+    var tabs = $$('[role=tab]', list);
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        tabs.forEach(function (x) {
+          var on = x === t;
+          x.setAttribute('aria-selected', String(on));
+          x.tabIndex = on ? 0 : -1;
+          document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+        });
+      });
+    });
+  });
+
+  /* tap a step to mark your place */
+  $$('.steps li').forEach(function (li) {
+    li.addEventListener('click', function (e) {
+      if (e.target.closest('button')) return;
+      $$('.steps li', li.parentNode).forEach(function (x) { x.classList.toggle('is-current', x === li); });
+    });
+  });
+
+  /* ratio scaler: "one part = N g" */
+  document.addEventListener('input', function (e) {
+    var i = e.target.closest('[data-part]'); if (!i) return;
+    var box = i.closest('.ratio'), p = parseFloat(i.value) || 0;
+    $$('[data-parts]', box).forEach(function (o) { o.textContent = Math.round(p * o.dataset.parts) + ' g'; });
+  });
+
+  /* chime: a soft "rin" bell, two strikes (E5 then C5), three sine partials each */
+  var ac;
+  function chime() {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      var t0 = ac.currentTime + 0.03, master = ac.createGain();
+      master.gain.value = 0.2; master.connect(ac.destination);
+      var strike = function (t, f) {
+        [[1, 1, 2.6], [2.76, 0.26, 1.0], [5.40, 0.07, 0.4]].forEach(function (p) {
+          var o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.value = f * p[0];
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(p[1], t + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + p[2]);
+          o.connect(g); g.connect(master); o.start(t); o.stop(t + p[2] + 0.05);
+        });
+      };
+      strike(t0, 659.25); strike(t0 + 0.6, 523.25);
+    } catch (err) { /* audio unavailable in preview */ }
+  }
+
+  /* timers */
+  var list = document.querySelector('.tray-list');
+  if (!list) return;
+  var tray = list.closest('.tray');
+  function fmt(s) {
+    s = Math.max(0, Math.ceil(s));
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+  }
+  function sync() { tray.hidden = !list.children.length; }
+  function add(label, total, left, pill) {
+    var li = document.createElement('li');
+    li.className = 'timer';
+    li.innerHTML = '<button type="button" class="t-btn"><span class="t-label"></span> <span class="t-time"></span><span class="t-bar" aria-hidden="true"><i></i></span></button>';
+    li.querySelector('.t-label').textContent = label;
+    li._t = { end: Date.now() + left * 1000, total: total, done: false, pill: pill };
+    li.querySelector('button').addEventListener('click', function () {
+      if (li._t.done || confirm('Stop “' + label + '”?')) {
+        if (pill) pill.classList.remove('is-running', 'is-done');
+        li.remove(); sync();
+      }
+    });
+    list.appendChild(li); sync(); tick();
+  }
+  function tick() {
+    $$('.timer', list).forEach(function (li) {
+      var t = li._t, left = (t.end - Date.now()) / 1000;
+      li.querySelector('.t-time').textContent = t.done ? 'done' : fmt(left);
+      li.querySelector('.t-bar i').style.transform = 'scaleX(' + Math.max(0, left / t.total) + ')';
+      if (left <= 0 && !t.done) {
+        t.done = true; li.classList.add('is-done');
+        if (t.pill) { t.pill.classList.remove('is-running'); t.pill.classList.add('is-done'); }
+        chime();
+      }
+    });
+  }
+  setInterval(tick, 1000);
+  $$('.pill[data-sec]').forEach(function (p) {
+    p.addEventListener('click', function () {
+      if (p.classList.contains('is-running')) return;
+      p.classList.add('is-running');
+      add(p.dataset.label, +p.dataset.sec, +p.dataset.sec, p);
+    });
+  });
+  $$('[data-add-timer]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var m = parseFloat(prompt('Minutes?', '5'));
+      if (m > 0) add('timer', m * 60, m * 60);
+    });
+  });
+  $$('[data-chime-demo]').forEach(function (b) {
+    b.addEventListener('click', function () { add('demo', 5, 5); });
+  });
+  /* two timers already running, as in the brief */
+  $$('.pill[data-start-left]').forEach(function (p) {
+    p.classList.add('is-running');
+    add(p.dataset.label, +p.dataset.sec, +p.dataset.startLeft, p);
+  });
+})();
+</script>
+
+</body>
+</html>

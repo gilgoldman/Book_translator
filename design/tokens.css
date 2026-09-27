@@ -1,0 +1,136 @@
+/* ==========================================================================
+   Cookbook design tokens: Direction A "Washi"
+   Load fonts (Next.js: next/font/google, or this <link>):
+   https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap
+   Theme: follows the OS by default. Set <html data-theme="light|dark"> to override it.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- surfaces & ink ---- */
+  --paper: #F6F3EC;          /* page (shironeri, warm) */
+  --paper-raised: #FBF9F4;   /* sheets, tray, share card */
+  --paper-sunk: #EDE8DD;     /* wells, source-photo mat */
+  --ink: #1F1D1A;            /* sumi: body & steps       15.2:1 on paper */
+  --ink-2: #55504A;          /* secondary text            7.2:1 */
+  --ink-3: #736D63;          /* meta, labels, pills       4.6:1 */
+  --rule: #DDD6C9;           /* hairlines */
+  --rule-strong: #BDB4A4;    /* borders on controls */
+  --focus: #2F5D8A;
+
+  /* ---- the one accent: vermilion seal (shu) ---- */
+  --shu: #B23F2B;            /* 5.2:1 on paper */
+  --shu-soft: #F2DED6;
+  --on-shu: #FBF9F4;
+
+  /* ---- seasons (tag = colour). Mark hue + tint for fills ---- */
+  --spring: #C06676;  --spring-tint: #F6E6E8;   /* sakura 桜 */
+  --summer: #4A8465;  --summer-tint: #E3EEE7;   /* wakatake 若竹 */
+  --autumn: #BB5C2A;  --autumn-tint: #F5E5DA;   /* kaki 柿 */
+  --winter: #3E5A78;  --winter-tint: #E2E8EF;   /* ai 藍 */
+  --allyear: #8B857B; --allyear-tint: #ECE9E3;  /* nezumi 鼠 */
+
+  /* ---- ratio ingredient roles (Ratios view only) ---- */
+  --r-grain: #D9CBA6;  --r-fat: #E8D394;  --r-liquid: #BBD0D7;
+  --r-egg: #E9B85C;    --r-dairy: #E6DFCB; --r-sugar: #E9D6D2; --r-protein: #CDA592;
+
+  /* ---- type ---- */
+  --font-serif: "Newsreader", "Frank Ruhl Libre", "Noto Serif Hebrew", Georgia, serif;
+  --font-hebrew: "Frank Ruhl Libre", "Newsreader", "Noto Serif Hebrew", serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace; /* urls/debug only */
+
+  /* type scale: 1.2 minor third on a 16px root, body at 18px */
+  --text-xs: 0.75rem;     /* 12  labels (uppercase, tracked .14em) */
+  --text-sm: 0.875rem;    /* 14  meta */
+  --text-md: 1rem;        /* 16  secondary UI */
+  --text-base: 1.125rem;  /* 18  body */
+  --text-lg: 1.375rem;    /* 22  list titles */
+  --text-xl: 1.75rem;     /* 28  section titles */
+  --text-2xl: 2.25rem;    /* 36  recipe title (phone) */
+  --text-3xl: 3.5rem;     /* 56  recipe title (laptop) */
+  --text-step: 1.3125rem; /* 21  cooking steps, phone */
+  --lh-tight: 1.1;
+  --lh-snug: 1.3;
+  --lh-body: 1.55;
+  --lh-step: 1.5;
+  --tracking-label: 0.14em;
+  --weight-light: 350;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;   /* inline quantities */
+
+  /* ---- spacing (4px base) ---- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+  --gutter: 16px;          /* phone side gutter; 40px >= 700px */
+  --measure: 34em;         /* max line length for steps */
+
+  /* ---- radii ---- */
+  --radius-1: 2px;         /* ratio cells, focus */
+  --radius-2: 6px;         /* sheets, inputs */
+  --radius-3: 14px;        /* timer tray */
+  --radius-pill: 999px;
+
+  /* ---- elevation (used once: the timer tray) ---- */
+  --shadow-tray: 0 8px 28px -18px rgba(0, 0, 0, .35);
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --dur-1: 140ms;          /* hover, press */
+  --dur-2: 220ms;          /* tab / units swap, pill state */
+  --dur-3: 360ms;          /* theme change, sheet open */
+  --breathe: 2.4s;         /* running-timer icon opacity loop */
+
+  /* ---- hit targets ---- */
+  --tap-min: 44px;
+}
+
+@media (min-width: 700px) { :root { --gutter: 40px; } }
+@media (min-width: 900px) { :root { --text-step: 1.5rem; } }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161513; --paper-raised: #1E1C19; --paper-sunk: #121110;
+    --ink: #ECE6DA; --ink-2: #B7AFA2; --ink-3: #8F887C;
+    --rule: #2F2C28; --rule-strong: #4A453E; --focus: #8DB4DA;
+    --shu: #E07A62; --shu-soft: #3A231D; --on-shu: #161513;
+    --spring: #E3A1AC;  --spring-tint: #33262A;
+    --summer: #86C0A0;  --summer-tint: #1D2B24;
+    --autumn: #E39462;  --autumn-tint: #35251B;
+    --winter: #8FAACB;  --winter-tint: #1E2631;
+    --allyear: #A39C90; --allyear-tint: #24221F;
+    --r-grain: #6F6549; --r-fat: #7D6C3A; --r-liquid: #3F565E;
+    --r-egg: #8C6A28;   --r-dairy: #5B5546; --r-sugar: #5E4845; --r-protein: #6B4C3E;
+    --shadow-tray: 0 10px 32px -18px rgba(0, 0, 0, .9);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161513; --paper-raised: #1E1C19; --paper-sunk: #121110;
+  --ink: #ECE6DA; --ink-2: #B7AFA2; --ink-3: #8F887C;
+  --rule: #2F2C28; --rule-strong: #4A453E; --focus: #8DB4DA;
+  --shu: #E07A62; --shu-soft: #3A231D; --on-shu: #161513;
+  --spring: #E3A1AC;  --spring-tint: #33262A;
+  --summer: #86C0A0;  --summer-tint: #1D2B24;
+  --autumn: #E39462;  --autumn-tint: #35251B;
+  --winter: #8FAACB;  --winter-tint: #1E2631;
+  --allyear: #A39C90; --allyear-tint: #24221F;
+  --r-grain: #6F6549; --r-fat: #7D6C3A; --r-liquid: #3F565E;
+  --r-egg: #8C6A28;   --r-dairy: #5B5546; --r-sugar: #5E4845; --r-protein: #6B4C3E;
+  --shadow-tray: 0 10px 32px -18px rgba(0, 0, 0, .9);
+}
+
+/* Season scoping: put .s-{season} on a recipe/card; children use var(--season) / var(--season-tint). */
+.s-spring  { --season: var(--spring);  --season-tint: var(--spring-tint); }
+.s-summer  { --season: var(--summer);  --season-tint: var(--summer-tint); }
+.s-autumn  { --season: var(--autumn);  --season-tint: var(--autumn-tint); }
+.s-winter  { --season: var(--winter);  --season-tint: var(--winter-tint); }
+.s-allyear { --season: var(--allyear); --season-tint: var(--allyear-tint); }
+
+[lang="he"], [dir="rtl"] { font-family: var(--font-hebrew); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --breathe: 0s; }
+}

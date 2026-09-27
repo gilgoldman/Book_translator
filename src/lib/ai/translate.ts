@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { recipeTextSchema, type RecipeText } from "@/lib/recipe-text";
-import { ai } from "./models";
+import { AI_MAX_RETRIES, ai } from "./models";
 
 const SYSTEM = `You translate recipes for a family cookbook.
 
@@ -19,6 +19,7 @@ const SYSTEM = `You translate recipes for a family cookbook.
 export async function translateRecipeText(text: RecipeText, languageName: string): Promise<RecipeText> {
   const { output } = await generateText({
     model: ai.languageModel("translate"),
+    maxRetries: AI_MAX_RETRIES,
     system: SYSTEM,
     prompt: `Translate into ${languageName}.\n\n${JSON.stringify(text)}`,
     output: Output.object({ schema: recipeTextSchema }),
@@ -40,6 +41,7 @@ const namesSchema = z.object({
 export async function translateIngredientNames(canonicals: string[], languageName: string) {
   const { output } = await generateText({
     model: ai.languageModel("quick"),
+    maxRetries: AI_MAX_RETRIES,
     system: `You name cooking ingredients in ${languageName}, as a home cook would say them, without articles or prefixes.`,
     prompt: `Name each of these ingredients:\n${canonicals.join("\n")}`,
     output: Output.object({ schema: namesSchema }),
@@ -51,6 +53,7 @@ export async function translateIngredientNames(canonicals: string[], languageNam
 export async function canonicalIngredient(text: string): Promise<string> {
   const { output } = await generateText({
     model: ai.languageModel("quick"),
+    maxRetries: AI_MAX_RETRIES,
     system:
       'Give the lowercase English singular base name of the cooking ingredient the user names, e.g. "green onion", "butter", "flour". Only the name.',
     prompt: text,

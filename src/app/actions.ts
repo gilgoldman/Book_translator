@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, recipes, sources, users } from "@/db";
+import { isAiBusy } from "@/lib/ai/errors";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
 import {
   checkCredentials,
@@ -237,6 +238,7 @@ export async function importRecipe(_: FormState, form: FormData): Promise<FormSt
   } catch (err) {
     console.error("import failed", err);
     if (err instanceof NotARecipeError) return { error: t("err.notRecipe") };
+    if (isAiBusy(err)) return { error: t("err.aiBusy") };
     return { error: t("err.importFailed", { reason: err instanceof Error ? err.message : t("err.unknown") }) };
   }
   revalidatePath("/");
@@ -346,7 +348,7 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
       await restructureRecipe(id, { title, ingredients: ingredientsText, method: methodText });
     } catch (err) {
       console.error("re-reading recipe failed", err);
-      return { error: t("err.rereadFailed") };
+      return { error: t(isAiBusy(err) ? "err.aiBusy" : "err.rereadFailed") };
     }
   }
   // Changed words make the other languages stale; redo them after the page is back.

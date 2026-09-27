@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, substitutions } from "@/db";
 import { LOCALES, type Locale } from "@/lib/i18n/config";
 import { substitutionSchema, type Substitution } from "@/lib/recipe-types";
-import { ai } from "./models";
+import { AI_MAX_RETRIES, ai } from "./models";
 
 const SYSTEM = `You are an experienced home cook helping someone who is missing an ingredient.
 Suggest 2-3 practical substitutes, best first, favouring things most kitchens have.
@@ -37,6 +37,7 @@ export async function suggestSubstitutes(
 
   const { output } = await generateText({
     model: ai.languageModel("quick"),
+    maxRetries: AI_MAX_RETRIES,
     system: `${SYSTEM}\nWrite in ${LOCALES[locale].englishName}.`,
     prompt,
     output: Output.object({ schema: substitutionSchema }),

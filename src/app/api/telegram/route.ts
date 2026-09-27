@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { and, asc, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
 import { db, pendingMedia, recipes, sources, users } from "@/db";
+import { isAiBusy } from "@/lib/ai/errors";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
 import { checkCredentials } from "@/lib/auth";
 import { resolveDuplicate } from "@/lib/dedupe";
@@ -32,6 +33,11 @@ import {
 import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 export const maxDuration = 300;
+
+// When the AI is busy, retry the whole import after these waits, but give up once the
+// next try couldn't finish within two minutes of the message arriving.
+const BUSY_WAITS_MS = [20_000, 40_000];
+const GIVE_UP_AFTER_MS = 120_000;
 
 const ALBUM_WAIT_MS = 2500;
 const appUrl = () => process.env.APP_URL?.replace(/\/$/, "");
@@ -208,10 +214,31 @@ async function importAndReply(
   t: Translator,
   build: () => Promise<IngestRequest>,
 ) {
+  const started = Date.now();
   const status = await send(chatId, t("tg.reading"));
   void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
   try {
-    const { recipeId, duplicate } = await ingest(await build(), userId);
+    const req = await build();
+    let result: Awaited<ReturnType<typeof ingest>> | null = null;
+    let longestAttempt = 0;
+    for (let attempt = 0; !result; attempt++) {
+      const attemptStart = Date.now();
+      try {
+        result = await ingest(req, userId);
+      } catch (err) {
+        // Google's AI is overloaded: say so, then try again if another attempt as long as the
+        // slowest one so far still ends within the time limit.
+        longestAttempt = Math.max(longestAttempt, Date.now() - attemptStart);
+        const wait = BUSY_WAITS_MS[attempt];
+        const timeLeft = GIVE_UP_AFTER_MS - (Date.now() - started);
+        if (!isAiBusy(err) || wait === undefined || wait + longestAttempt > timeLeft) throw err;
+        console.warn(`telegram import: AI busy, retrying in ${wait / 1000}s`);
+        if (attempt === 0) await edit(chatId, status.message_id, esc(t("tg.busyRetrying")));
+        await new Promise((r) => setTimeout(r, wait));
+        void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+      }
+    }
+    const { recipeId, duplicate } = result;
     if (duplicate) {
       const [fresh, original] = await Promise.all([
         db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) }),
@@ -237,7 +264,8 @@ async function importAndReply(
     await showRecipe(chatId, recipeId, "effective", t, status.message_id);
   } catch (err) {
     console.error("telegram import failed", err);
-    await edit(chatId, status.message_id, esc(t(err instanceof NotARecipeError ? "err.notRecipe" : "tg.failed")));
+    const key = err instanceof NotARecipeError ? "err.notRecipe" : isAiBusy(err) ? "tg.stillBusy" : "tg.failed";
+    await edit(chatId, status.message_id, esc(t(key)));
   }
 }
 

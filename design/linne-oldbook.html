@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en" data-palette="oldbook">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linne · Old book</title>
+<meta name="description" content="Linne round 2, palette "Old book": aged paper, sepia ink, oxblood and bottle-green bookbinding cloth.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400..800;1,400..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400..800&display=swap">
+<style>
+/* ---- Shared scale: type, spacing, radii, focus, text size ---- */
+:root {
+  /* Text size control: 3 steps. The root font size scales every rem in the UI. */
+  --text-scale: 1;
+  /* Fonts: Atkinson Hyperlegible Next (Latin) + Noto Sans Hebrew (Hebrew; also the Android system Hebrew face) */
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Noto Sans Hebrew", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-hebrew: "Noto Sans Hebrew", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, Arial, sans-serif;
+  /* Type scale (rem, 1rem = 16px at "Normal") */
+  --fs-sm: 1rem;        /* 16  badges, captions (never body copy) */
+  --fs-base: 1.125rem;  /* 18  body */
+  --fs-step: 1.25rem;   /* 20  cooking steps, phone */
+  --fs-lg: 1.375rem;    /* 22  card titles, search input */
+  --fs-xl: 1.75rem;     /* 28  section heads */
+  --fs-2xl: 2.25rem;    /* 36  recipe title, phone */
+  --fs-3xl: 3rem;       /* 48  recipe title, laptop */
+  --fs-timer: 2.25rem;  /* 36  countdown digits */
+  --fw-regular: 400; --fw-medium: 500; --fw-bold: 700; --fw-heavy: 800;
+  --lh-body: 1.6; --lh-step: 1.55; --lh-tight: 1.2;
+  --ls-body: .012em; --ws-body: .06em; --ls-caps: .06em;
+  --measure: 36em;
+  /* Spacing (4px base) */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem; --sp-5: 1.5rem; --sp-6: 2rem; --sp-7: 3rem; --sp-8: 4rem; --sp-9: 6rem;
+  --gutter: 16px;
+  /* Radii: soft, Linne */
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+  /* Touch + focus */
+  --tap: 3rem;          /* 48px minimum at Normal, grows with text size */
+  --focus-width: 3px; --focus-offset: 3px;
+  --ease: cubic-bezier(.2,.7,.2,1); --dur-1: 140ms; --dur-2: 220ms; --dur-3: 360ms;
+}
+:root[data-text-size="large"] { --text-scale: 1.25; }
+:root[data-text-size="xl"]    { --text-scale: 1.5; }
+html { font-size: calc(var(--text-scale) * 100%); }
+@media (min-width: 900px) { :root { --fs-step: 1.4375rem; --gutter: 40px; } }
+:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+/* ---- Old book: light ---- */
+:root {
+  color-scheme: light;
+  --bg: #F1E7D3; --surface: #FAF3E3; --sunk: #E7DAC0; --ink: #2A1C11;
+  --ink-2: #4A3524; --border: #6E5843; --line: #D6C5A5; --accent: #6B1E24;
+  --on-accent: #FBF4E4; --accent-ink: #6B1E24; --accent-soft: #F1DFCF; --accent-2: #1E4A3A;
+  --accent-2-ink: #1E4A3A; --accent-2-soft: #DCE6DA; --focus: #1E4A3A; --good: #1E4A3A;
+  --good-soft: #DCE6DA; --bad: #6B1E24; --bad-soft: #F1DFCF; --spring: #8E3A4E;
+  --summer: #3B6337; --autumn: #8A4418; --winter: #34506E; --allyear: #665A4C;
+  --spring-tint: #F2DEDF; --summer-tint: #E0E8D4; --autumn-tint: #F3DFCA; --winter-tint: #DDE3E6;
+  --allyear-tint: #E8DFD0; --r-grain: #E3CFA2; --r-fat: #EED79A; --r-liquid: #C9D6D2;
+  --r-egg: #E9BE72; --r-dairy: #EAE0CB;
+  --seam: #6B1E24; --seam-ink: #6B1E24; --cloth: #6B1E24;
+  --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(138 106 62 / .035), transparent 60%), radial-gradient(90% 70% at 100% 100%, rgb(138 106 62 / .03), transparent 60%), repeating-linear-gradient(0deg, rgb(138 106 62 / .02) 0 1px, transparent 1px 4px);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(40 30 20 / .06), 0 14px 34px -22px rgb(40 30 20 / .28);
+}
+/* ---- Old book: dark (system) ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #18120D; --surface: #221A13; --sunk: #110C08; --ink: #F2E6D0;
+    --ink-2: #D6C3A4; --border: #A48E72; --line: #3A2E22; --accent: #E3A09A;
+    --on-accent: #1A120D; --accent-ink: #EBAEA8; --accent-soft: #3A2220; --accent-2: #94C7AC;
+    --accent-2-ink: #9DCDB3; --accent-2-soft: #1C2E25; --focus: #9DCDB3; --good: #9DCDB3;
+    --good-soft: #1C2E25; --bad: #EBAEA8; --bad-soft: #3A2220; --spring: #E6A7B4;
+    --summer: #A9CD98; --autumn: #E8A878; --winter: #A6BDD6; --allyear: #C4B6A2;
+    --spring-tint: #36242A; --summer-tint: #242E1D; --autumn-tint: #382617; --winter-tint: #1F2833;
+    --allyear-tint: #2A231C; --r-grain: #4E4026; --r-fat: #54431C; --r-liquid: #2E4142;
+    --r-egg: #5C4016; --r-dairy: #443A2C;
+    --seam: #E3A09A; --seam-ink: #EBAEA8; --cloth: #4A1418;
+    --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(0 0 0 / .05), transparent 60%), repeating-linear-gradient(0deg, rgb(0 0 0 / .05) 0 1px, transparent 1px 4px);
+    --border-w: 1.5px;
+    --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+  }
+}
+/* ---- Old book: dark (manual) ---- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #18120D; --surface: #221A13; --sunk: #110C08; --ink: #F2E6D0;
+  --ink-2: #D6C3A4; --border: #A48E72; --line: #3A2E22; --accent: #E3A09A;
+  --on-accent: #1A120D; --accent-ink: #EBAEA8; --accent-soft: #3A2220; --accent-2: #94C7AC;
+  --accent-2-ink: #9DCDB3; --accent-2-soft: #1C2E25; --focus: #9DCDB3; --good: #9DCDB3;
+  --good-soft: #1C2E25; --bad: #EBAEA8; --bad-soft: #3A2220; --spring: #E6A7B4;
+  --summer: #A9CD98; --autumn: #E8A878; --winter: #A6BDD6; --allyear: #C4B6A2;
+  --spring-tint: #36242A; --summer-tint: #242E1D; --autumn-tint: #382617; --winter-tint: #1F2833;
+  --allyear-tint: #2A231C; --r-grain: #4E4026; --r-fat: #54431C; --r-liquid: #2E4142;
+  --r-egg: #5C4016; --r-dairy: #443A2C;
+  --seam: #E3A09A; --seam-ink: #EBAEA8; --cloth: #4A1418;
+  --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(0 0 0 / .05), transparent 60%), repeating-linear-gradient(0deg, rgb(0 0 0 / .05) 0 1px, transparent 1px 4px);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+}
+/* ---- Old book: high contrast, light ---- */
+:root[data-contrast="high"] {
+  color-scheme: light;
+  --bg: #FFFCF5; --surface: #FFFFFF; --sunk: #F3EBDA; --ink: #140C06;
+  --ink-2: #2A1C11; --border: #2A1C11; --line: #6E5843; --accent: #5A141A;
+  --on-accent: #FFFFFF; --accent-ink: #5A141A; --accent-soft: #F7E6DA; --accent-2: #123526;
+  --accent-2-ink: #123526; --accent-2-soft: #E3EEE4; --focus: #0B3D8C; --good: #123526;
+  --good-soft: #E3EEE4; --bad: #5A141A; --bad-soft: #F7E6DA; --spring: #6E2338;
+  --summer: #244A22; --autumn: #6A300C; --winter: #1F3A58; --allyear: #3F3428;
+  --spring-tint: #F8E8E9; --summer-tint: #EAF1E1; --autumn-tint: #F9EBDC; --winter-tint: #E6EDF1;
+  --allyear-tint: #F2ECE1; --r-grain: #F0DFB8; --r-fat: #F6E4B0; --r-liquid: #DCE7E3;
+  --r-egg: #F3D39A; --r-dairy: #F4EEDF;
+  --seam: #5A141A; --seam-ink: #5A141A; --cloth: #5A141A;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-contrast="high"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000; --surface: #0E0A07; --sunk: #000000; --ink: #FFFFFF;
+    --ink-2: #F6ECDD; --border: #F2E6D0; --line: #A48E72; --accent: #F7C3BD;
+    --on-accent: #000000; --accent-ink: #F9CEC9; --accent-soft: #2E1717; --accent-2: #B6E2C9;
+    --accent-2-ink: #B6E2C9; --accent-2-soft: #10241A; --focus: #FFD34D; --good: #B6E2C9;
+    --good-soft: #10241A; --bad: #F9CEC9; --bad-soft: #2E1717; --spring: #F4C3CD;
+    --summer: #C4E6B4; --autumn: #F5C49C; --winter: #C3D6EA; --allyear: #DDD2C2;
+    --spring-tint: #2A1418; --summer-tint: #15200F; --autumn-tint: #2A190B; --winter-tint: #101B26;
+    --allyear-tint: #1C1712; --r-grain: #40341A; --r-fat: #443512; --r-liquid: #1F3030;
+    --r-egg: #4A320C; --r-dairy: #342D22;
+    --seam: #F7C3BD; --seam-ink: #F9CEC9; --cloth: #000000;
+    --page-texture: none;
+    --border-w: 2px;
+    --shadow: none;
+  }
+}
+:root[data-contrast="high"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000; --surface: #0E0A07; --sunk: #000000; --ink: #FFFFFF;
+  --ink-2: #F6ECDD; --border: #F2E6D0; --line: #A48E72; --accent: #F7C3BD;
+  --on-accent: #000000; --accent-ink: #F9CEC9; --accent-soft: #2E1717; --accent-2: #B6E2C9;
+  --accent-2-ink: #B6E2C9; --accent-2-soft: #10241A; --focus: #FFD34D; --good: #B6E2C9;
+  --good-soft: #10241A; --bad: #F9CEC9; --bad-soft: #2E1717; --spring: #F4C3CD;
+  --summer: #C4E6B4; --autumn: #F5C49C; --winter: #C3D6EA; --allyear: #DDD2C2;
+  --spring-tint: #2A1418; --summer-tint: #15200F; --autumn-tint: #2A190B; --winter-tint: #101B26;
+  --allyear-tint: #1C1712; --r-grain: #40341A; --r-fat: #443512; --r-liquid: #1F3030;
+  --r-egg: #4A320C; --r-dairy: #342D22;
+  --seam: #F7C3BD; --seam-ink: #F9CEC9; --cloth: #000000;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; background-color: var(--bg); background-image: var(--page-texture); color: var(--ink); font-family: var(--font);
+  font-size: var(--fs-base); line-height: var(--lh-body); letter-spacing: var(--ls-body); word-spacing: var(--ws-body);
+  overflow-wrap: break-word; -webkit-font-smoothing: antialiased; transition: background-color var(--dur-3) var(--ease), color var(--dur-3) var(--ease); }
+[lang="he"] { font-family: var(--font-hebrew); letter-spacing: 0; }
+h1, h2, h3, h4 { line-height: var(--lh-tight); text-wrap: balance; letter-spacing: -.01em; word-spacing: normal; }
+p { margin: 0 0 var(--sp-4); }
+a { color: var(--accent-ink); text-underline-offset: .2em; text-decoration-thickness: 2px; }
+button, input, textarea, select { font: inherit; color: inherit; letter-spacing: inherit; word-spacing: inherit; }
+button { cursor: pointer; }
+img, svg { max-width: 100%; }
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ico { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -.25em; }
+.ico { max-width: none; }
+.ico.fill { fill: currentColor; stroke: none; }
+.wrap { max-width: 76rem; margin: 0 auto; padding-inline: var(--gutter); }
+.muted { color: var(--ink-2); }
+.kicker { font-size: var(--fs-sm); font-weight: var(--fw-bold); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--seam-ink); margin: 0 0 var(--sp-3); }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5em; min-height: var(--tap); min-width: var(--tap); padding: .55em 1.1em;
+  border-radius: var(--r-pill); border: var(--border-w) solid var(--border); background: var(--surface); color: var(--ink);
+  font-weight: var(--fw-bold); font-size: var(--fs-base); line-height: 1.25; text-align: center; text-decoration: none; transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-good { color: var(--good); border-color: var(--good); }
+.btn-bad { color: var(--bad); border-color: var(--bad); }
+.btn-block { width: 100%; }
+.btn-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+
+/* ---------- header + display sheet ---------- */
+.appbar { border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.appbar .wrap { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: space-between; padding-block: var(--sp-3); }
+.wordmark { min-height: var(--tap); display: inline-flex; align-items: center; gap: .5em; font-weight: var(--fw-heavy); font-size: var(--fs-lg); letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+.appbar-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.sheet { flex: 1 1 100%; width: 100%; background: var(--surface); border: var(--border-w) solid var(--line); border-radius: var(--r-xl); padding: 16px; margin-block: var(--sp-4) 0; box-shadow: var(--shadow); }
+.sheet[hidden] { display: none; }
+@media (min-width: 700px) { .sheet { padding: var(--sp-5); } }
+.sheet h2 { font-size: var(--fs-lg); margin: 0 0 var(--sp-4); }
+.sheet-grid { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.field-label { display: block; font-weight: var(--fw-bold); margin: 0 0 var(--sp-2); }
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.seg button { flex: 1 1 auto; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: .1em; min-height: 4rem; min-width: 5.5rem; padding: .5em .8em;
+  border-radius: var(--r-md); border: var(--border-w) solid var(--border); background: var(--bg); color: var(--ink); font-weight: var(--fw-bold); line-height: 1.2; }
+.seg button[aria-checked="true"], .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 2px var(--surface); }
+.seg button[aria-checked="true"]::after, .seg button[aria-pressed="true"]::after { content: "✓ selected"; font-size: .8em; font-weight: var(--fw-medium); }
+.seg .aa { font-weight: var(--fw-heavy); line-height: 1; }
+.switch { display: flex; flex-wrap: wrap; width: 100%; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 4rem; padding: .5em .6em .5em 1em; border-radius: var(--r-md); border: var(--border-w) solid var(--border); background: var(--bg); text-align: start; font-weight: var(--fw-bold); }
+.switch .track { flex: none; position: relative; width: 4.2rem; height: 2.4rem; border-radius: var(--r-pill); border: 2px solid var(--border); background: var(--sunk); }
+.switch .track::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: calc(2.4rem - 10px); height: calc(2.4rem - 10px); border-radius: 50%; background: var(--ink-2); transition: inset-inline-start var(--dur-2) var(--ease); }
+.switch[aria-checked="true"] .track { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"] .track::after { inset-inline-start: calc(100% - 2.4rem + 7px); background: var(--on-accent); }
+.switch .state { font-weight: var(--fw-medium); color: var(--ink-2); display: block; font-size: var(--fs-sm); }
+
+/* ---------- intro + screens ---------- */
+.intro { padding-block: var(--sp-7) var(--sp-6); }
+.intro h1 { font-size: clamp(2.5rem, 8vw, 4.5rem); line-height: 1; margin: 0 0 var(--sp-4); font-weight: var(--fw-heavy); letter-spacing: -.03em; }
+.intro p { max-width: var(--measure); }
+.screen { padding-block: var(--sp-7); }
+.screen-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3em .8em; font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--ink-2); margin: 0 0 var(--sp-5); letter-spacing: var(--ls-caps); text-transform: uppercase; }
+.screen-label b { color: var(--seam-ink); }
+.screen h2.title { font-size: var(--fs-xl); margin: 0 0 var(--sp-4); }
+.divider { display: block; margin: 0 auto; width: 100%; max-width: 76rem; padding-inline: var(--gutter); }
+.card { background: var(--surface); border-radius: var(--r-xl); box-shadow: var(--shadow); border: var(--border-w) solid var(--line); }
+.two { display: grid; gap: var(--sp-6); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; }
+
+/* ---------- marks ---------- */
+.s-spring { --season: var(--spring); --season-tint: var(--spring-tint); }
+.s-summer { --season: var(--summer); --season-tint: var(--summer-tint); }
+.s-autumn { --season: var(--autumn); --season-tint: var(--autumn-tint); }
+.s-winter { --season: var(--winter); --season-tint: var(--winter-tint); }
+.s-allyear { --season: var(--allyear); --season-tint: var(--allyear-tint); }
+.season { display: inline-flex; align-items: center; gap: .35em; padding: .15em .7em .15em .5em; border-radius: var(--r-pill); background: var(--season-tint); border: 2px solid var(--season); color: var(--ink); font-size: var(--fs-sm); font-weight: var(--fw-bold); line-height: 1.5; }
+.season .ico { color: var(--season); width: 1.15em; height: 1.15em; }
+.tagline { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; font-size: var(--fs-sm); color: var(--ink-2); font-weight: var(--fw-medium); }
+.tagline > span { display: inline-flex; align-items: center; gap: .3em; }
+
+/* ---------- library ---------- */
+.search-label { display: block; font-size: var(--fs-lg); font-weight: var(--fw-bold); margin: 0 0 var(--sp-3); }
+.search { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); background: var(--surface); border: 2px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-2); box-shadow: var(--shadow); }
+.search > .ico { color: var(--ink-2); margin-inline-start: var(--sp-2); width: 1.5rem; height: 1.5rem; }
+.search textarea { flex: 1 1 12rem; min-width: 0; min-height: var(--tap); border: 0; background: none; color: var(--ink); font-size: var(--fs-lg); line-height: 1.35; padding: .45em var(--sp-2); outline: none; resize: none; field-sizing: content; overflow: hidden; }
+.search textarea::placeholder { color: var(--ink-2); opacity: 1; }
+.search:focus-within { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.hint { margin: var(--sp-3) 0 0; color: var(--ink-2); }
+.filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-5) 0; }
+.filters .btn { font-size: var(--fs-base); }
+.filters .btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.results-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: baseline; justify-content: space-between; margin: var(--sp-6) 0 var(--sp-4); }
+.results-head h3 { font-size: var(--fs-xl); margin: 0; }
+.grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); }
+.rcard { display: flex; flex-direction: column; height: 100%; background: var(--surface); border-radius: var(--r-xl); border: var(--border-w) solid var(--line); box-shadow: var(--shadow); overflow: hidden; color: var(--ink); text-decoration: none; }
+.rcard .photo { aspect-ratio: 16 / 10; background: var(--season-tint); position: relative; }
+.rcard .photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rcard .body { padding: var(--sp-4) var(--sp-4) var(--sp-5); display: grid; gap: var(--sp-2); }
+.rcard h4 { font-size: var(--fs-lg); margin: var(--sp-1) 0 0; }
+.rcard .sub { color: var(--ink-2); margin: 0; }
+.plate { fill: var(--surface); } .food { fill: var(--season); opacity: .55; } .food2 { fill: var(--season); opacity: .3; } .crust { fill: var(--r-grain); stroke: var(--border); stroke-width: 2; }
+.have { display: grid; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--bg); border: var(--border-w) solid var(--line); }
+.have strong { font-size: var(--fs-base); }
+.have-dots { display: flex; gap: 6px; }
+.have-dots i { width: 1.6rem; height: 1.6rem; border-radius: 6px; border: 2px solid var(--good); display: grid; place-items: center; font-style: normal; font-weight: var(--fw-heavy); font-size: .95rem; line-height: 1; }
+.have-dots i.y { background: var(--good); color: var(--surface); }
+.have-dots i.n { border-style: dashed; border-color: var(--border); color: var(--ink-2); }
+.have .miss { color: var(--ink-2); margin: 0; font-size: var(--fs-base); }
+
+/* ---------- recipe ---------- */
+.recipe { background: var(--surface); border-radius: var(--r-xl); border: var(--border-w) solid var(--line); box-shadow: var(--shadow); position: relative; }
+.r-hero { position: relative; height: 13rem; background: var(--season-tint); border-radius: calc(var(--r-xl) - 2px) calc(var(--r-xl) - 2px) 0 0; overflow: hidden; }
+.r-hero svg.art { width: 100%; height: 100%; display: block; }
+.r-hero .btn { position: absolute; top: var(--sp-3); inset-inline-start: var(--sp-3); }
+.r-body { padding: var(--sp-5) 14px var(--sp-5); }
+@media (min-width: 700px) { .r-body { padding: var(--sp-6) var(--sp-6); } .r-hero { height: 17rem; } }
+.r-head h3 { font-size: var(--fs-2xl); margin: var(--sp-3) 0; font-weight: var(--fw-heavy); letter-spacing: -.02em; }
+@media (min-width: 900px) { .r-head h3 { font-size: var(--fs-3xl); } }
+.r-dek { color: var(--ink-2); font-size: var(--fs-lg); max-width: 30em; }
+.views { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); margin: var(--sp-5) 0 var(--sp-4); padding: 0; }
+.views [role="tab"] { position: relative; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .15em .5em; min-height: 4.25rem; padding: .6em .8em; text-align: start;
+  border-radius: var(--r-lg); border: var(--border-w) solid var(--border); background: var(--bg); color: var(--ink); line-height: 1.25; }
+.views [role="tab"] .ico { width: 1.5rem; height: 1.5rem; }
+.views [role="tab"] small { grid-column: 1 / -1; }
+.views [role="tab"] b { font-size: var(--fs-base); }
+.views [role="tab"] small { font-size: var(--fs-sm); color: var(--ink-2); font-weight: var(--fw-medium); }
+.views [role="tab"][aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 3px var(--surface); }
+.views [role="tab"][aria-selected="true"] small { color: inherit; }
+.views [role="tab"][aria-selected="true"]::after { content: "✓"; position: absolute; top: -.55rem; inset-inline-end: -.4rem; display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--surface); color: var(--ink); border: 2px solid var(--accent); font-weight: var(--fw-heavy); font-size: 1rem; line-height: 1; }
+.units-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); }
+.eff { display: grid; gap: var(--sp-6); }
+@media (min-width: 900px) { .eff { grid-template-columns: minmax(15rem, 19rem) 1fr; gap: var(--sp-7); } .recap { position: sticky; top: var(--sp-4); align-self: start; } }
+.recap { background: var(--bg); border: var(--border-w) solid var(--line); border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-4); }
+.recap h4 { font-size: var(--fs-base); margin: var(--sp-3) 0 var(--sp-1); color: var(--ink-2); text-transform: uppercase; letter-spacing: var(--ls-caps); }
+.recap h4:first-child { margin-top: 0; }
+.recap ul { list-style: none; margin: 0; padding: 0; }
+.recap li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--sp-3); padding: .45em 0; border-bottom: 1px solid var(--line); }
+.recap li:last-child { border-bottom: 0; }
+.q { font-weight: var(--fw-heavy); color: var(--ink); font-variant-numeric: tabular-nums; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); max-width: var(--measure); }
+.step { position: relative; padding: var(--sp-4) 14px; border-radius: var(--r-lg); border: var(--border-w) solid transparent; font-size: var(--fs-step); line-height: var(--lh-step); color: var(--ink-2); cursor: pointer; }
+.step p { margin: 0; }
+.step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--ink-2); }
+.step-no { display: inline-grid; place-items: center; min-width: 2.2rem; height: 2.2rem; padding: 0 .4em; border-radius: var(--r-pill); background: var(--sunk); color: var(--ink); font-weight: var(--fw-heavy); border: 1px solid var(--line); }
+.now-badge { display: none; align-items: center; gap: .3em; padding: .1em .7em; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent); font-size: var(--fs-sm); }
+.step.is-current { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); box-shadow: var(--shadow); }
+.step.is-current .now-badge { display: inline-flex; }
+.step.is-current .step-no { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.step .next { display: none; margin-top: var(--sp-4); }
+.step.is-current .next { display: inline-flex; }
+.step.is-done-step { color: var(--ink-2); }
+.step.is-done-step .step-head::after { content: "✓ done"; font-weight: var(--fw-bold); color: var(--good); }
+.pill { display: inline-flex; align-items: center; gap: .45em; margin-top: var(--sp-3); min-height: var(--tap); padding: .4em 1.1em .4em .8em; border-radius: var(--r-pill);
+  border: var(--border-w) solid var(--border); background: var(--surface); color: var(--ink); font-size: var(--fs-base); font-weight: var(--fw-bold); line-height: 1.2; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.pill[aria-pressed="true"] .ico { animation: breathe 2.4s var(--ease) infinite; }
+@keyframes breathe { 50% { opacity: .35; } }
+.extras { margin-top: var(--sp-5); max-width: var(--measure); }
+.extras summary { display: inline-flex; align-items: center; gap: .5em; min-height: var(--tap); padding: .4em 1.1em; border-radius: var(--r-pill); border: var(--border-w) dashed var(--border); font-weight: var(--fw-bold); cursor: pointer; list-style: none; }
+.extras summary::-webkit-details-marker { display: none; }
+.extras[open] summary { margin-bottom: var(--sp-3); }
+.note { background: var(--bg); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); }
+.classic-list { list-style: none; padding: 0; margin: 0 0 var(--sp-5); }
+.classic-list li { padding: .4em 0; border-bottom: 1px solid var(--line); }
+.method p { max-width: var(--measure); font-size: var(--fs-step); line-height: var(--lh-step); }
+.source-card { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+.source-card figure { margin: 0; background: var(--sunk); border-radius: var(--r-lg); padding: var(--sp-4); }
+.source-card figcaption { color: var(--ink-2); margin-top: var(--sp-2); font-size: var(--fs-base); }
+.sp-card { fill: var(--surface); } .sp-ink { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; }
+
+/* ---------- timer tray ---------- */
+.tray { position: sticky; bottom: 0; z-index: 5; margin-top: var(--sp-5); padding: var(--sp-3) 12px calc(var(--sp-3) + env(safe-area-inset-bottom));
+  background: var(--surface); border-top: 2px solid var(--border); border-radius: 0 0 calc(var(--r-xl) - 2px) calc(var(--r-xl) - 2px); box-shadow: 0 -12px 28px -20px rgb(0 0 0 / .45); }
+.tray-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.tray-head h4 { margin: 0; font-size: var(--fs-base); display: inline-flex; gap: .4em; align-items: center; }
+.tray-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); max-height: 42vh; overflow-y: auto; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); }
+.timer { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-3) calc(var(--sp-3) + 6px); border-radius: var(--r-lg); background: var(--bg); border: 2px solid var(--line); overflow: hidden; }
+.t-info { flex: 1 1 8rem; min-width: 0; }
+.t-label { display: block; font-weight: var(--fw-bold); line-height: 1.3; }
+.t-state { display: inline-flex; align-items: center; gap: .3em; font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--ink-2); }
+.t-time { display: block; font-size: var(--fs-timer); margin: .05em 0; font-weight: var(--fw-heavy); font-variant-numeric: tabular-nums; line-height: 1.1; letter-spacing: 0; }
+.t-actions { display: flex; flex-direction: column; gap: var(--sp-2); flex: 0 1 auto; }
+.t-actions .btn { justify-content: flex-start; }
+.t-actions .btn { font-size: var(--fs-base); padding-inline: .9em; }
+.t-bar { position: absolute; inset: auto 0 0 0; height: 6px; background: var(--sunk); }
+.t-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+[dir="rtl"] .t-bar i { transform-origin: right; }
+.timer.is-paused { border-style: dashed; border-color: var(--border); }
+.timer.is-done { background: var(--good-soft); border: 3px solid var(--good); animation: donepulse 1.2s var(--ease) 3; }
+.timer.is-done .t-time { color: var(--good); }
+.timer.is-done .t-state { color: var(--ink); }
+.timer.is-done .t-bar { background: repeating-linear-gradient(45deg, var(--good) 0 8px, var(--good-soft) 8px 16px); }
+.timer.is-done .t-bar i { display: none; }
+@keyframes donepulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--good) 35%, transparent); } }
+.presets { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--line); }
+.presets[hidden] { display: none; }
+.presets p { width: 100%; margin: 0; font-weight: var(--fw-bold); }
+
+/* ---------- ratios ---------- */
+.ratios { display: grid; gap: var(--sp-5); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.ratio { background: var(--surface); border-radius: var(--r-xl); border: var(--border-w) solid var(--line); padding: var(--sp-5) var(--sp-4); box-shadow: var(--shadow); }
+.ratio h4 { font-size: var(--fs-xl); margin: 0; }
+.ratio .r-num { font-size: 2.5rem; font-weight: var(--fw-heavy); margin: var(--sp-2) 0 var(--sp-1); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.ratio .r-by { color: var(--ink-2); margin: 0 0 var(--sp-5); }
+.stack { display: flex; align-items: flex-end; gap: var(--sp-2); }
+@media (min-width: 500px) { .stack { gap: var(--sp-4); } }
+.col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); align-items: stretch; }
+.col .n { text-align: center; font-weight: var(--fw-heavy); font-size: var(--fs-xl); line-height: 1; }
+.blocks { display: flex; flex-direction: column-reverse; gap: 4px; padding: 0; border-radius: 12px; background: var(--join, transparent); }
+.blocks i { display: block; height: 3rem; border-radius: 10px; background-color: var(--c); background-image: var(--pat); border: 2px solid var(--border); }
+.col .nm { text-align: center; font-weight: var(--fw-bold); line-height: 1.25; font-size: var(--fs-sm); overflow-wrap: normal; }
+.c-grain { --c: var(--r-grain); --pat: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--ink) 22%, transparent) 1.5px, transparent 2.5px); background-size: 12px 12px; }
+.c-grain i { background-size: 12px 12px; }
+.c-fat { --c: var(--r-fat); --pat: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ink) 16%, transparent) 0 2px, transparent 2px 10px); }
+.c-liquid { --c: var(--r-liquid); --pat: repeating-linear-gradient(0deg, color-mix(in srgb, var(--ink) 16%, transparent) 0 2px, transparent 2px 9px); }
+.c-dairy { --c: var(--r-dairy); --pat: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--ink) 14%, transparent) 0 2px, transparent 2px 10px); }
+.c-egg { --c: var(--r-egg); --pat: radial-gradient(circle, color-mix(in srgb, var(--ink) 20%, transparent) 3px, transparent 4px); }
+.c-egg i { background-size: 16px 16px; }
+.legend { list-style: none; margin: var(--sp-5) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.legend li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); padding: .35em 0; border-bottom: 1px solid var(--line); }
+.legend .sw { width: 2.25rem; height: 1.6rem; border-radius: 6px; background-color: var(--c); background-image: var(--pat); border: 2px solid var(--border); }
+.legend li > span:nth-child(2) { flex: 1 1 9rem; }
+.legend .sw { flex: none; }
+.legend .g { font-weight: var(--fw-heavy); font-variant-numeric: tabular-nums; }
+.scale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-top: var(--sp-4); font-weight: var(--fw-bold); }
+.scale input { width: 5.5em; min-height: var(--tap); text-align: center; font-weight: var(--fw-heavy); font-size: var(--fs-lg); border-radius: var(--r-md); border: 2px solid var(--border); background: var(--bg); color: var(--ink); }
+
+/* ---------- duplicate prompt ---------- */
+.dup { max-width: 52rem; padding: var(--sp-5) 14px; }
+@media (min-width: 700px) { .dup { padding: var(--sp-6); } }
+.dup-head { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-start; }
+.dup-head > div { flex: 1 1 14rem; min-width: 0; }
+.dup-head .ico { width: 2.5rem; height: 2.5rem; color: var(--seam-ink); flex: none; }
+.dup h3 { font-size: var(--fs-xl); margin: 0 0 var(--sp-2); }
+.dup h3 em { font-style: italic; color: var(--accent-ink); }
+.compare { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); margin: var(--sp-5) 0; }
+.compare > div { display: flex; gap: var(--sp-3); align-items: center; padding: var(--sp-3); border-radius: var(--r-lg); background: var(--bg); border: var(--border-w) solid var(--line); }
+.thumb { width: 4.5rem; height: 4.5rem; border-radius: var(--r-md); background: var(--season-tint); flex: none; overflow: hidden; }
+.compare b { display: block; }
+.compare span { color: var(--ink-2); }
+.diff { margin: 0 0 var(--sp-5); padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.diff li { display: grid; grid-template-columns: 2.25rem 1fr; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) 0; border-bottom: 1px solid var(--line); }
+.diff .mk { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 8px; font-weight: var(--fw-heavy); border: 2px solid var(--border); background: var(--surface); }
+.diff .vs { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); color: var(--ink-2); grid-column: 2; }
+.diff .vs b { color: var(--ink); }
+.choices { display: grid; gap: var(--sp-3); }
+@media (min-width: 900px) { .choices { grid-template-columns: repeat(3, 1fr); } }
+.choice { display: grid; gap: var(--sp-1); align-content: start; text-align: start; padding: var(--sp-4); min-height: var(--tap); border-radius: var(--r-lg); border: 2px solid var(--border); background: var(--surface); color: var(--ink); }
+.choice b { display: inline-flex; gap: .4em; align-items: center; font-size: var(--fs-lg); }
+.choice span { color: var(--ink-2); }
+.choice.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.choice.primary span { color: inherit; }
+.choice[aria-pressed="true"] { box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px var(--good); }
+.status-msg { margin: var(--sp-4) 0 0; font-weight: var(--fw-bold); }
+.status-msg:empty { display: none; }
+.status-msg:not(:empty) { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--good-soft); border: 2px solid var(--good); }
+
+/* ---------- ingredient-first + substitution ---------- */
+.have-lot { padding: var(--sp-5) 14px; }
+.have-lot .qline { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; font-size: var(--fs-xl); font-weight: var(--fw-heavy); margin: 0 0 var(--sp-4); line-height: 1.3; }
+.have-lot .qline input { font-size: inherit; font-weight: inherit; width: 7ch; min-height: var(--tap); border: 0; border-bottom: 3px solid var(--accent); background: var(--bg); border-radius: 8px 8px 0 0; padding: 0 .3em; color: var(--accent-ink); }
+.uses { list-style: none; margin: 0 0 var(--sp-5); padding: 0; display: grid; gap: var(--sp-3); }
+.uses a { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg); background: var(--bg); border: var(--border-w) solid var(--line); color: var(--ink); text-decoration: none; }
+.uses .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--sp-3); font-weight: var(--fw-bold); font-size: var(--fs-lg); }
+.uses .amt { color: var(--accent-ink); font-weight: var(--fw-heavy); white-space: nowrap; }
+.meter { height: .9rem; border-radius: var(--r-pill); background: var(--sunk); border: 1px solid var(--border); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.chips .btn { font-size: var(--fs-base); background: var(--accent-2-soft); border-color: var(--accent-2); color: var(--ink); }
+.chips .btn[aria-pressed="true"] { background: var(--accent-2); color: var(--surface); }
+.sub-card { padding: var(--sp-5) 14px; }
+@media (min-width: 700px) { .have-lot, .sub-card { padding: var(--sp-6); } }
+.sub-card h3 { font-size: var(--fs-xl); margin: 0 0 var(--sp-1); }
+.subs { list-style: none; padding: 0; margin: var(--sp-4) 0 0; display: grid; gap: var(--sp-3); }
+.subs li { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); border: var(--border-w) solid var(--line); background: var(--bg); }
+.subs li.best { border: 3px solid var(--accent); background: var(--accent-soft); }
+.subs li > :not(.rank) { grid-column: 2; min-width: 0; }
+.rank { grid-row: span 4; align-self: start; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); font-weight: var(--fw-heavy); font-size: var(--fs-lg); }
+.best .rank { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.subs .lvl { font-size: var(--fs-sm); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: var(--ls-caps); color: var(--ink-2); }
+.subs .what { font-size: var(--fs-lg); font-weight: var(--fw-bold); line-height: 1.35; }
+.subs .how { color: var(--ink-2); margin: 0; }
+.subs .pill { margin-top: var(--sp-2); justify-self: start; }
+
+/* ---------- auth + approvals ---------- */
+.auth { padding: var(--sp-5) 14px; }
+@media (min-width: 700px) { .auth { padding: var(--sp-6); } }
+.auth h3 { font-size: var(--fs-xl); margin: 0 0 var(--sp-2); }
+.form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); margin-top: var(--sp-4); }
+.form label { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); font-weight: var(--fw-bold); }
+.form .help { font-weight: var(--fw-regular); color: var(--ink-2); font-size: var(--fs-base); }
+.input { width: 100%; min-width: 0; min-height: 3.5rem; padding: .5em .8em; border-radius: var(--r-md); border: 2px solid var(--border); background: var(--bg); color: var(--ink); font-size: var(--fs-lg); }
+textarea.input { min-height: 6rem; line-height: 1.4; }
+.pw { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.pw .input { flex: 1 1 10rem; width: auto; min-width: 0; }
+.or { display: flex; align-items: center; gap: var(--sp-3); color: var(--ink-2); margin: var(--sp-5) 0; font-weight: var(--fw-bold); }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.pending { display: grid; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--accent-2-soft); border: 3px solid var(--accent-2); margin-top: var(--sp-5); }
+.pending[hidden] { display: none; }
+.pending .ico { width: 2.25rem; height: 2.25rem; color: var(--accent-2-ink); }
+.pending b { font-size: var(--fs-lg); }
+.pending p { margin: 0; }
+.steps-mini { margin: 0; padding-inline-start: 1.3em; }
+.approvals { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-3); }
+.appr { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); border: var(--border-w) solid var(--line); background: var(--surface); }
+.avatar { width: 3rem; height: 3rem; border-radius: 50%; display: grid; place-items: center; background: var(--sunk); border: 2px solid var(--border); font-weight: var(--fw-heavy); }
+.appr .who b { display: block; font-size: var(--fs-lg); }
+.appr .who span { color: var(--ink-2); overflow-wrap: anywhere; }
+.appr blockquote { grid-column: 1 / -1; margin: 0; padding: var(--sp-2) var(--sp-3); border-inline-start: 4px solid var(--seam); background: var(--bg); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.appr .btn-row { grid-column: 1 / -1; }
+.appr .btn-row .btn { flex: 1 1 9rem; }
+.appr .result { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; font-weight: var(--fw-bold); padding: var(--sp-3); border-radius: var(--r-md); }
+.appr .result[hidden] { display: none; }
+.appr .result.ok { background: var(--good-soft); border: 2px solid var(--good); }
+.appr .result.no { background: var(--bad-soft); border: 2px solid var(--bad); }
+
+/* ---------- footer ---------- */
+.foot { padding-block: var(--sp-7) var(--sp-8); }
+.swatches { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr)); list-style: none; padding: 0; margin: 0 0 var(--sp-6); }
+.swatches li { border-radius: var(--r-md); border: var(--border-w) solid var(--line); overflow: hidden; background: var(--surface); font-size: var(--fs-sm); }
+.swatches span { display: block; height: 3rem; border-bottom: 1px solid var(--line); }
+.swatches b, .swatches code { display: block; padding: 0 var(--sp-3); }
+.swatches b { padding-top: var(--sp-2); } .swatches code { padding-bottom: var(--sp-2); color: var(--ink-2); }
+.table-wrap { overflow-x: auto; border-radius: var(--r-lg); border: var(--border-w) solid var(--line); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: var(--fs-base); }
+th, td { text-align: start; padding: .55em .8em; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { background: var(--sunk); }
+td.n { font-variant-numeric: tabular-nums; font-weight: var(--fw-bold); white-space: nowrap; }
+.foot-notes { margin-top: var(--sp-5); color: var(--ink-2); max-width: 48em; }
+.foot-notes li { margin-bottom: var(--sp-2); }
+.contrast-cards { display: none; }
+@media (max-width: 699px) { .table-wrap { display: none; } .contrast-cards { display: grid; gap: var(--sp-2); list-style: none; padding: 0; margin: 0; }
+  .contrast-cards li { padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+  .contrast-cards b { display: block; } .contrast-cards span { display: inline-block; margin-inline-end: var(--sp-3); font-variant-numeric: tabular-nums; } }
+
+.book { width: 1.1em; height: 1.45em; border-radius: 3px 5px 5px 3px; background: var(--cloth); box-shadow: inset 4px 0 0 color-mix(in srgb, var(--accent-2) 80%, transparent), inset -2px 0 0 rgb(255 255 255 / .12);
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / .06) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgb(0 0 0 / .08) 0 1px, transparent 1px 3px); }
+.appbar { border-top: 6px solid var(--cloth); }
+.headband { height: 10px; max-width: 12rem; margin: 0 auto; border-radius: 5px; background: repeating-linear-gradient(90deg, var(--accent) 0 8px, var(--surface) 8px 10px, var(--accent-2) 10px 18px, var(--surface) 18px 20px); border: 1px solid var(--line); }
+.recipe, .dup, .auth { box-shadow: var(--shadow), 3px 3px 0 -1px var(--surface), 3px 3px 0 0 var(--line), 6px 6px 0 -1px var(--surface), 6px 6px 0 0 var(--line); }
+.step.is-current::after { content: ""; position: absolute; top: -2px; inset-inline-end: 18px; width: 16px; height: 2.6rem; background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
+.step.is-current .step-head { padding-inline-end: 34px; }
+.kicker { color: var(--accent-ink); }
+.intro h1 { letter-spacing: -.02em; }
+.intro h1::after { content: ""; display: block; width: 5rem; height: 6px; margin-top: var(--sp-4); border-radius: 3px; background: linear-gradient(90deg, var(--accent) 0 50%, var(--accent-2) 50% 100%); }
+.r-hero { border-bottom: 4px solid var(--cloth); }
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6"/></symbol>
+<symbol id="i-next" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 13V9.5M10 3.5h4"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2V10a4.5 4.5 0 0 0-9 0v4z"/><path d="M10.5 19h3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-text" viewBox="0 0 24 24"><path d="M3 18 7.5 6 12 18M4.6 14h5.8"/><path d="M14 18l3.5-9 3.5 9M15.2 15.2h4.6"/></symbol>
+<symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></symbol>
+<symbol id="i-auto" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="11.5" rx="2"/><path d="M9 20h6M12 16.5V20"/></symbol>
+<symbol id="i-effective" viewBox="0 0 24 24"><path d="M4 11h13v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 12.5h3M8 8c0-1.5 1.2-1.5 1.2-3M12 8c0-1.5 1.2-1.5 1.2-3"/></symbol>
+<symbol id="i-classic" viewBox="0 0 24 24"><path d="M4 5.5c3-1 5.5-.8 8 1 2.5-1.8 5-2 8-1V19c-3-1-5.5-.8-8 1-2.5-1.8-5-2-8-1z"/><path d="M12 6.5V20"/></symbol>
+<symbol id="i-ratios" viewBox="0 0 24 24"><rect x="3.5" y="12" width="5" height="7.5" rx="1"/><rect x="9.5" y="8" width="5" height="11.5" rx="1"/><rect x="15.5" y="4" width="5" height="15.5" rx="1"/></symbol>
+<symbol id="i-source" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8.5 6l1.5-2h4l1.5 2"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M4 7h16M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0zM12 4v16M8 20h8"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11.5" height="12.5" rx="2"/><path d="M5 16V5.5A2 2 0 0 1 7 3.5h9"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/></symbol>
+<symbol id="i-keep" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-6-4-6 4z"/></symbol>
+<symbol id="i-both" viewBox="0 0 24 24"><rect x="3.5" y="5" width="7.5" height="14" rx="1.5"/><rect x="13" y="5" width="7.5" height="14" rx="1.5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5"/></symbol>
+<symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10M8 3.5c0 5 8 5 8 8.5s-8 3.5-8 8.5M16 3.5c0 5-8 5-8 8.5s8 3.5 8 8.5"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-leek" viewBox="0 0 24 24"><path d="M9 21l2-9M12.5 21l.5-9"/><path d="M11 12C9 8 6 5 4 3.5M12 12c0-4 .5-7 2-9M13 12c2-3 4.5-5 7-6"/></symbol>
+<symbol id="i-swapi" viewBox="0 0 24 24"><path d="M7 4v13l-3-3M17 20V7l3 3"/></symbol>
+<symbol id="s-spring" viewBox="0 0 24 24"><path d="M12 20v-8"/><path d="M12 12c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5zM12 14c0-3-2.3-5-5.5-5 0 3 2.3 5 5.5 5z"/></symbol>
+<symbol id="s-summer" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
+<symbol id="s-autumn" viewBox="0 0 24 24"><path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z"/><path d="M5 19 13 11"/></symbol>
+<symbol id="s-winter" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 6l2.5-1.5M9.5 19.5 12 18l2.5 1.5"/></symbol>
+<symbol id="s-allyear" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
+<symbol id="c-main" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/></symbol>
+<symbol id="c-soup" viewBox="0 0 24 24"><path d="M3.5 11h17c0 4.7-3.8 8-8.5 8s-8.5-3.3-8.5-8z"/><path d="M9 7.5c0-1.2 1-1.3 1-2.5M13 7.5c0-1.2 1-1.3 1-2.5"/></symbol>
+<symbol id="c-bake" viewBox="0 0 24 24"><path d="M4 17V11c0-3 3.6-5 8-5s8 2 8 5v6z"/><path d="M9 9.5l1.5 2M13 9l1.5 2"/></symbol>
+<symbol id="c-breakfast" viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="8" ry="6.5"/><circle cx="12" cy="13" r="2.6"/></symbol>
+<symbol id="c-sweet" viewBox="0 0 24 24"><path d="M4 17 19 8.5V17z"/><path d="M4 17V14l15-8.5v3"/></symbol>
+</defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="art-tart" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice"><circle class="plate" cx="200" cy="130" r="112"/><circle class="crust" cx="200" cy="130" r="88"/><circle class="food2" cx="200" cy="130" r="72"/>
+ <g class="food"><circle cx="170" cy="105" r="13"/><circle cx="222" cy="98" r="11"/><circle cx="238" cy="140" r="14"/><circle cx="182" cy="158" r="12"/><circle cx="208" cy="128" r="9"/><circle cx="150" cy="138" r="9"/><circle cx="215" cy="175" r="9"/></g></symbol>
+<symbol id="art-soup" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice"><circle class="plate" cx="200" cy="130" r="108"/><circle class="food2" cx="200" cy="130" r="80"/><circle class="food" cx="200" cy="130" r="54"/><circle class="plate" cx="185" cy="118" r="10" opacity=".7"/><circle class="plate" cx="215" cy="140" r="7" opacity=".7"/></symbol>
+<symbol id="art-shak" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice"><ellipse class="plate" cx="200" cy="130" rx="130" ry="100"/><ellipse class="food" cx="200" cy="130" rx="100" ry="76"/><circle class="plate" cx="165" cy="115" r="20"/><circle class="plate" cx="235" cy="145" r="20"/><circle class="crust" cx="165" cy="115" r="8"/><circle class="crust" cx="235" cy="145" r="8"/></symbol>
+<symbol id="art-leeks" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice"><rect class="plate" x="70" y="55" width="260" height="150" rx="30"/><g class="food"><rect x="100" y="85" width="200" height="22" rx="11"/><rect x="100" y="117" width="200" height="22" rx="11"/><rect x="100" y="149" width="200" height="22" rx="11"/></g><g class="food2"><rect x="110" y="80" width="40" height="95" rx="8"/></g></symbol>
+</defs></svg>
+<p id="announce" class="sr-only" aria-live="assertive" role="alert"></p>
+<p id="announce-polite" class="sr-only" aria-live="polite"></p>
+
+<header class="appbar">
+  <div class="wrap">
+    <a class="wordmark" href="#top" id="top"><span class="book" aria-hidden="true"></span><span>the family cookbook</span></a>
+    <div class="appbar-actions">
+      <button type="button" class="btn" data-sheet-toggle aria-expanded="true" aria-controls="display-sheet"><svg class="ico" aria-hidden="true"><use href="#i-text"/></svg>Text &amp; colours</button>
+      <a class="btn btn-primary" href="#dup"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add recipe</a>
+    </div>
+  </div>
+  <div class="wrap">
+    <section class="sheet" id="display-sheet" aria-labelledby="sheet-h">
+      <h2 id="sheet-h">Text &amp; colours</h2>
+      <div class="sheet-grid">
+        <div>
+          <span class="field-label" id="size-l">Text size</span>
+          <div class="seg" role="radiogroup" aria-labelledby="size-l">
+            <button type="button" role="radio" data-size="normal" aria-checked="true"><span class="aa" style="font-size:1.1rem">Aa</span>Normal</button>
+            <button type="button" role="radio" data-size="large" aria-checked="false" tabindex="-1"><span class="aa" style="font-size:1.4rem">Aa</span>Large</button>
+            <button type="button" role="radio" data-size="xl" aria-checked="false" tabindex="-1"><span class="aa" style="font-size:1.7rem">Aa</span>Extra large</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label" id="theme-l">Light or dark</span>
+          <div class="seg" role="radiogroup" aria-labelledby="theme-l">
+            <button type="button" role="radio" data-theme-set="auto" aria-checked="true"><svg class="ico" aria-hidden="true"><use href="#i-auto"/></svg>Like my phone</button>
+            <button type="button" role="radio" data-theme-set="light" aria-checked="false" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+            <button type="button" role="radio" data-theme-set="dark" aria-checked="false" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">Contrast</span>
+          <button type="button" class="switch" role="switch" aria-checked="false" data-contrast-toggle>
+            <span><svg class="ico" aria-hidden="true"><use href="#i-contrast"/></svg> High contrast<span class="state">Off</span></span><span class="track" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</header>
+
+<main>
+<section class="intro"><div class="wrap">
+  <p class="kicker">Linne · round 2 · palette 1 of 3</p>
+  <h1>Old book</h1>
+  <p style="font-size:var(--fs-lg)">Aged paper, sepia ink and bookbinding cloth: the feel of the family cookbook that lives by the stove, its spine cracked open at the tart page.</p>
+  <ul class="muted" style="max-width:var(--measure);padding-inline-start:1.2em"><li style="margin-bottom:.5em"><b>Paper</b> is a warm, slightly yellowed cream. A faint laid-paper grain lives only in the page margins; every card you read from is flat paper.</li><li style="margin-bottom:.5em"><b>Oxblood cloth</b> is the one action colour: buttons, the selected view and the ribbon bookmark on the step you are on.</li><li style="margin-bottom:.5em"><b>Bottle-green cloth</b> is for “good” things: what you already have, approvals, finished timers, and the focus ring.</li></ul>
+  <p class="muted">Try the <b>Text &amp; colours</b> panel above: it changes the whole page and is remembered on this device. To see and hear a timer finish:</p>
+  <button type="button" class="btn" data-demo><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg>Start a 5-second test timer</button>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" aria-labelledby="l1"><div class="wrap">
+  <p class="screen-label"><b>01</b><span id="l1">Library · search</span></p>
+  <form role="search" onsubmit="return false">
+    <label class="search-label" for="q">Search your cookbook</label>
+    <div class="search">
+      <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+      <textarea id="q" rows="2" placeholder="What can I make with leeks, eggs, feta?" autocomplete="off" enterkeyhint="search"></textarea>
+      <button class="btn btn-primary" type="submit">Search</button>
+    </div>
+  </form>
+  <p class="hint">Type what’s in your fridge, a dish, or a person, like “Savta’s”.</p>
+  <div class="filters" role="group" aria-label="Show">
+    <button type="button" class="btn" aria-pressed="true">All recipes</button>
+    <button type="button" class="btn" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#c-main"/></svg>Mains</button>
+    <button type="button" class="btn" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#c-bake"/></svg>Baking</button>
+    <button type="button" class="btn" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#c-soup"/></svg>Soups</button>
+    <button type="button" class="btn" aria-pressed="false">Vegetarian</button>
+  </div>
+  <div class="results-head"><h3>Best for leeks, eggs, feta</h3><span class="muted">3 of 214 recipes</span></div>
+  <ul class="grid">
+    <li class="s-autumn"><a class="rcard" href="#recipe">
+      <div class="photo"><svg aria-hidden="true"><use href="#art-tart"/></svg></div>
+      <div class="body">
+        <span class="tagline"><span class="season"><svg class="ico" aria-hidden="true"><use href="#s-autumn"/></svg>Autumn</span><span><svg class="ico" aria-hidden="true"><use href="#c-main"/></svg>Main</span><span>Vegetarian</span></span>
+        <h4>Leek &amp; feta tart</h4>
+        <p class="sub">Crisp pastry, soft leeks, a savoury custard</p>
+        <div class="have"><strong>You have 3 of 5 ingredients</strong>
+          <span class="have-dots" aria-hidden="true"><i class="y">✓</i><i class="y">✓</i><i class="y">✓</i><i class="n">?</i><i class="n">?</i></span>
+          <p class="miss">Missing: crème fraîche, butter</p></div>
+      </div></a></li>
+    <li class="s-winter"><a class="rcard" href="#have">
+      <div class="photo"><svg aria-hidden="true"><use href="#art-soup"/></svg></div>
+      <div class="body">
+        <span class="tagline"><span class="season"><svg class="ico" aria-hidden="true"><use href="#s-winter"/></svg>Winter</span><span><svg class="ico" aria-hidden="true"><use href="#c-soup"/></svg>Soup</span><span>Vegetarian</span></span>
+        <h4>Leek &amp; potato soup</h4>
+        <p class="sub">Plain, white, peppery. Grandpa’s Friday soup.</p>
+        <div class="have"><strong>You have 2 of 4 ingredients</strong>
+          <span class="have-dots" aria-hidden="true"><i class="y">✓</i><i class="y">✓</i><i class="n">?</i><i class="n">?</i></span>
+          <p class="miss">Missing: potatoes, stock</p></div>
+      </div></a></li>
+    <li class="s-allyear"><a class="rcard" href="#" lang="he" dir="rtl">
+      <div class="photo"><svg aria-hidden="true"><use href="#art-shak"/></svg></div>
+      <div class="body">
+        <span class="tagline" lang="en" dir="ltr"><span class="season"><svg class="ico" aria-hidden="true"><use href="#s-allyear"/></svg>All year</span><span><svg class="ico" aria-hidden="true"><use href="#c-breakfast"/></svg>Breakfast</span><span>Vegetarian</span></span>
+        <h4>שקשוקה עם פטה</h4>
+        <p class="sub">עגבניות, פלפלים וביצים במחבת אחת</p>
+        <div class="have" lang="en" dir="ltr"><strong>You have 2 of 5 ingredients</strong>
+          <span class="have-dots" aria-hidden="true"><i class="y">✓</i><i class="y">✓</i><i class="n">?</i><i class="n">?</i><i class="n">?</i></span>
+          <p class="miss">Missing: tomatoes, peppers, cumin</p></div>
+      </div></a></li>
+  </ul>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" id="recipe" aria-labelledby="l2"><div class="wrap">
+  <p class="screen-label"><b>02</b><span id="l2">Recipe · Effective view, two timers running, one finished</span></p>
+  <article class="recipe s-autumn">
+    <div class="r-hero"><svg class="art" aria-hidden="true"><use href="#art-tart"/></svg><a class="btn" href="#top"><svg class="ico" aria-hidden="true"><use href="#i-back"/></svg>Library</a></div>
+    <div class="r-body">
+      <header class="r-head">
+        <span class="tagline"><span class="season"><svg class="ico" aria-hidden="true"><use href="#s-autumn"/></svg>Autumn &amp; winter</span><span><svg class="ico" aria-hidden="true"><use href="#c-main"/></svg>Main</span><span>French</span><span>Vegetarian</span></span>
+        <h3>Leek &amp; feta tart</h3>
+        <p class="r-dek">Crisp pastry, soft leeks and a savoury custard. A Sunday tart that keeps.</p>
+        <p class="tagline" style="font-size:var(--fs-base)"><span><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>Serves 6</span><span><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>1 h 40 min</span><span>From Savta Rina</span></p>
+      </header>
+      <div class="views" role="tablist" aria-label="How to show this recipe">
+        <button role="tab" id="tab-eff" aria-controls="p-eff" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#i-effective"/></svg><b>Effective</b><small>Cook step by step</small></button>
+        <button role="tab" id="tab-cls" aria-controls="p-cls" aria-selected="false" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-classic"/></svg><b>Classic</b><small>As written</small></button>
+        <button role="tab" id="tab-rat" aria-controls="p-rat" aria-selected="false" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-ratios"/></svg><b>Ratios</b><small>The proportions</small></button>
+        <button role="tab" id="tab-src" aria-controls="p-src" aria-selected="false" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-source"/></svg><b>Source</b><small>The original</small></button>
+      </div>
+      <div class="units-row">
+        <span class="muted">Amounts in grams</span>
+        <button type="button" class="btn" data-units aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-scale"/></svg><span class="lbl">Show cups &amp; spoons</span></button>
+      </div>
+
+      <div id="p-eff" role="tabpanel" aria-labelledby="tab-eff" tabindex="0">
+        <div class="eff">
+          <aside class="recap" aria-labelledby="recap-h">
+            <h4 id="recap-h" class="sr-only">You’ll need</h4>
+            <h4>Pastry</h4>
+            <ul><li>flour <span class="q" data-v="1¾ cups + 2 tbsp">240 g</span></li><li>cold butter <span class="q" data-v="11 tbsp">160 g</span></li><li>ice water <span class="q" data-v="⅓ cup">80 g</span></li><li>salt <span class="q">½ tsp</span></li></ul>
+            <h4>Filling</h4>
+            <ul><li>leeks <span class="q">3</span></li><li>butter <span class="q" data-v="2 tbsp">30 g</span></li><li>eggs <span class="q">3</span></li><li>crème fraîche <span class="q" data-v="1¼ cups">300 g</span></li><li>feta <span class="q" data-v="¾ cup">120 g</span></li><li>nutmeg, pepper <span class="q">a little</span></li></ul>
+          </aside>
+          <div>
+            <ol class="steps" aria-label="Steps">
+              <li class="step is-done-step"><div class="step-head"><span class="step-no">1</span>Step 1 of 7</div>
+                <p>Rub <b class="q" data-v="1¾ cups + 2 tbsp flour">240 g flour</b> and <b class="q">½ tsp salt</b> with <b class="q" data-v="11 tbsp cold butter">160 g cold butter</b>, cubed, until the pieces are the size of peas. Stir in <b class="q" data-v="⅓ cup ice water">80 g ice water</b> with a fork until it just holds.</p></li>
+              <li class="step is-done-step"><div class="step-head"><span class="step-no">2</span>Step 2 of 7</div>
+                <p>Press into a flat disc, wrap, and chill.</p>
+                <button class="pill" type="button" aria-pressed="false" data-label="Chill dough" data-sec="1800" data-start-left="1261"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 30 min</span></button></li>
+              <li class="step is-done-step"><div class="step-head"><span class="step-no">3</span>Step 3 of 7</div>
+                <p>Roll to <b class="q" data-v="⅛ in">3 mm</b>, line a <b class="q" data-v="9-inch">23 cm</b> tin and blind-bake at <b class="q" data-v="375 °F">190 °C</b> with paper and beans.</p>
+                <button class="pill" type="button" aria-pressed="false" data-label="Blind-bake shell" data-sec="1200"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 20 min</span></button></li>
+              <li class="step is-current" aria-current="step"><div class="step-head"><span class="step-no">4</span>Step 4 of 7<span class="now-badge"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg>You are here</span></div>
+                <p>Meanwhile, slice <b class="q">3 leeks</b> into thin coins and cook them gently in <b class="q" data-v="2 tbsp butter">30 g butter</b> with <b class="q">a pinch of salt</b> until soft and sweet, not browned.</p>
+                <button class="pill" type="button" aria-pressed="false" data-label="Soften leeks" data-sec="720" data-start-left="250"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 12 min</span></button><br>
+                <button class="btn btn-primary next" type="button"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Done · next step</button></li>
+              <li class="step"><div class="step-head"><span class="step-no">5</span>Step 5 of 7<span class="now-badge"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg>You are here</span></div>
+                <p>Whisk <b class="q">3 eggs</b> with <b class="q" data-v="1¼ cups crème fraîche">300 g crème fraîche</b>, <b class="q">a grating of nutmeg</b> and black pepper.</p>
+                <button class="btn btn-primary next" type="button"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Done · next step</button></li>
+              <li class="step"><div class="step-head"><span class="step-no">6</span>Step 6 of 7<span class="now-badge"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg>You are here</span></div>
+                <p>Scatter the leeks and <b class="q" data-v="¾ cup crumbled feta">120 g feta</b> over the shell, pour in the custard and bake at <b class="q" data-v="340 °F">170 °C</b> until just set, with a slight wobble.</p>
+                <button class="pill" type="button" aria-pressed="false" data-label="Bake tart" data-sec="1920"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 32 min</span></button><br>
+                <button class="btn btn-primary next" type="button"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Done · next step</button></li>
+              <li class="step"><div class="step-head"><span class="step-no">7</span>Step 7 of 7<span class="now-badge"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg>You are here</span></div>
+                <p>Let it rest before slicing. Good warm, better at room temperature.</p>
+                <button class="pill" type="button" aria-pressed="false" data-label="Rest tart" data-sec="600"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 10 min</span></button><br>
+                <button class="btn btn-primary next" type="button"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Finished</button></li>
+            </ol>
+            <details class="extras"><summary><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Notes, photos &amp; tags</summary>
+              <p class="note">Oct ’25: half feta, half goat’s cheese. Blind-bake 5 minutes longer in the old oven.</p></details>
+          </div>
+        </div>
+      </div>
+      <div id="p-cls" role="tabpanel" aria-labelledby="tab-cls" tabindex="0" hidden>
+        <div class="two">
+          <div><h4>Ingredients</h4><ul class="classic-list"><li><b class="q">240 g</b> plain flour</li><li><b class="q">160 g</b> cold butter</li><li><b class="q">80 g</b> ice water</li><li><b class="q">3</b> leeks</li><li><b class="q">3</b> eggs</li><li><b class="q">300 g</b> crème fraîche</li><li><b class="q">120 g</b> feta</li></ul></div>
+          <div class="method"><h4>Method</h4><p>Rub the flour and salt with the butter until pea-sized; stir in the water. Chill 30 minutes. Roll, line a 23 cm tin and blind-bake at 190 °C for 20 minutes.</p><p>Soften the leeks in butter. Whisk eggs, crème fraîche and nutmeg; fill the shell with leeks and feta, pour over and bake at 170 °C for 30–35 minutes.</p></div>
+        </div>
+      </div>
+      <div id="p-rat" role="tabpanel" aria-labelledby="tab-rat" tabindex="0" hidden><p class="muted">The Ratios view is shown in full in section 03 below.</p></div>
+      <div id="p-src" role="tabpanel" aria-labelledby="tab-src" tabindex="0" hidden>
+        <div class="source-card"><figure><svg viewBox="0 0 300 360" role="img" aria-label="Photo of Savta Rina’s handwritten recipe card"><rect x="18" y="14" width="264" height="332" rx="4" class="sp-card" transform="rotate(-2 150 180)"/><g class="sp-ink" transform="rotate(-2 150 180)"><path d="M48 62c20-6 40 4 60-2s34 2 52-3"/><path d="M48 96h170M48 116h150M48 136h176M48 156h120M48 196h168M48 216h160M48 236h140M48 256h172M48 276h96M48 306h150"/></g></svg><figcaption>Photo · sent by Dana on WhatsApp · 12 Sep</figcaption></figure>
+        <div><p>“Savta uses crème fraîche, not cream, and she never measures the nutmeg.”</p><p class="muted">Voice note, 0:48 · transcribed</p></div></div>
+      </div>
+    </div>
+    <div class="tray" role="region" aria-labelledby="tray-h" hidden>
+      <div class="tray-head"><h4 id="tray-h"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>Timers · <span data-timer-count>0 timers</span></h4>
+        <button type="button" class="btn" data-add-timer aria-expanded="false"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add timer</button></div>
+      <div class="presets" hidden><p>Start a timer for…</p>
+        <button type="button" class="btn" data-preset="1">1 min</button><button type="button" class="btn" data-preset="5">5 min</button><button type="button" class="btn" data-preset="10">10 min</button><button type="button" class="btn" data-preset="15">15 min</button><button type="button" class="btn" data-preset="30">30 min</button></div>
+      <ul class="tray-list" aria-label="Running timers"></ul>
+    </div>
+  </article>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" aria-labelledby="l3"><div class="wrap">
+  <p class="screen-label"><b>03</b><span id="l3">Ratios view</span></p>
+  <div class="ratios">
+    <div class="ratio">
+      <p class="kicker">Pastry · Ruhlman’s pie dough</p>
+      <h4>Pâte brisée</h4>
+      <p class="r-num" aria-label="3 to 2 to 1">3 : 2 : 1</p>
+      <p class="r-by">parts by weight: flour, fat, water</p>
+      <div class="stack" role="img" aria-label="Three blocks of flour, two blocks of fat, one block of water">
+        <div class="col c-grain"><span class="n">3</span><span class="blocks"><i></i><i></i><i></i></span><span class="nm">flour</span></div>
+        <div class="col c-fat"><span class="n">2</span><span class="blocks"><i></i><i></i></span><span class="nm">fat</span></div>
+        <div class="col c-liquid"><span class="n">1</span><span class="blocks"><i></i></span><span class="nm">water</span></div>
+      </div>
+      <ul class="legend">
+        <li class="c-grain"><span class="sw" aria-hidden="true"></span><span>Flour · 3 parts · dotted</span><span class="g" data-parts="3">240 g</span></li>
+        <li class="c-fat"><span class="sw" aria-hidden="true"></span><span>Butter · 2 parts · striped</span><span class="g" data-parts="2">160 g</span></li>
+        <li class="c-liquid"><span class="sw" aria-hidden="true"></span><span>Ice water · 1 part · lined</span><span class="g" data-parts="1">80 g</span></li>
+      </ul>
+      <label class="scale">One part = <input data-part inputmode="decimal" value="80" aria-label="Grams in one part"> g</label>
+    </div>
+    <div class="ratio">
+      <p class="kicker">Filling</p>
+      <h4>Savoury custard</h4>
+      <p class="r-num" aria-label="2 to 1">2 : 1</p>
+      <p class="r-by">parts by weight: dairy, egg</p>
+      <div class="stack" role="img" aria-label="Two blocks of dairy, one block of egg">
+        <div class="col c-dairy"><span class="n">2</span><span class="blocks"><i></i><i></i></span><span class="nm">dairy</span></div>
+        <div class="col c-egg"><span class="n">1</span><span class="blocks"><i></i></span><span class="nm">egg</span></div>
+      </div>
+      <ul class="legend">
+        <li class="c-dairy"><span class="sw" aria-hidden="true"></span><span>Crème fraîche · 2 parts</span><span class="g" data-parts="2">300 g</span></li>
+        <li class="c-egg"><span class="sw" aria-hidden="true"></span><span>Egg · 1 part (about 3 eggs)</span><span class="g" data-parts="1">150 g</span></li>
+      </ul>
+      <label class="scale">One part = <input data-part inputmode="decimal" value="150" aria-label="Grams in one part"> g</label>
+    </div>
+  </div>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" id="dup" aria-labelledby="l4"><div class="wrap">
+  <p class="screen-label"><b>04</b><span id="l4">After importing · possible duplicate</span></p>
+  <div class="card dup s-autumn" role="group" aria-labelledby="dup-h">
+    <div class="dup-head"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><div><h3 id="dup-h">This looks like <em>Leek &amp; feta tart</em>, which you already have</h3>
+      <p class="muted">The photo you just sent is very close to your recipe from 12 Sep 2024. Here is what is different.</p></div></div>
+    <div class="compare">
+      <div><span class="thumb"><svg viewBox="0 0 400 250" width="100%" height="100%" aria-hidden="true"><use href="#art-tart"/></svg></span><p style="margin:0"><b>Yours</b><span>Saved 12 Sep 2024 · 2 notes, 1 photo</span></p></div>
+      <div><span class="thumb"><svg viewBox="0 0 300 360" width="100%" height="100%" aria-hidden="true"><rect x="30" y="20" width="240" height="320" class="sp-card"/><g class="sp-ink"><path d="M60 70h160M60 110h140M60 150h170M60 190h120M60 230h150"/></g></svg></span><p style="margin:0"><b>New import</b><span>From a photo · today</span></p></div>
+    </div>
+    <ul class="diff" aria-label="Differences">
+      <li><span class="mk" aria-hidden="true">≠</span><span><b>Feta</b> <span class="sr-only">changed</span></span><span class="vs"><span>Yours: <b>120 g</b></span><span>New: <b>200 g</b></span></span></li>
+      <li><span class="mk" aria-hidden="true">≠</span><span><b>Dairy</b> <span class="sr-only">changed</span></span><span class="vs"><span>Yours: <b>crème fraîche</b></span><span>New: <b>double cream</b></span></span></li>
+      <li><span class="mk" aria-hidden="true">+</span><span><b>Adds thyme</b>, 1 tsp leaves</span></li>
+      <li><span class="mk" aria-hidden="true">−</span><span><b>No nutmeg</b> in the new one</span></li>
+      <li><span class="mk" aria-hidden="true">≠</span><span><b>Baking time</b> <span class="sr-only">changed</span></span><span class="vs"><span>Yours: <b>32 min</b></span><span>New: <b>35 min</b></span></span></li>
+    </ul>
+    <div class="choices">
+      <button type="button" class="choice" data-dup aria-pressed="false" data-msg="Kept your original. The new import was not saved."><b><svg class="ico" aria-hidden="true"><use href="#i-keep"/></svg>Keep original</b><span>Don’t save the new one. Nothing changes.</span></button>
+      <button type="button" class="choice" data-dup aria-pressed="false" data-msg="Replaced. Your notes and photo moved to the new version. The old one is in the bin for 30 days."><b><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg>Replace with new</b><span>Your notes and photo move across. The old one stays in the bin for 30 days.</span></button>
+      <button type="button" class="choice primary" data-dup aria-pressed="false" data-msg="Kept both. The new one is saved as “Leek & feta tart (2)”."><b><svg class="ico" aria-hidden="true"><use href="#i-both"/></svg>Keep both</b><span>Save the new one as “Leek &amp; feta tart (2)”.</span></button>
+    </div>
+    <p class="status-msg" id="dup-status" role="status"></p>
+  </div>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" id="have" aria-labelledby="l5"><div class="wrap">
+  <p class="screen-label"><b>05</b><span id="l5">Ingredient first · substitutions</span></p>
+  <div class="two">
+    <div class="card have-lot">
+      <p class="qline"><label for="lot">I have a lot of</label> <input id="lot" value="leeks"></p>
+      <h3 class="title" style="font-size:var(--fs-lg);margin:0 0 var(--sp-3)">Recipes that use the most leeks</h3>
+      <ol class="uses">
+        <li><a href="#"><span class="top"><span>Leek &amp; potato soup</span><span class="amt">6 leeks</span></span><span class="meter" aria-hidden="true"><i style="width:100%"></i></span></a></li>
+        <li><a href="#"><span class="top"><span>Braised leeks, mustard dressing</span><span class="amt">4 leeks</span></span><span class="meter" aria-hidden="true"><i style="width:66%"></i></span></a></li>
+        <li><a href="#recipe"><span class="top"><span>Leek &amp; feta tart</span><span class="amt">3 leeks</span></span><span class="meter" aria-hidden="true"><i style="width:50%"></i></span></a></li>
+        <li><a href="#"><span class="top"><span>Chicken, leek &amp; tarragon pie</span><span class="amt">2 leeks</span></span><span class="meter" aria-hidden="true"><i style="width:33%"></i></span></a></li>
+      </ol>
+      <h3 style="font-size:var(--fs-lg);margin:0 0 var(--sp-2)">Goes well with leeks</h3>
+      <p class="muted">Tap to add to your search.</p>
+      <div class="chips"><button type="button" class="btn" aria-pressed="false" data-name="potato"><span class="mk" aria-hidden="true">+</span>potato</button><button type="button" class="btn" aria-pressed="false" data-name="butter"><span class="mk" aria-hidden="true">+</span>butter</button><button type="button" class="btn" aria-pressed="false" data-name="feta"><span class="mk" aria-hidden="true">+</span>feta</button><button type="button" class="btn" aria-pressed="false" data-name="thyme"><span class="mk" aria-hidden="true">+</span>thyme</button><button type="button" class="btn" aria-pressed="false" data-name="mustard"><span class="mk" aria-hidden="true">+</span>mustard</button><button type="button" class="btn" aria-pressed="false" data-name="lemon"><span class="mk" aria-hidden="true">+</span>lemon</button><button type="button" class="btn" aria-pressed="false" data-name="eggs"><span class="mk" aria-hidden="true">+</span>eggs</button><button type="button" class="btn" aria-pressed="false" data-name="cream"><span class="mk" aria-hidden="true">+</span>cream</button></div>
+    </div>
+    <div class="card sub-card">
+      <p class="kicker">Substitution · Savta’s scones</p>
+      <h3>No buttermilk?</h3>
+      <p class="muted">For <b class="q">250 ml buttermilk</b>, best first:</p>
+      <ol class="subs">
+        <li class="best"><span class="rank">1</span><span class="lvl">Best match</span><span class="what">250 ml milk + 1 tbsp lemon juice</span><p class="how">Stir and rest 10 min, until it thickens a little.</p>
+          <button class="pill" type="button" aria-pressed="false" data-label="Rest milk & lemon" data-sec="600"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg><span class="lbl">Start timer · 10 min</span></button></li>
+        <li><span class="rank">2</span><span class="lvl">Good</span><span class="what">175 g plain yoghurt + 75 ml milk</span><p class="how">Whisk until smooth. A little richer.</p></li>
+        <li><span class="rank">3</span><span class="lvl">In a pinch</span><span class="what">250 ml kefir</span><p class="how">Use as it is. Slightly tangier.</p></li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" aria-labelledby="l6"><div class="wrap">
+  <p class="screen-label"><b>06</b><span id="l6">Sign in · request access</span></p>
+  <div class="two">
+    <div class="card auth">
+      <h3><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg> Welcome back</h3>
+      <p class="muted">Sign in to the family cookbook.</p>
+      <form class="form" data-demo-form="login">
+        <label>Email<input class="input" type="email" autocomplete="username" value="rina@example.com"></label>
+        <label for="pw">Password</label>
+        <div class="pw" style="margin-top:calc(-1 * var(--sp-2))"><input class="input" id="pw" type="password" autocomplete="current-password" value="leekandfeta"><button type="button" class="btn" data-showpw aria-controls="pw" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-eye"/></svg><span class="lbl">Show</span></button></div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <a href="#" style="justify-self:start;min-height:var(--tap);display:inline-flex;align-items:center">Forgot your password?</a>
+      </form>
+      <p class="or">New here?</p>
+      <a class="btn btn-block" href="#request"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>Ask for access</a>
+    </div>
+    <div class="card auth" id="request">
+      <h3><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg> Ask for access</h3>
+      <p class="muted">Gil looks at every request. You’ll get an email when you’re in.</p>
+      <form class="form" data-demo-form="request">
+        <label>Your name<input class="input" id="rq-name" autocomplete="name" value="Miriam Levi"></label>
+        <label>Email<input class="input" type="email" autocomplete="email" value="miriam.levi@example.com"></label>
+        <label>A note for Gil <span class="help">Optional. Who are you in the family?</span><textarea class="input">Dana’s aunt. I want Savta’s kugel!</textarea></label>
+        <button class="btn btn-primary btn-block" type="submit">Send request</button>
+      </form>
+      <div class="pending" id="pending-live" tabindex="-1" role="status" hidden>
+        <svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><b>Thank you, <span data-name>Miriam</span>. Your request is waiting.</b>
+        <p>Gil will approve it soon. We’ll email you, and you can close this page.</p>
+      </div>
+      <div class="pending" aria-label="Example of the waiting screen">
+        <svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><b>Waiting for approval</b>
+        <p>You asked on Tuesday. Gil has been told.</p>
+        <ol class="steps-mini"><li>Request sent ✓</li><li>Gil approves</li><li>You get an email and can sign in</li></ol>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<section class="screen" aria-labelledby="l7"><div class="wrap">
+  <p class="screen-label"><b>07</b><span id="l7">Owner · requests waiting</span></p>
+  <h2 class="title">3 people are waiting</h2>
+  <ul class="approvals">
+    <li class="appr" data-name="Miriam"><span class="avatar" aria-hidden="true">ML</span><span class="who"><b>Miriam Levi</b><span>miriam.levi@example.com</span><br><span>Asked Tuesday</span></span><blockquote>“Dana’s aunt. I want Savta’s kugel!”</blockquote>
+      <div class="btn-row"><button type="button" class="btn btn-primary" data-decide="approve"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Approve</button><button type="button" class="btn btn-bad" data-decide="decline"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>Decline</button></div>
+      <div class="result" hidden><span class="msg"></span><button type="button" class="btn" data-undo>Undo</button></div></li>
+    <li class="appr" data-name="Yossi"><span class="avatar" aria-hidden="true">YB</span><span class="who"><b>Yossi Ben-David</b><span>yossi.bendavid.family@example.com</span><br><span>Asked yesterday</span></span><blockquote>“Neighbour from Haifa, Rina said to ask.”</blockquote>
+      <div class="btn-row"><button type="button" class="btn btn-primary" data-decide="approve"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Approve</button><button type="button" class="btn btn-bad" data-decide="decline"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>Decline</button></div>
+      <div class="result" hidden><span class="msg"></span><button type="button" class="btn" data-undo>Undo</button></div></li>
+    <li class="appr" data-name="Anna"><span class="avatar" aria-hidden="true">AK</span><span class="who"><b>Anna Kowalski</b><span>anna.k@example.com</span><br><span>Asked today</span></span>
+      <div class="btn-row"><button type="button" class="btn btn-primary" data-decide="approve"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Approve</button><button type="button" class="btn btn-bad" data-decide="decline"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>Decline</button></div>
+      <div class="result" hidden><span class="msg"></span><button type="button" class="btn" data-undo>Undo</button></div></li>
+  </ul>
+</div></section>
+</main>
+<div class="divider" aria-hidden="true"><div class="headband"></div></div>
+<footer class="foot" aria-labelledby="foot-h"><div class="wrap">
+  <p class="screen-label"><b>09</b>Palette &amp; measured contrast</p>
+  <h2 class="title" id="foot-h">Old book: colours and contrast</h2>
+  <ul class="swatches" aria-label="Light palette swatches"><li><span style="background:#F1E7D3"></span><b>Page</b><code>#F1E7D3</code></li><li><span style="background:#FAF3E3"></span><b>Card</b><code>#FAF3E3</code></li><li><span style="background:#E7DAC0"></span><b>Well</b><code>#E7DAC0</code></li><li><span style="background:#2A1C11"></span><b>Ink</b><code>#2A1C11</code></li><li><span style="background:#4A3524"></span><b>Ink 2</b><code>#4A3524</code></li><li><span style="background:#6E5843"></span><b>Border</b><code>#6E5843</code></li><li><span style="background:#6B1E24"></span><b>Accent</b><code>#6B1E24</code></li><li><span style="background:#F1DFCF"></span><b>Accent soft</b><code>#F1DFCF</code></li><li><span style="background:#1E4A3A"></span><b>Second accent</b><code>#1E4A3A</code></li><li><span style="background:#1E4A3A"></span><b>Focus</b><code>#1E4A3A</code></li><li><span style="background:#6B1E24"></span><b>Seam</b><code>#6B1E24</code></li></ul>
+  <div class="table-wrap"><table>
+   <caption class="sr-only">WCAG 2 contrast ratios, computed from relative luminance</caption>
+   <thead><tr><th scope="col">Pair</th><th scope="col">Needs</th><th scope="col">Light</th><th scope="col">Dark</th><th scope="col">High contrast · light</th><th scope="col">High contrast · dark</th></tr></thead>
+   <tbody><tr><th scope="row">Body text · ink on page</th><td>≥ 7 : 1</td><td class="n">13.45 : 1</td><td class="n">15.03 : 1</td><td class="n">18.89 : 1</td><td class="n">21.00 : 1</td></tr>
+<tr><th scope="row">Body text · ink on card</th><td>≥ 7 : 1</td><td class="n">14.93 : 1</td><td class="n">13.88 : 1</td><td class="n">19.36 : 1</td><td class="n">19.72 : 1</td></tr>
+<tr><th scope="row">Body text · ink on textured page (worst point)</th><td>≥ 7 : 1</td><td class="n">12.17 : 1</td><td class="n">15.27 : 1</td><td class="n">—</td><td class="n">—</td></tr>
+<tr><th scope="row">Secondary text · ink-2 on card</th><td>≥ 7 : 1</td><td class="n">10.40 : 1</td><td class="n">9.96 : 1</td><td class="n">16.50 : 1</td><td class="n">16.86 : 1</td></tr>
+<tr><th scope="row">Current step · ink on step card</th><td>≥ 7 : 1</td><td class="n">12.73 : 1</td><td class="n">11.90 : 1</td><td class="n">15.93 : 1</td><td class="n">16.79 : 1</td></tr>
+<tr><th scope="row">Button label · on accent</th><td>≥ 7 : 1</td><td class="n">10.44 : 1</td><td class="n">8.59 : 1</td><td class="n">13.55 : 1</td><td class="n">13.50 : 1</td></tr>
+<tr><th scope="row">Accent text · on card</th><td>≥ 7 : 1</td><td class="n">10.34 : 1</td><td class="n">9.10 : 1</td><td class="n">13.55 : 1</td><td class="n">13.80 : 1</td></tr>
+<tr><th scope="row">Secondary accent text · on card</th><td>≥ 7 : 1</td><td class="n">9.06 : 1</td><td class="n">9.65 : 1</td><td class="n">13.44 : 1</td><td class="n">13.81 : 1</td></tr>
+<tr><th scope="row">Approve / done text · on card</th><td>≥ 7 : 1</td><td class="n">9.06 : 1</td><td class="n">9.65 : 1</td><td class="n">13.44 : 1</td><td class="n">13.81 : 1</td></tr>
+<tr><th scope="row">Control borders · on card</th><td>≥ 4.5 : 1</td><td class="n">6.05 : 1</td><td class="n">5.46 : 1</td><td class="n">16.50 : 1</td><td class="n">15.96 : 1</td></tr>
+<tr><th scope="row">Focus ring · on page</th><td>≥ 4.5 : 1</td><td class="n">8.16 : 1</td><td class="n">10.45 : 1</td><td class="n">9.95 : 1</td><td class="n">14.68 : 1</td></tr>
+<tr><th scope="row">Season mark (autumn) · on card</th><td>≥ 4.5 : 1</td><td class="n">6.50 : 1</td><td class="n">8.41 : 1</td><td class="n">10.29 : 1</td><td class="n">12.45 : 1</td></tr>
+<tr><th scope="row">Ink on ratio block (flour)</th><td>≥ 7 : 1</td><td class="n">10.78 : 1</td><td class="n">8.15 : 1</td><td class="n">14.70 : 1</td><td class="n">12.18 : 1</td></tr></tbody>
+  </table></div>
+  <ul class="contrast-cards"><li><b>Body text · ink on page</b> <span>needs ≥ 7 : 1</span><span>Light: 13.45 : 1</span><span>Dark: 15.03 : 1</span><span>High contrast · light: 18.89 : 1</span><span>High contrast · dark: 21.00 : 1</span></li><li><b>Body text · ink on card</b> <span>needs ≥ 7 : 1</span><span>Light: 14.93 : 1</span><span>Dark: 13.88 : 1</span><span>High contrast · light: 19.36 : 1</span><span>High contrast · dark: 19.72 : 1</span></li><li><b>Body text · ink on textured page (worst point)</b> <span>needs ≥ 7 : 1</span><span>Light: 12.17 : 1</span><span>Dark: 15.27 : 1</span><span>High contrast · light: —</span><span>High contrast · dark: —</span></li><li><b>Secondary text · ink-2 on card</b> <span>needs ≥ 7 : 1</span><span>Light: 10.40 : 1</span><span>Dark: 9.96 : 1</span><span>High contrast · light: 16.50 : 1</span><span>High contrast · dark: 16.86 : 1</span></li><li><b>Current step · ink on step card</b> <span>needs ≥ 7 : 1</span><span>Light: 12.73 : 1</span><span>Dark: 11.90 : 1</span><span>High contrast · light: 15.93 : 1</span><span>High contrast · dark: 16.79 : 1</span></li><li><b>Button label · on accent</b> <span>needs ≥ 7 : 1</span><span>Light: 10.44 : 1</span><span>Dark: 8.59 : 1</span><span>High contrast · light: 13.55 : 1</span><span>High contrast · dark: 13.50 : 1</span></li><li><b>Accent text · on card</b> <span>needs ≥ 7 : 1</span><span>Light: 10.34 : 1</span><span>Dark: 9.10 : 1</span><span>High contrast · light: 13.55 : 1</span><span>High contrast · dark: 13.80 : 1</span></li><li><b>Secondary accent text · on card</b> <span>needs ≥ 7 : 1</span><span>Light: 9.06 : 1</span><span>Dark: 9.65 : 1</span><span>High contrast · light: 13.44 : 1</span><span>High contrast · dark: 13.81 : 1</span></li><li><b>Approve / done text · on card</b> <span>needs ≥ 7 : 1</span><span>Light: 9.06 : 1</span><span>Dark: 9.65 : 1</span><span>High contrast · light: 13.44 : 1</span><span>High contrast · dark: 13.81 : 1</span></li><li><b>Control borders · on card</b> <span>needs ≥ 4.5 : 1</span><span>Light: 6.05 : 1</span><span>Dark: 5.46 : 1</span><span>High contrast · light: 16.50 : 1</span><span>High contrast · dark: 15.96 : 1</span></li><li><b>Focus ring · on page</b> <span>needs ≥ 4.5 : 1</span><span>Light: 8.16 : 1</span><span>Dark: 10.45 : 1</span><span>High contrast · light: 9.95 : 1</span><span>High contrast · dark: 14.68 : 1</span></li><li><b>Season mark (autumn) · on card</b> <span>needs ≥ 4.5 : 1</span><span>Light: 6.50 : 1</span><span>Dark: 8.41 : 1</span><span>High contrast · light: 10.29 : 1</span><span>High contrast · dark: 12.45 : 1</span></li><li><b>Ink on ratio block (flour)</b> <span>needs ≥ 7 : 1</span><span>Light: 10.78 : 1</span><span>Dark: 8.15 : 1</span><span>High contrast · light: 14.70 : 1</span><span>High contrast · dark: 12.18 : 1</span></li></ul>
+  <ul class="foot-notes">
+   <li>Ratios are computed with the WCAG 2.x formula, (L1 + 0.05) / (L2 + 0.05) on sRGB relative luminance, by the script that generated this page; they are not estimates.</li>
+   <li>“Textured page (worst point)” blends the page colour with the texture colour at the <em>sum</em> of every texture layer’s opacity, which is darker than any real pixel.</li>
+   <li>Every text pair is 7 : 1 or better in light and dark, and 10 : 1 or better in high contrast. Borders, focus rings and season marks are 4.5 : 1 or better. </li>
+   <li>Type: Atkinson Hyperlegible Next (Braille Institute, designed for low vision: distinct I l 1, 0 O, open counters) with Noto Sans Hebrew, which is also the Hebrew system font on Android, so Hebrew looks the same even offline.</li>
+  </ul>
+</div></footer>
+<script>
+
+(function () {
+  'use strict';
+  var root = document.documentElement;
+  var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+  var $ = function (s, el) { return (el || document).querySelector(s); };
+  var store = {
+    get: function (k) { try { return localStorage.getItem('linne.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('linne.' + k, v); } catch (e) {} }
+  };
+  var announcer = $('#announce'), politer = $('#announce-polite');
+  function say(msg, urgent) { var el = urgent ? announcer : politer; if (!el) return; el.textContent = ''; setTimeout(function () { el.textContent = msg; }, 60); }
+
+  /* ---- display settings: text size, contrast, theme ---- */
+  function setSize(v, quiet) {
+    if (v === 'normal') root.removeAttribute('data-text-size'); else root.setAttribute('data-text-size', v);
+    $$('[data-size]').forEach(function (b) { var on = b.dataset.size === v; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+    store.set('size', v); if (!quiet) say('Text size: ' + ({normal: 'normal', large: 'large', xl: 'extra large'})[v]);
+  }
+  function setContrast(on, quiet) {
+    if (on) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast');
+    $$('[data-contrast-toggle]').forEach(function (b) { b.setAttribute('aria-checked', String(on)); var s = $('.state', b); if (s) s.textContent = on ? 'On' : 'Off'; });
+    store.set('contrast', on ? 'high' : 'normal'); if (!quiet) say('High contrast ' + (on ? 'on' : 'off'));
+  }
+  function setTheme(v, quiet) {
+    if (v === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', v);
+    $$('[data-theme-set]').forEach(function (b) { var on = b.dataset.themeSet === v; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+    store.set('theme', v); if (!quiet) say('Colours: ' + v);
+  }
+  $$('[data-size]').forEach(function (b) { b.addEventListener('click', function () { setSize(b.dataset.size); }); });
+  $$('[data-contrast-toggle]').forEach(function (b) { b.addEventListener('click', function () { setContrast(b.getAttribute('aria-checked') !== 'true'); }); });
+  $$('[data-theme-set]').forEach(function (b) { b.addEventListener('click', function () { setTheme(b.dataset.themeSet); }); });
+  /* radio groups: arrow keys move + select */
+  $$('[role="radiogroup"]').forEach(function (g) {
+    g.addEventListener('keydown', function (e) {
+      var items = $$('[role="radio"]', g), i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      var d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      if (getComputedStyle(g).direction === 'rtl' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) d = -d;
+      e.preventDefault(); var n = items[(i + d + items.length) % items.length]; n.focus(); n.click();
+    });
+  });
+  setSize(store.get('size') || 'normal', true);
+  setContrast(store.get('contrast') === 'high', true);
+  setTheme(store.get('theme') || 'auto', true);
+  var sheetBtn = $('[data-sheet-toggle]'), sheet = $('#display-sheet');
+  if (sheetBtn && sheet) sheetBtn.addEventListener('click', function () {
+    var open = sheet.hidden; sheet.hidden = !open; sheetBtn.setAttribute('aria-expanded', String(open));
+    if (open) { var f = $('[role="radio"][aria-checked="true"]', sheet); if (f) f.focus(); }
+  });
+
+  /* search box is a textarea so the long placeholder can wrap; Enter still searches */
+  $$('form[role="search"] textarea').forEach(function (t) { t.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); say('Searching for ' + (t.value || 'everything')); } }); });
+
+  /* ---- recipe view tabs (big labelled tiles) ---- */
+  $$('[role="tablist"]').forEach(function (list) {
+    var tabs = $$('[role="tab"]', list);
+    function select(t, focus) {
+      tabs.forEach(function (x) { var on = x === t; x.setAttribute('aria-selected', String(on)); x.tabIndex = on ? 0 : -1; document.getElementById(x.getAttribute('aria-controls')).hidden = !on; });
+      if (focus) t.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key, n = null;
+        if (k === 'ArrowRight' || k === 'ArrowDown') n = tabs[(i + 1) % tabs.length];
+        if (k === 'ArrowLeft' || k === 'ArrowUp') n = tabs[(i - 1 + tabs.length) % tabs.length];
+        if (k === 'Home') n = tabs[0]; if (k === 'End') n = tabs[tabs.length - 1];
+        if (n) { e.preventDefault(); select(n, true); }
+      });
+    });
+  });
+
+  /* ---- units ---- */
+  $$('[data-units]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var vol = b.getAttribute('aria-pressed') !== 'true';
+      $$('[data-v]').forEach(function (el) { if (!el.dataset.m) el.dataset.m = el.textContent; el.textContent = vol ? el.dataset.v : el.dataset.m; });
+      $$('[data-units]').forEach(function (x) { x.setAttribute('aria-pressed', String(vol)); $('.lbl', x).textContent = vol ? 'Show grams' : 'Show cups & spoons'; });
+      say(vol ? 'Showing cups and spoons' : 'Showing grams');
+    });
+  });
+
+  /* ---- steps: tap to mark your place; "Done, next step" ---- */
+  var steps = $$('.step');
+  function setCurrent(li, announce) {
+    var idx = steps.indexOf(li);
+    steps.forEach(function (x, i) { x.classList.toggle('is-current', x === li); x.classList.toggle('is-done-step', i < idx); if (x === li) x.setAttribute('aria-current', 'step'); else x.removeAttribute('aria-current'); });
+    if (announce) say('Now on step ' + (idx + 1) + ' of ' + steps.length);
+  }
+  steps.forEach(function (li) {
+    li.addEventListener('click', function (e) { if (e.target.closest('button, a, input')) return; setCurrent(li, true); });
+    var nx = $('.next', li);
+    if (nx) nx.addEventListener('click', function () { var i = steps.indexOf(li); if (i < steps.length - 1) { setCurrent(steps[i + 1], true); steps[i + 1].scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); $('.next', steps[i + 1]) && $('.next', steps[i + 1]).focus({ preventScroll: true }); } else say('That was the last step. Enjoy!'); });
+  });
+
+  /* ---- ratio scaler ---- */
+  document.addEventListener('input', function (e) {
+    var i = e.target.closest('[data-part]'); if (!i) return;
+    var box = i.closest('.ratio'), p = parseFloat(i.value) || 0;
+    $$('[data-parts]', box).forEach(function (o) { o.textContent = Math.round(p * o.dataset.parts) + ' g'; });
+  });
+
+  /* ---- chime (singing-bowl "rin", two strikes) ---- */
+  var ac;
+  function chime() {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      var t0 = ac.currentTime + 0.03, master = ac.createGain(); master.gain.value = 0.2; master.connect(ac.destination);
+      var strike = function (t, f) { [[1, 1, 2.6], [2.76, 0.26, 1.0], [5.4, 0.07, 0.4]].forEach(function (p) {
+        var o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f * p[0];
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(p[1], t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + p[2]);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + p[2] + 0.05); }); };
+      strike(t0, 659.25); strike(t0 + 0.6, 523.25);
+    } catch (err) {}
+    try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) {}
+  }
+
+  /* ---- timers ---- */
+  var list = $('.tray-list'), tray = $('.tray');
+  function fmt(s) { s = Math.max(0, Math.ceil(s)); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); }
+  function spoken(s) { s = Math.max(0, Math.ceil(s)); var m = Math.floor(s / 60), x = s % 60; return (m ? m + ' minute' + (m === 1 ? '' : 's') + ' ' : '') + x + ' second' + (x === 1 ? '' : 's'); }
+  function ico(id) { return '<svg class="ico" aria-hidden="true"><use href="#' + id + '"/></svg>'; }
+  function sync() { if (!tray) return; var n = list.children.length; tray.hidden = !n; var c = $('[data-timer-count]'); if (c) c.textContent = n === 1 ? '1 timer' : n + ' timers'; }
+  function render(li) {
+    var t = li._t, left = t.paused ? t.left : (t.end - Date.now()) / 1000;
+    li.classList.toggle('is-paused', !!t.paused && !t.done);
+    $('.t-time', li).textContent = t.done ? 'Done!' : fmt(left);
+    $('.t-time', li).setAttribute('aria-label', t.done ? 'finished' : spoken(left) + ' left');
+    $('.t-state', li).innerHTML = t.done ? ico('i-bell') + 'Finished' : t.paused ? ico('i-pause') + 'Paused' : ico('i-timer') + 'Running';
+    var bar = $('.t-bar i', li); if (bar) bar.style.transform = 'scaleX(' + Math.max(0, Math.min(1, left / t.total)) + ')';
+    var a = $('.t-actions', li);
+    var want = t.done ? 'done' : t.paused ? 'paused' : 'running';
+    if (a.dataset.mode !== want) {
+      a.dataset.mode = want;
+      a.innerHTML = t.done
+        ? '<button type="button" class="btn btn-primary" data-act="dismiss">' + ico('i-check') + 'OK, dismiss</button><button type="button" class="btn" data-act="more">' + ico('i-plus') + '1 more minute</button>'
+        : '<button type="button" class="btn" data-act="pause">' + (t.paused ? ico('i-play') + 'Resume' : ico('i-pause') + 'Pause') + '</button><button type="button" class="btn btn-bad" data-act="stop">' + ico('i-stop') + 'Stop</button>';
+    }
+  }
+  function remove(li, msg) { var t = li._t; if (t.pill) { t.pill.setAttribute('aria-pressed', 'false'); $('.lbl', t.pill).textContent = t.pill.dataset.text; } li.remove(); sync(); if (msg) say(msg); }
+  function add(label, total, left, pill, done) {
+    var li = document.createElement('li'); li.className = 'timer';
+    li.innerHTML = '<div class="t-info"><span class="t-label"></span><span class="t-time" role="timer"></span><span class="t-state"></span></div><div class="t-actions"></div><span class="t-bar" aria-hidden="true"><i></i></span>';
+    $('.t-label', li).textContent = label;
+    li._t = { label: label, end: Date.now() + left * 1000, total: total, pill: pill, done: !!done, paused: false, left: left };
+    if (done) li.classList.add('is-done');
+    li.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return; var t = li._t, act = b.dataset.act;
+      if (act === 'pause') { if (t.paused) { t.end = Date.now() + t.left * 1000; t.paused = false; say(label + ' resumed'); } else { t.left = (t.end - Date.now()) / 1000; t.paused = true; say(label + ' paused'); } render(li); $('[data-act="pause"]', li).focus(); }
+      if (act === 'stop') remove(li, label + ' timer stopped');
+      if (act === 'dismiss') remove(li, label + ' dismissed');
+      if (act === 'more') { t.done = false; li.classList.remove('is-done'); t.total = 60; t.end = Date.now() + 60000; render(li); say('One more minute for ' + label); }
+    });
+    if (pill) { if (!pill.dataset.text) pill.dataset.text = $('.lbl', pill).textContent; pill.setAttribute('aria-pressed', done ? 'false' : 'true'); $('.lbl', pill).textContent = done ? 'Timer finished' : 'Timer running · see below'; }
+    if (done) list.insertBefore(li, list.firstChild); else list.appendChild(li); render(li); sync(); return li;
+  }
+  function tick() {
+    $$('.timer', list).forEach(function (li) {
+      var t = li._t; if (t.done || t.paused) return;
+      if ((t.end - Date.now()) / 1000 <= 0) {
+        t.done = true; li.classList.add('is-done'); list.insertBefore(li, list.firstChild);
+        if (t.pill) { $('.lbl', t.pill).textContent = 'Timer finished'; }
+        render(li); chime(); say(t.label + ' timer is done.', true);
+        document.title = '✓ ' + t.label + ' done · ' + document.title.replace(/^✓ .*? done · /, '');
+      } else render(li);
+    });
+  }
+  if (list) {
+    setInterval(tick, 500);
+    $$('.pill[data-sec]').forEach(function (p) {
+      p.dataset.text = $('.lbl', p).textContent;
+      p.addEventListener('click', function () {
+        if (p.getAttribute('aria-pressed') === 'true') { var tr = $('.tray'); if (tr) tr.scrollIntoView({ block: 'nearest' }); return; }
+        add(p.dataset.label, +p.dataset.sec, +p.dataset.sec, p); say(p.dataset.label + ' timer started, ' + spoken(+p.dataset.sec));
+      });
+    });
+    var presets = $('.presets');
+    $$('[data-add-timer]').forEach(function (b) { b.addEventListener('click', function () { var open = presets.hidden; presets.hidden = !open; b.setAttribute('aria-expanded', String(open)); }); });
+    $$('[data-preset]').forEach(function (b) { b.addEventListener('click', function () { var m = +b.dataset.preset; add(m + '-minute timer', m * 60, m * 60); presets.hidden = true; say(m + ' minute timer started'); }); });
+    $$('[data-demo]').forEach(function (b) { b.addEventListener('click', function () { add('Test', 5, 5); say('Five second test timer started'); var tr = $('.tray'); if (tr) tr.scrollIntoView({ block: 'nearest' }); }); });
+    $$('.pill[data-start-left]').forEach(function (p) { p.dataset.text = $('.lbl', p).textContent; add(p.dataset.label, +p.dataset.sec, +p.dataset.startLeft, p); });
+    add('Blind-bake shell', 1200, 0, $('.pill[data-label="Blind-bake shell"]'), true);
+  }
+  /* substitution pill timers use the same tray */
+
+  /* ---- duplicate prompt ---- */
+  $$('[data-dup]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $$('[data-dup]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      var out = $('#dup-status'); out.textContent = b.dataset.msg;
+    });
+  });
+
+  /* ---- ingredient-first ---- */
+  $$('.chips .btn').forEach(function (b) { b.addEventListener('click', function () { var on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); $('.mk', b).textContent = on ? '✓' : '+'; say(b.dataset.name + (on ? ' added to your search' : ' removed')); }); });
+
+  /* ---- auth ---- */
+  $$('[data-showpw]').forEach(function (b) { b.addEventListener('click', function () { var i = document.getElementById(b.getAttribute('aria-controls')); var show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.setAttribute('aria-pressed', String(show)); $('.lbl', b).textContent = show ? 'Hide' : 'Show'; }); });
+  $$('form[data-demo-form]').forEach(function (f) { f.addEventListener('submit', function (e) { e.preventDefault();
+    if (f.dataset.demoForm === 'request') { var p = $('#pending-live'); p.hidden = false; var n = $('#rq-name', f).value.trim().split(' ')[0] || 'there'; $('[data-name]', p).textContent = n; p.focus(); }
+    else say('This is a mockup. Signing in would take you to the library.');
+  }); });
+
+  /* ---- approvals ---- */
+  $$('.appr').forEach(function (row) {
+    var name = row.dataset.name, res = $('.result', row), btns = $('.btn-row', row);
+    $$('[data-decide]', row).forEach(function (b) { b.addEventListener('click', function () {
+      var ok = b.dataset.decide === 'approve';
+      res.className = 'result ' + (ok ? 'ok' : 'no'); res.hidden = false; btns.hidden = true;
+      $('.msg', res).innerHTML = ok ? '<svg class="ico" aria-hidden="true"><use href="#i-check"/></svg> Approved. ' + name + ' can sign in now.' : '<svg class="ico" aria-hidden="true"><use href="#i-x"/></svg> Declined. ' + name + ' will not be told why.';
+      say(ok ? name + ' approved' : name + ' declined'); $('[data-undo]', row).focus();
+    }); });
+    var u = $('[data-undo]', row); if (u) u.addEventListener('click', function () { res.hidden = true; btns.hidden = false; say('Undone. ' + name + ' is waiting again.'); $('[data-decide]', row).focus(); });
+  });
+})();
+
+</script>
+</body>
+</html>

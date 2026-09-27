@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linne — Direction B</title>
+<meta name="description" content="Cookbook design direction B: Scandinavian linen, grotesk type, pine accent, soft photographic cards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&family=Assistant:wght@300..700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #F1F0EC; --surface: #FBFAF8; --sunk: #E8E6E0;
+  --ink: #1B1E1D; --ink-2: #4B5250; --ink-3: #69706D;
+  --line: #DFDDD6; --line-strong: #C4C1B8;
+  --accent: #2E5B4E; --accent-soft: #DCE7E1; --on-accent: #FBFAF8;
+  --focus: #2E5B4E;
+  --spring: #C77985; --summer: #5E9470; --autumn: #C26D34; --winter: #56738F; --allyear: #8F8B83;
+  --spring-tint: #F4E4E7; --summer-tint: #E0EDE3; --autumn-tint: #F4E3D6; --winter-tint: #E0E7EE; --allyear-tint: #E9E8E3;
+  --r-grain: #DCCFB0; --r-fat: #EAD99E; --r-liquid: #BFD3D9; --r-egg: #EDBE63; --r-dairy: #E7E2D2;
+  --shadow: 0 1px 2px rgba(20,24,22,.05), 0 12px 32px -20px rgba(20,24,22,.25);
+  --font: "Inter", "Assistant", "Noto Sans Hebrew", system-ui, sans-serif;
+  --step-size: 1.25rem;
+  --ease: cubic-bezier(.2,.7,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111312; --surface: #1A1D1C; --sunk: #0C0E0D;
+    --ink: #E8ECEA; --ink-2: #AEB5B2; --ink-3: #87908C;
+    --line: #2A2F2D; --line-strong: #3E4542;
+    --accent: #8CC4B1; --accent-soft: #1D2D28; --on-accent: #111312; --focus: #8CC4B1;
+    --spring: #E7A5B0; --summer: #8FC6A0; --autumn: #E59C68; --winter: #9AB3CC; --allyear: #A7A39B;
+    --spring-tint: #30252A; --summer-tint: #1B2A21; --autumn-tint: #33251B; --winter-tint: #1C2530; --allyear-tint: #222422;
+    --r-grain: #6C6348; --r-fat: #77683A; --r-liquid: #3D545B; --r-egg: #8A6828; --r-dairy: #57523F;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px -24px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111312; --surface: #1A1D1C; --sunk: #0C0E0D;
+  --ink: #E8ECEA; --ink-2: #AEB5B2; --ink-3: #87908C;
+  --line: #2A2F2D; --line-strong: #3E4542;
+  --accent: #8CC4B1; --accent-soft: #1D2D28; --on-accent: #111312; --focus: #8CC4B1;
+  --spring: #E7A5B0; --summer: #8FC6A0; --autumn: #E59C68; --winter: #9AB3CC; --allyear: #A7A39B;
+  --spring-tint: #30252A; --summer-tint: #1B2A21; --autumn-tint: #33251B; --winter-tint: #1C2530; --allyear-tint: #222422;
+  --r-grain: #6C6348; --r-fat: #77683A; --r-liquid: #3D545B; --r-egg: #8A6828; --r-dairy: #57523F;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px -24px rgba(0,0,0,.8);
+}
+@media (min-width: 900px) { :root { --step-size: 1.4375rem; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 1.0625rem; line-height: 1.6; -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
+[lang="he"] { font-family: "Assistant", var(--font); }
+a { color: inherit; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.ico, .glyph { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.2em; flex: none; }
+.label { font-size: .8125rem; font-weight: 600; color: var(--ink-3); margin: 0 0 12px; letter-spacing: .01em; }
+.quiet { color: var(--ink-2); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 700px) { .wrap { padding: 0 48px; } }
+
+.intro { padding: 64px 0 48px; }
+.intro .kicker { font-size: .8125rem; font-weight: 600; color: var(--accent); margin: 0 0 16px; }
+.intro h1 { font-size: clamp(2.5rem, 9vw, 5rem); font-weight: 600; letter-spacing: -.04em; line-height: 1; margin: 0 0 20px; }
+.intro p { max-width: 36em; color: var(--ink-2); margin: 0 0 10px; font-size: 1.125rem; }
+.tools { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.tools button { background: var(--surface); border: 1px solid var(--line); padding: 10px 16px; border-radius: 999px; font-size: .875rem; font-weight: 500; }
+.screen { padding: 56px 0 80px; }
+.screen + .screen { border-top: 1px solid var(--line); }
+.screen-label { font-size: .8125rem; font-weight: 600; color: var(--ink-3); margin: 0 0 32px; }
+.screen-label b { color: var(--accent); font-weight: 600; margin-right: 8px; }
+
+/* marks */
+.s-spring { --season: var(--spring); --season-tint: var(--spring-tint); }
+.s-summer { --season: var(--summer); --season-tint: var(--summer-tint); }
+.s-autumn { --season: var(--autumn); --season-tint: var(--autumn-tint); }
+.s-winter { --season: var(--winter); --season-tint: var(--winter-tint); }
+.s-allyear { --season: var(--allyear); --season-tint: var(--allyear-tint); }
+.stamp { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid currentColor; color: var(--accent); font-size: .625rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; flex: none; }
+.diet-dots { display: inline-flex; gap: 4px; align-items: center; font-size: .75rem; color: var(--ink-3); font-weight: 500; }
+.marks { display: inline-flex; align-items: center; gap: 10px; color: var(--ink-2); }
+.season-name { font-size: .75rem; font-weight: 600; color: color-mix(in srgb, var(--season) 65%, var(--ink)); text-transform: uppercase; letter-spacing: .08em; }
+
+/* library */
+.appbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+.wordmark { font-weight: 700; letter-spacing: -.02em; font-size: 1.125rem; }
+.wordmark span { color: var(--accent); }
+.appbar nav { display: flex; gap: 10px; align-items: center; }
+.btn-add { display: inline-flex; gap: 6px; align-items: center; background: var(--accent); color: var(--on-accent); padding: 10px 16px 10px 12px; border-radius: 999px; font-size: .875rem; font-weight: 600; min-height: 44px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--sunk); display: grid; place-items: center; font-weight: 600; font-size: .875rem; }
+.search { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 16px; padding: 0 20px; min-height: 64px; box-shadow: var(--shadow); }
+.search .ico { width: 22px; height: 22px; color: var(--ink-3); }
+.search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); outline: none; font: 500 1.25rem var(--font); letter-spacing: -.01em; }
+.search input::placeholder { color: var(--ink-3); font-weight: 400; }
+.season-strip { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 20px 4px 0; font-size: .9375rem; color: var(--ink-2); }
+.season-strip .jp { color: var(--ink-3); }
+.filters { display: flex; gap: 8px; margin: 28px 0 24px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.filters button { flex: none; display: inline-flex; gap: 6px; align-items: center; padding: 8px 14px; border-radius: 999px; font-size: .875rem; color: var(--ink-2); border: 1px solid var(--line-strong); min-height: 40px; }
+.filters button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.result-head { display: flex; justify-content: space-between; align-items: baseline; margin: 36px 0 16px; }
+.result-head h2 { font-size: 1.375rem; letter-spacing: -.02em; font-weight: 600; margin: 0; }
+.result-head span { color: var(--ink-3); font-size: .875rem; }
+.grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 12px; }
+@media (min-width: 700px) { .grid { grid-template-columns: repeat(3, 1fr); gap: 32px 20px; } }
+@media (min-width: 1040px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+.card a { display: block; text-decoration: none; }
+.photo { aspect-ratio: 4 / 5; border-radius: 14px; background: var(--season-tint); position: relative; overflow: hidden; margin-bottom: 12px; }
+.photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.photo .plate { fill: var(--surface); } .photo .food { fill: var(--season); opacity: .55; } .photo .food2 { fill: var(--season); opacity: .3; }
+.photo .stamp { position: absolute; top: 10px; right: 10px; background: var(--surface); border-color: transparent; }
+.card h3 { font-size: 1.0625rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; margin: 0 0 4px; }
+.card p { margin: 0; font-size: .875rem; color: var(--ink-2); line-height: 1.45; }
+.card .match { margin-top: 6px; font-size: .8125rem; color: var(--ink-3); }
+.card .match b { color: var(--accent); font-weight: 600; }
+.card .marks { margin-top: 8px; gap: 8px; }
+.card .marks .glyph { width: 18px; height: 18px; }
+
+/* recipe */
+.recipe { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); overflow: clip; position: relative; }
+.r-hero { background: var(--season-tint); height: 220px; position: relative; }
+@media (min-width: 900px) { .r-hero { height: 300px; } }
+.r-hero svg { width: 100%; height: 100%; display: block; }
+.r-hero .plate { fill: var(--surface); } .r-hero .food { fill: var(--season); opacity: .5; } .r-hero .food2 { fill: var(--season); opacity: .28; }
+.back { position: absolute; top: 14px; left: 14px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; z-index: 1; }
+.r-body { padding: 28px 20px 24px; }
+@media (min-width: 900px) { .r-body { padding: 48px 56px 40px; } }
+.r-head h1 { font-size: clamp(2rem, 7vw, 3.25rem); font-weight: 650; letter-spacing: -.035em; line-height: 1.05; margin: 10px 0 12px; }
+.r-dek { font-size: 1.125rem; color: var(--ink-2); margin: 0 0 20px; max-width: 32em; }
+.r-meta { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; font-size: .9375rem; color: var(--ink-2); margin: 0; }
+.r-meta > span { display: inline-flex; gap: 8px; align-items: center; }
+.r-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 32px 0 32px; position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 8px 0; }
+[role=tablist] { display: flex; gap: 4px; background: var(--sunk); padding: 4px; border-radius: 999px; overflow-x: auto; scrollbar-width: none; }
+[role=tab] { padding: 8px 14px; border-radius: 999px; font-size: .875rem; font-weight: 500; color: var(--ink-2); white-space: nowrap; min-height: 40px; }
+[role=tab][aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.units { font-size: .8125rem; font-weight: 600; color: var(--ink-3); padding: 10px 4px; min-height: 44px; white-space: nowrap; }
+.units[aria-pressed="false"] .u-m, .units[aria-pressed="true"] .u-v { color: var(--accent); }
+
+.eff { display: grid; gap: 32px; }
+@media (min-width: 900px) { .eff { grid-template-columns: 280px 1fr; gap: 64px; } .recap { position: sticky; top: 90px; align-self: start; } }
+.recap { background: var(--bg); border-radius: 16px; padding: 20px; }
+.recap ul { list-style: none; margin: 0; padding: 0; font-size: .9375rem; }
+.recap li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.recap li:last-child { border: 0; }
+.recap li .q { font-weight: 600; font-variant-numeric: tabular-nums; }
+.recap .sub { font-size: .75rem; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; margin: 14px 0 2px; }
+.recap .sub:first-of-type { margin-top: 0; }
+.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; max-width: 36em; }
+.steps li { counter-increment: step; position: relative; padding: 18px 18px 22px 64px; margin-bottom: 8px; font-size: var(--step-size); line-height: 1.5; letter-spacing: -.01em; border-radius: 18px; transition: background .25s var(--ease), color .25s; color: var(--ink-2); }
+.steps li::before { content: counter(step); position: absolute; left: 16px; top: 20px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: .9375rem; font-weight: 600; background: var(--sunk); color: var(--ink-2); letter-spacing: 0; }
+.steps li.is-current { background: var(--accent-soft); color: var(--ink); }
+.steps li.is-current::before { background: var(--accent); color: var(--on-accent); }
+.steps p { margin: 0; }
+.q { font-weight: 650; color: var(--ink); }
+.pill { display: inline-flex; gap: 6px; align-items: center; margin-top: 12px; padding: 6px 14px 6px 10px; min-height: 36px; border-radius: 999px; font-size: .875rem; font-weight: 500; color: var(--ink-3); background: var(--bg); letter-spacing: 0; }
+.pill.is-running { background: var(--accent); color: var(--on-accent); }
+.pill.is-running .ico { animation: breathe 2.4s var(--ease) infinite; }
+.pill.is-done { background: var(--season-tint); color: var(--ink); }
+@keyframes breathe { 50% { opacity: .4; } }
+
+.extras { margin-top: 20px; max-width: 36em; }
+.extras summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; font-size: .875rem; font-weight: 500; color: var(--ink-3); border: 1px dashed var(--line-strong); min-height: 44px; }
+.extras summary::-webkit-details-marker { display: none; }
+.extras-body { padding: 20px 4px 0; font-size: .9375rem; }
+.note { background: var(--bg); border-radius: 12px; padding: 14px 16px; color: var(--ink-2); margin: 0 0 14px; }
+.add-photo { display: inline-flex; gap: 6px; align-items: center; padding: 28px; border-radius: 12px; background: var(--bg); color: var(--ink-3); font-size: .875rem; }
+.tag-edit { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 18px 0 0; }
+.tag-edit dt { color: var(--ink-3); } .tag-edit dd { margin: 0; font-weight: 500; }
+
+.classic { display: grid; gap: 32px; }
+@media (min-width: 900px) { .classic { grid-template-columns: 300px 1fr; gap: 64px; } }
+.ing { list-style: none; padding: 0; margin: 0 0 24px; }
+.ing li { display: grid; grid-template-columns: 7em 1fr; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+.method p { font-size: 1.125rem; max-width: 34em; }
+.source { display: grid; gap: 28px; }
+@media (min-width: 900px) { .source { grid-template-columns: 300px 1fr; } }
+.source-photo { margin: 0; background: var(--sunk); border-radius: 16px; padding: 20px; }
+.source-photo svg { width: 100%; display: block; }
+.sp-card { fill: var(--surface); } .sp-ink { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; }
+figcaption { font-size: .8125rem; color: var(--ink-3); margin-top: 10px; }
+.voice { display: flex; align-items: center; gap: 14px; background: var(--bg); padding: 10px 16px 10px 10px; border-radius: 999px; margin-bottom: 20px; }
+.voice-play { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+.voice-play .ico { fill: currentColor; stroke: none; }
+.wave { flex: 1; height: 24px; fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.voice-time { font-size: .875rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.tray { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
+.tray[hidden] { display: none; }
+.tray-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.t-btn { position: relative; display: flex; gap: 10px; align-items: baseline; padding: 10px 16px 12px; border-radius: 14px; background: var(--bg); white-space: nowrap; min-height: 48px; overflow: hidden; }
+.t-label { font-size: .8125rem; color: var(--ink-2); font-weight: 500; }
+.t-time { font-size: 1.125rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.t-bar { position: absolute; inset: auto 0 0 0; height: 3px; }
+.t-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 1s linear; }
+.timer.is-done .t-btn { background: var(--accent); color: var(--on-accent); animation: pulse 1.4s var(--ease) 2; }
+.timer.is-done .t-label { color: inherit; }
+@keyframes pulse { 50% { transform: scale(1.04); } }
+.tray-add { width: 48px; height: 48px; border-radius: 14px; border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--ink-3); flex: none; }
+
+/* ratios: stacked blocks */
+.ratios { display: grid; gap: 28px; }
+@media (min-width: 900px) { .ratios { grid-template-columns: 1fr 1fr; } }
+.ratio { background: var(--surface); border-radius: 24px; padding: 28px 24px; box-shadow: var(--shadow); }
+#panel-ratios .ratio { box-shadow: none; background: var(--bg); }
+.ratio .r-name { font-size: 1.5rem; font-weight: 650; letter-spacing: -.03em; margin: 0; }
+.r-num { font-size: 1rem; color: var(--ink-3); font-weight: 500; margin: 4px 0 28px; font-variant-numeric: tabular-nums; }
+.stack { display: flex; align-items: flex-end; gap: 16px; height: 180px; }
+.col { flex: 1; display: flex; flex-direction: column-reverse; gap: 4px; align-items: stretch; }
+.col i { height: 40px; border-radius: 8px; background: var(--c); display: block; }
+.col .n { order: 99; font-size: 2rem; font-weight: 650; letter-spacing: -.04em; line-height: 1; text-align: center; padding-bottom: 8px; font-style: normal; }
+.stack-legend { display: flex; gap: 16px; margin-top: 12px; }
+.stack-legend div { flex: 1; text-align: center; min-width: 0; }
+.stack-legend dt { font-size: .875rem; color: var(--ink-2); }
+.stack-legend dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.c-grain { --c: var(--r-grain); } .c-fat { --c: var(--r-fat); } .c-liquid { --c: var(--r-liquid); } .c-egg { --c: var(--r-egg); } .c-dairy { --c: var(--r-dairy); }
+.r-scale { display: flex; align-items: center; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); font-size: .875rem; color: var(--ink-3); }
+.r-scale input { width: 5em; font: 600 1rem var(--font); color: var(--ink); background: var(--bg); border: 0; border-radius: 10px; padding: 10px; text-align: center; }
+.r-note { font-size: .875rem; color: var(--ink-3); margin: 12px 0 0; }
+.seasonings { grid-column: 1 / -1; padding: 8px 4px; }
+.seasonings p:last-child { margin: 0; color: var(--ink-2); font-size: 1.0625rem; }
+
+/* share */
+.share { background: var(--surface); border-radius: 24px; overflow: hidden; box-shadow: var(--shadow); max-width: 880px; margin: 0 auto; }
+.share-hero { height: 260px; background: var(--season-tint); }
+@media (min-width: 700px) { .share-hero { height: 380px; } }
+.share-hero svg { width: 100%; height: 100%; display: block; }
+.share-hero .plate { fill: var(--surface); } .share-hero .food { fill: var(--season); opacity: .5; } .share-hero .food2 { fill: var(--season); opacity: .28; }
+.share-in { padding: 36px 20px 40px; }
+@media (min-width: 700px) { .share-in { padding: 56px 64px; } }
+.share h1 { font-size: clamp(2.25rem, 8vw, 3.75rem); letter-spacing: -.04em; font-weight: 650; line-height: 1; margin: 10px 0 16px; }
+.share .dek { font-size: 1.1875rem; color: var(--ink-2); margin: 0 0 24px; max-width: 30em; }
+.share-cols { display: grid; gap: 32px; margin-top: 40px; }
+@media (min-width: 700px) { .share-cols { grid-template-columns: 1fr 2fr; gap: 56px; } }
+.share h2 { font-size: .8125rem; font-weight: 600; color: var(--ink-3); margin: 0 0 12px; }
+.share ul { list-style: none; padding: 0; margin: 0; }
+.share ul li { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: .9375rem; }
+.share ol { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.share ol li { counter-increment: s; display: grid; grid-template-columns: 2em 1fr; margin-bottom: 14px; }
+.share ol li::before { content: counter(s); font-weight: 650; color: var(--accent); }
+.share-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 48px; font-size: .8125rem; color: var(--ink-3); }
+
+.legend { display: grid; gap: 32px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.legend ul { list-style: none; padding: 0; margin: 0; font-size: .9375rem; color: var(--ink-2); }
+.legend li { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.legend .sw { width: 28px; height: 18px; border-radius: 6px; background: var(--season-tint); box-shadow: inset 0 -4px 0 var(--season); }
+.legend .glyph { width: 22px; height: 22px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- course glyphs: 24x24, 1.4 stroke, round caps. One per course. -->
+    <symbol id="c-breakfast" viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="8" ry="6.5"/><circle cx="12" cy="13" r="2.6"/></symbol>
+    <symbol id="c-starter" viewBox="0 0 24 24"><path d="M4 14h16"/><path d="M6.5 14c.8 2.4 2.9 3.5 5.5 3.5s4.7-1.1 5.5-3.5"/></symbol>
+    <symbol id="c-soup" viewBox="0 0 24 24"><path d="M3.5 11h17c0 4.7-3.8 8-8.5 8s-8.5-3.3-8.5-8z"/><path d="M9 7.5c0-1.2 1-1.3 1-2.5M13 7.5c0-1.2 1-1.3 1-2.5"/></symbol>
+    <symbol id="c-salad" viewBox="0 0 24 24"><path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z"/><path d="M5 19 13 11"/></symbol>
+    <symbol id="c-main" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/></symbol>
+    <symbol id="c-side" viewBox="0 0 24 24"><path d="M6 11h12c0 3.3-2.7 6-6 6s-6-2.7-6-6z"/><path d="M9.5 17.5h5"/></symbol>
+    <symbol id="c-bake" viewBox="0 0 24 24"><path d="M4 17V11c0-3 3.6-5 8-5s8 2 8 5v6z"/><path d="M9 9.5l1.5 2M13 9l1.5 2"/></symbol>
+    <symbol id="c-sweet" viewBox="0 0 24 24"><path d="M4 17 19 8.5V17z"/><path d="M4 17V14l15-8.5v3"/></symbol>
+    <symbol id="c-drink" viewBox="0 0 24 24"><path d="M6 8h10v6a5 5 0 0 1-10 0z"/><path d="M16 10h1.5a2 2 0 0 1 0 4H16"/></symbol>
+    <symbol id="c-pantry" viewBox="0 0 24 24"><rect x="6" y="8" width="12" height="12" rx="2"/><path d="M8 5h8v3H8z"/></symbol>
+    <!-- ui -->
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 13V9.5M10 3.5h4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 4v11M8 8l4-4 4 4M5 13v6h14v-6"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2V10a4.5 4.5 0 0 0-9 0v4z"/><path d="M10.5 19h3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+  </defs>
+</svg>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="dish" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><circle class="plate" cx="200" cy="160" r="112"/><circle class="food2" cx="200" cy="160" r="86"/><path class="food" d="M140 150c20-30 60-40 100-20s40 60 0 80-110 0-100-60z"/></symbol>
+  <symbol id="dish2" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><ellipse class="plate" cx="190" cy="165" rx="130" ry="100"/><circle class="food" cx="160" cy="150" r="26"/><circle class="food" cx="225" cy="185" r="22"/><circle class="food2" cx="200" cy="130" r="30"/></symbol>
+  <symbol id="dish3" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><circle class="plate" cx="210" cy="150" r="100"/><circle class="food" cx="210" cy="150" r="70"/><circle class="plate" cx="210" cy="150" r="30" opacity=".6"/></symbol>
+</defs></svg>
+
+<header class="intro">
+  <div class="wrap">
+    <p class="kicker">Direction B · the cookbook</p>
+    <h1>Linne</h1>
+    <p><strong>Rationale:</strong> a Scandinavian kitchen at noon — linen ground, one grotesk family, soft rounded surfaces, pine green for action, and the season as the colour of every photograph’s light.</p>
+    <p>Inter + Assistant for Hebrew. Photo-led browsing; the current step becomes a quiet green card.</p>
+    <div class="tools">
+      <button type="button" data-theme-toggle>Light / dark</button>
+      <button type="button" data-chime-demo>Hear the chime (5 s timer)</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="screen" aria-labelledby="l1">
+  <div class="wrap">
+    <p class="screen-label" id="l1"><b>01</b>Library</p>
+    <header class="appbar">
+      <span class="wordmark">cookbook<span>.</span></span>
+      <nav><a class="btn-add" href="#"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add</a><span class="avatar">G</span></nav>
+    </header>
+    <form class="search" role="search" onsubmit="return false">
+      <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="search" placeholder="What can I make with leeks, eggs, feta?" aria-label="Search recipes">
+    </form>
+    <p class="season-strip s-autumn"><span class="season-name">Autumn</span><span>Thunder ceases to sound</span><span class="jp">秋分 · 雷乃収声</span></p>
+    <div class="filters" role="group" aria-label="Filters">
+      <button type="button" class="on">All</button>
+      <button type="button"><svg class="glyph" aria-hidden="true"><use href="#c-main"/></svg>Mains</button>
+      <button type="button"><svg class="glyph" aria-hidden="true"><use href="#c-bake"/></svg>Baking</button>
+      <button type="button"><svg class="glyph" aria-hidden="true"><use href="#c-soup"/></svg>Soups</button>
+      <button type="button"><svg class="glyph" aria-hidden="true"><use href="#c-sweet"/></svg>Sweet</button>
+      <button type="button">Vegetarian</button>
+    </div>
+    <div class="result-head"><h2>This season</h2><span>48 recipes</span></div>
+    <ul class="grid">
+      <li class="card s-autumn"><a href="#recipe">
+        <div class="photo"><svg aria-hidden="true"><use href="#dish"/></svg><span class="stamp" title="French">fr</span></div>
+        <h3>Leek &amp; feta tart</h3><p>Pâte brisée, soft leeks, a savoury custard</p>
+        <div class="marks"><svg class="glyph" role="img" aria-label="Main"><use href="#c-main"/></svg><span class="diet-dots">Vegetarian</span></div>
+      </a></li>
+      <li class="card s-allyear" lang="he" dir="rtl"><a href="#">
+        <div class="photo"><svg aria-hidden="true"><use href="#dish2"/></svg><span class="stamp" title="Israeli" style="right:auto;left:10px">il</span></div>
+        <h3>שקשוקה עם פטה</h3><p>עגבניות, פלפלים וביצים במחבת אחת</p>
+        <div class="marks"><svg class="glyph" role="img" aria-label="Breakfast"><use href="#c-breakfast"/></svg><span class="diet-dots" lang="en">Veg · GF</span></div>
+      </a></li>
+      <li class="card s-winter"><a href="#">
+        <div class="photo"><svg aria-hidden="true"><use href="#dish3"/></svg><span class="stamp" title="British">gb</span></div>
+        <h3>Leek &amp; potato soup</h3><p>Plain, white, peppery</p>
+        <div class="marks"><svg class="glyph" role="img" aria-label="Soup"><use href="#c-soup"/></svg><span class="diet-dots">Veg · GF</span></div>
+      </a></li>
+      <li class="card s-summer"><a href="#">
+        <div class="photo"><svg aria-hidden="true"><use href="#dish"/></svg><span class="stamp" title="French">fr</span></div>
+        <h3>Plum &amp; almond galette</h3><p>The same brisée, folded loosely</p>
+        <div class="marks"><svg class="glyph" role="img" aria-label="Sweet"><use href="#c-sweet"/></svg><span class="diet-dots">Vegetarian</span></div>
+      </a></li>
+    </ul>
+  </div>
+</section>
+
+<section class="screen" id="recipe" aria-labelledby="l2">
+  <div class="wrap">
+    <p class="screen-label" id="l2"><b>02</b>Recipe — Effective view, two timers running</p>
+    <article class="recipe s-autumn">
+      <div class="r-hero"><a class="back" href="#" aria-label="Back to library"><svg class="ico"><use href="#i-back"/></svg></a><svg aria-hidden="true"><use href="#dish"/></svg></div>
+      <div class="r-body">
+        <header class="r-head">
+          <span class="season-name">Autumn · Main</span>
+          <h1>Leek &amp; feta tart</h1>
+          <p class="r-dek">Pâte brisée, soft leeks and a savoury custard. A Sunday tart that keeps.</p>
+          <p class="r-meta"><span><span class="stamp">fr</span>French</span><span><svg class="glyph" aria-hidden="true"><use href="#c-main"/></svg>Main</span><span>Vegetarian</span><span>Serves 6 · 1 h 40</span></p>
+        </header>
+        <div class="r-bar">
+          <div role="tablist" aria-label="Recipe views">
+            <button role="tab" id="tab-effective" aria-controls="panel-effective" aria-selected="true">Effective</button>
+            <button role="tab" id="tab-classic" aria-controls="panel-classic" aria-selected="false" tabindex="-1">Classic</button>
+            <button role="tab" id="tab-ratios" aria-controls="panel-ratios" aria-selected="false" tabindex="-1">Ratios</button>
+            <button role="tab" id="tab-source" aria-controls="panel-source" aria-selected="false" tabindex="-1">Source</button>
+          </div>
+          <button class="units" type="button" data-units aria-pressed="false" aria-label="Show volume units"><span class="u-m">g</span> / <span class="u-v">cups</span></button>
+        </div>
+        <div id="panel-effective" role="tabpanel" aria-labelledby="tab-effective">
+          <div class="eff">
+            <aside class="recap" aria-label="Ingredients at a glance">
+              <p class="sub">Pastry</p>
+              <ul><li>flour <span class="q" data-v="1¾ cups + 2 tbsp">240 g</span></li><li>cold butter <span class="q" data-v="11 tbsp">160 g</span></li><li>ice water <span class="q" data-v="⅓ cup">80 g</span></li></ul>
+              <p class="sub" style="margin-top:14px">Filling</p>
+              <ul><li>leeks <span class="q">3</span></li><li>eggs <span class="q">3</span></li><li>crème fraîche <span class="q" data-v="1¼ cups">300 g</span></li><li>feta <span class="q" data-v="¾ cup">120 g</span></li></ul>
+            </aside>
+            <div>
+              <ol class="steps">
+            <li>
+              <p>Rub <b class="q" data-v="1¾ cups + 2 tbsp flour">240 g flour</b> and <b class="q">½ tsp salt</b> with <b class="q" data-v="11 tbsp cold butter">160 g cold butter</b>, cubed, until the pieces are the size of peas. Stir in <b class="q" data-v="⅓ cup ice water">80 g ice water</b> with a fork until it just holds.</p>
+            </li>
+            <li>
+              <p>Press into a flat disc, wrap, and chill.</p>
+              <button class="pill" type="button" data-label="chill dough" data-sec="1800" data-start-left="1261"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>chill 30 min</button>
+            </li>
+            <li>
+              <p>Roll to <b class="q" data-v="⅛ in">3 mm</b>, line a <b class="q" data-v="9-inch">23 cm</b> tin and blind-bake at <b class="q" data-v="375 °F">190 °C</b> with paper and beans.</p>
+              <button class="pill" type="button" data-label="blind-bake" data-sec="1200"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>bake 20 min</button>
+            </li>
+            <li class="is-current">
+              <p>Meanwhile, slice <b class="q">3 leeks</b> into thin coins and sweat them in <b class="q" data-v="2 tbsp butter">30 g butter</b> with <b class="q">a pinch of salt</b> until soft and sweet, not browned.</p>
+              <button class="pill" type="button" data-label="sweat leeks" data-sec="720" data-start-left="250"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>12 min</button>
+            </li>
+            <li>
+              <p>Whisk <b class="q">3 eggs</b> with <b class="q" data-v="1¼ cups crème fraîche">300 g crème fraîche</b>, <b class="q">a grating of nutmeg</b> and black pepper.</p>
+            </li>
+            <li>
+              <p>Scatter the leeks and <b class="q" data-v="¾ cup crumbled feta">120 g feta</b> over the shell, pour in the custard and bake at <b class="q" data-v="340 °F">170 °C</b> until just set, with a slight wobble.</p>
+              <button class="pill" type="button" data-label="bake tart" data-sec="1920"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>bake 32 min</button>
+            </li>
+            <li>
+              <p>Let it rest before slicing. Good warm, better at room temperature.</p>
+              <button class="pill" type="button" data-label="rest" data-sec="600"><svg class="ico" aria-hidden="true"><use href="#i-timer"/></svg>rest 10 min</button>
+            </li>
+          </ol>
+
+              <details class="extras">
+          <summary>Notes, photos &amp; tags</summary>
+          <div class="extras-body">
+            <p class="note">Oct ’25 — used half feta, half goat’s cheese. Blind-bake a little longer in the old oven.</p>
+            <div class="extras-row">
+              <button type="button" class="add-photo"><svg class="ico"><use href="#i-plus"/></svg>Add photo</button>
+            </div>
+            <dl class="tag-edit">
+              <dt>Cuisine</dt><dd>French</dd>
+              <dt>Course</dt><dd>Main</dd>
+              <dt>Diet</dt><dd>Vegetarian</dd>
+              <dt>Season</dt><dd>Autumn · winter</dd>
+            </dl>
+          </div>
+        </details>
+
+            </div>
+          </div>
+        </div>
+        <div id="panel-classic" role="tabpanel" aria-labelledby="tab-classic" hidden>
+          <div class="classic">
+            <div>
+              <h3 class="label">Pastry</h3>
+              <ul class="ing">
+                <li><span class="amt" data-v="1¾ cups + 2 tbsp">240 g</span> plain flour</li>
+                <li><span class="amt" data-v="11 tbsp">160 g</span> cold butter, cubed</li>
+                <li><span class="amt" data-v="⅓ cup">80 g</span> ice water</li>
+                <li><span class="amt">½ tsp</span> fine salt</li>
+              </ul>
+              <h3 class="label">Filling</h3>
+              <ul class="ing">
+                <li><span class="amt">3</span> leeks</li>
+                <li><span class="amt" data-v="2 tbsp">30 g</span> butter</li>
+                <li><span class="amt">3</span> eggs</li>
+                <li><span class="amt" data-v="1¼ cups">300 g</span> crème fraîche</li>
+                <li><span class="amt" data-v="¾ cup">120 g</span> feta</li>
+                <li><span class="amt"></span> nutmeg, pepper</li>
+              </ul>
+            </div>
+            <div class="method">
+              <h3 class="label">Method</h3>
+              <p>Rub the flour and salt with the butter until pea-sized; stir in the water until it just holds. Press into a disc, wrap and chill for 30 minutes.</p>
+              <p>Roll to 3 mm, line a 23 cm tin and blind-bake at 190 °C for 20 minutes. Meanwhile sweat the sliced leeks in butter with a pinch of salt, about 12 minutes.</p>
+              <p>Whisk the eggs, crème fraîche, nutmeg and pepper. Fill the shell with leeks and feta, pour over the custard and bake at 170 °C for 30–35 minutes. Rest 10 minutes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="panel-ratios" role="tabpanel" aria-labelledby="tab-ratios" hidden></div>
+
+        <div id="panel-source" role="tabpanel" aria-labelledby="tab-source" hidden>
+          <div class="source">
+            <figure class="source-photo">
+              <svg viewBox="0 0 300 380" role="img" aria-label="Photo of a handwritten recipe card">
+                <rect x="18" y="14" width="264" height="352" rx="4" class="sp-card" transform="rotate(-2 150 190)"/>
+                <g class="sp-ink" transform="rotate(-2 150 190)">
+                  <path d="M48 62c20-6 40 4 60-2s34 2 52-3"/><path d="M48 96h170M48 116h150M48 136h176M48 156h120"/>
+                  <path d="M48 196h168M48 216h160M48 236h140M48 256h172M48 276h96M48 306h150M48 326h110"/>
+                </g>
+              </svg>
+              <figcaption>Photo · sent via Telegram · 12 Sep</figcaption>
+            </figure>
+            <div class="source-meta">
+              <div class="voice">
+                <button class="voice-play" type="button" aria-label="Play voice note"><svg class="ico"><use href="#i-play"/></svg></button>
+                <svg class="wave" viewBox="0 0 200 24" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12h6l2-6 3 12 3-9 3 6 3-3h6l2-8 3 14 3-10 3 6 2-2h8l3-7 2 12 3-9 3 5h10l2-4 3 8 3-6 3 3h12l2-7 3 12 2-8 3 4h14l3-5 2 9 3-6h16l2-3 3 6 2-4h20"/></svg>
+                <span class="voice-time">0:48</span>
+              </div>
+              <p class="quiet">“…Mum’s version uses crème fraîche, not cream, and she never measures the nutmeg.”</p>
+              <p class="quiet">Originally from <a href="#">a torn page, c. 1998</a></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="tray" hidden>
+        <ul class="tray-list" aria-label="Running timers" aria-live="polite"></ul>
+        <button class="tray-add" type="button" data-add-timer aria-label="Add a timer"><svg class="ico"><use href="#i-plus"/></svg></button>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l3">
+  <div class="wrap">
+    <p class="screen-label" id="l3"><b>03</b>Ratios view</p>
+    <div id="ratio-src">
+      <div class="ratios">
+        <div class="ratio">
+          <p class="label">Pastry</p>
+          <h3 class="r-name">Pâte brisée</h3>
+          <p class="r-num">3 : 2 : 1 by weight</p>
+          <div class="stack" role="img" aria-label="3 parts flour, 2 parts fat, 1 part water">
+            <div class="col c-grain"><i></i><i></i><i></i><b class="n">3</b></div>
+            <div class="col c-fat"><i></i><i></i><b class="n">2</b></div>
+            <div class="col c-liquid"><i></i><b class="n">1</b></div>
+          </div>
+          <dl class="stack-legend">
+            <div><dt>flour</dt><dd data-parts="3">240 g</dd></div>
+            <div><dt>fat</dt><dd data-parts="2">160 g</dd></div>
+            <div><dt>water</dt><dd data-parts="1">80 g</dd></div>
+          </dl>
+          <label class="r-scale">One part <input data-part inputmode="decimal" value="80" aria-label="Grams per part"> g</label>
+        </div>
+        <div class="ratio">
+          <p class="label">Filling</p>
+          <h3 class="r-name">Savoury custard</h3>
+          <p class="r-num">2 : 1 by weight</p>
+          <div class="stack" role="img" aria-label="2 parts dairy, 1 part egg">
+            <div class="col c-dairy"><i></i><i></i><b class="n">2</b></div>
+            <div class="col c-egg"><i></i><b class="n">1</b></div>
+          </div>
+          <dl class="stack-legend">
+            <div><dt>crème fraîche</dt><dd data-parts="2">300 g</dd></div>
+            <div><dt>egg</dt><dd data-parts="1">150 g</dd></div>
+          </dl>
+          <label class="r-scale">One part <input data-part inputmode="decimal" value="150" aria-label="Grams per part"> g</label>
+          <p class="r-note">One egg ≈ 50 g.</p>
+        </div>
+        <div class="seasonings">
+          <p class="label">Seasoning &amp; the rest</p>
+          <p>½ tsp salt · 3 leeks in 30 g butter · 120 g feta · nutmeg · pepper</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l4">
+  <div class="wrap">
+    <p class="screen-label" id="l4"><b>04</b>Public share page</p>
+    <article class="share s-autumn">
+      <div class="share-hero"><svg aria-hidden="true"><use href="#dish"/></svg></div>
+      <div class="share-in">
+        <span class="season-name">Autumn · French · Main · Vegetarian</span>
+        <h1>Leek &amp; feta tart</h1>
+        <p class="dek">Pâte brisée, soft leeks and a savoury custard. A Sunday tart that keeps.</p>
+        <div class="share-cols">
+          <div><h2>Ingredients</h2><ul>
+            <li>240 g flour</li><li>160 g cold butter</li><li>80 g ice water</li><li>½ tsp salt</li><li>3 leeks</li><li>30 g butter</li><li>3 eggs</li><li>300 g crème fraîche</li><li>120 g feta</li><li>Nutmeg, pepper</li></ul></div>
+          <div><h2>Method</h2><ol>
+            <li>Rub flour and salt with butter until pea-sized; stir in the water. Chill 30 minutes.</li>
+            <li>Roll to 3 mm, line a 23 cm tin, blind-bake at 190 °C for 20 minutes.</li>
+            <li>Sweat the sliced leeks in butter with a pinch of salt, about 12 minutes.</li>
+            <li>Whisk eggs, crème fraîche, nutmeg and pepper.</li>
+            <li>Fill with leeks and feta, pour over custard, bake at 170 °C for 30–35 minutes. Rest 10.</li></ol></div>
+        </div>
+        <footer class="share-foot"><span>From Gil’s cookbook</span><span class="stamp">g</span></footer>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="screen" aria-labelledby="l5">
+  <div class="wrap">
+    <p class="screen-label" id="l5"><b>05</b>Marks</p>
+    <div class="legend">
+      <div><p class="label">Season — photo light</p><ul>
+        <li class="s-spring"><span class="sw"></span>Spring</li><li class="s-summer"><span class="sw"></span>Summer</li><li class="s-autumn"><span class="sw"></span>Autumn</li><li class="s-winter"><span class="sw"></span>Winter</li><li class="s-allyear"><span class="sw"></span>All year</li></ul></div>
+      <div><p class="label">Cuisine — round stamp</p><ul><li><span class="stamp">fr</span>French</li><li><span class="stamp">jp</span>Japanese</li><li><span class="stamp">il</span>Israeli</li></ul></div>
+      <div><p class="label">Course — vessel</p><ul><li><svg class="glyph"><use href="#c-main"/></svg>Main</li><li><svg class="glyph"><use href="#c-soup"/></svg>Soup</li><li><svg class="glyph"><use href="#c-bake"/></svg>Baking</li><li><svg class="glyph"><use href="#c-sweet"/></svg>Sweet</li></ul></div>
+      <div><p class="label">Diet — plain words</p><ul><li>Vegetarian</li><li>Vegan</li><li>GF · DF</li></ul></div>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+/* Preview-only behaviour: theme, units, tabs, ratio scaling, timers, chime. */
+(function () {
+  var root = document.documentElement;
+  var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+
+  /* theme toggle (preview) */
+  $$('[data-theme-toggle]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+    });
+  });
+
+  /* ratios: cloned into the recipe's Ratios tab */
+  var src = document.getElementById('ratio-src'), dst = document.getElementById('panel-ratios');
+  if (src && dst) dst.innerHTML = src.innerHTML;
+
+  /* metric <-> volume */
+  $$('[data-units]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var vol = root.dataset.units !== 'volume';
+      root.dataset.units = vol ? 'volume' : 'metric';
+      $$('[data-v]').forEach(function (el) {
+        if (!el.dataset.m) el.dataset.m = el.textContent;
+        el.textContent = vol ? el.dataset.v : el.dataset.m;
+      });
+      $$('[data-units]').forEach(function (x) { x.setAttribute('aria-pressed', String(vol)); });
+    });
+  });
+
+  /* tabs */
+  $$('[role=tablist]').forEach(function (list) {
+    var tabs = $$('[role=tab]', list);
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        tabs.forEach(function (x) {
+          var on = x === t;
+          x.setAttribute('aria-selected', String(on));
+          x.tabIndex = on ? 0 : -1;
+          document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+        });
+      });
+    });
+  });
+
+  /* tap a step to mark your place */
+  $$('.steps li').forEach(function (li) {
+    li.addEventListener('click', function (e) {
+      if (e.target.closest('button')) return;
+      $$('.steps li', li.parentNode).forEach(function (x) { x.classList.toggle('is-current', x === li); });
+    });
+  });
+
+  /* ratio scaler: "one part = N g" */
+  document.addEventListener('input', function (e) {
+    var i = e.target.closest('[data-part]'); if (!i) return;
+    var box = i.closest('.ratio'), p = parseFloat(i.value) || 0;
+    $$('[data-parts]', box).forEach(function (o) { o.textContent = Math.round(p * o.dataset.parts) + ' g'; });
+  });
+
+  /* chime: a soft "rin" bell, two strikes (E5 then C5), three sine partials each */
+  var ac;
+  function chime() {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      var t0 = ac.currentTime + 0.03, master = ac.createGain();
+      master.gain.value = 0.2; master.connect(ac.destination);
+      var strike = function (t, f) {
+        [[1, 1, 2.6], [2.76, 0.26, 1.0], [5.40, 0.07, 0.4]].forEach(function (p) {
+          var o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.value = f * p[0];
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(p[1], t + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + p[2]);
+          o.connect(g); g.connect(master); o.start(t); o.stop(t + p[2] + 0.05);
+        });
+      };
+      strike(t0, 659.25); strike(t0 + 0.6, 523.25);
+    } catch (err) { /* audio unavailable in preview */ }
+  }
+
+  /* timers */
+  var list = document.querySelector('.tray-list');
+  if (!list) return;
+  var tray = list.closest('.tray');
+  function fmt(s) {
+    s = Math.max(0, Math.ceil(s));
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+  }
+  function sync() { tray.hidden = !list.children.length; }
+  function add(label, total, left, pill) {
+    var li = document.createElement('li');
+    li.className = 'timer';
+    li.innerHTML = '<button type="button" class="t-btn"><span class="t-label"></span> <span class="t-time"></span><span class="t-bar" aria-hidden="true"><i></i></span></button>';
+    li.querySelector('.t-label').textContent = label;
+    li._t = { end: Date.now() + left * 1000, total: total, done: false, pill: pill };
+    li.querySelector('button').addEventListener('click', function () {
+      if (li._t.done || confirm('Stop “' + label + '”?')) {
+        if (pill) pill.classList.remove('is-running', 'is-done');
+        li.remove(); sync();
+      }
+    });
+    list.appendChild(li); sync(); tick();
+  }
+  function tick() {
+    $$('.timer', list).forEach(function (li) {
+      var t = li._t, left = (t.end - Date.now()) / 1000;
+      li.querySelector('.t-time').textContent = t.done ? 'done' : fmt(left);
+      li.querySelector('.t-bar i').style.transform = 'scaleX(' + Math.max(0, left / t.total) + ')';
+      if (left <= 0 && !t.done) {
+        t.done = true; li.classList.add('is-done');
+        if (t.pill) { t.pill.classList.remove('is-running'); t.pill.classList.add('is-done'); }
+        chime();
+      }
+    });
+  }
+  setInterval(tick, 1000);
+  $$('.pill[data-sec]').forEach(function (p) {
+    p.addEventListener('click', function () {
+      if (p.classList.contains('is-running')) return;
+      p.classList.add('is-running');
+      add(p.dataset.label, +p.dataset.sec, +p.dataset.sec, p);
+    });
+  });
+  $$('[data-add-timer]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var m = parseFloat(prompt('Minutes?', '5'));
+      if (m > 0) add('timer', m * 60, m * 60);
+    });
+  });
+  $$('[data-chime-demo]').forEach(function (b) {
+    b.addEventListener('click', function () { add('demo', 5, 5); });
+  });
+  /* two timers already running, as in the brief */
+  $$('.pill[data-start-left]').forEach(function (p) {
+    p.classList.add('is-running');
+    add(p.dataset.label, +p.dataset.sec, +p.dataset.startLeft, p);
+  });
+})();
+</script>
+
+</body>
+</html>

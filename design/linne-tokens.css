@@ -1,0 +1,368 @@
+/* ==========================================================================
+   Cookbook design tokens · Linne, round 2 (warm stone palettes)
+   Palettes: <html data-palette="oldbook | kintsugi | jerusalem">
+   Theme:    follows the OS; <html data-theme="light|dark"> overrides.
+   Contrast: <html data-contrast="high"> (light or dark, following the theme).
+   Text:     <html data-text-size="large|xl"> = 125% / 150% of the user's own size.
+   Fonts (next/font/google or <link>):
+     Atkinson Hyperlegible Next 400..800 (+ italics), Noto Sans Hebrew 400..800
+   Every text pair is >= 7:1 (AAA) in light/dark and >= 10:1 in high contrast;
+   borders, focus and season marks >= 4.5:1. See design/BRIEF.md "Round 2".
+   Ratio roles: grain=flour, fat, liquid, egg, dairy. Always pair with a pattern.
+   ========================================================================== */
+
+/* ---- Shared scale: type, spacing, radii, focus, text size ---- */
+:root {
+  /* Text size control: 3 steps. The root font size scales every rem in the UI. */
+  --text-scale: 1;
+  /* Fonts: Atkinson Hyperlegible Next (Latin) + Noto Sans Hebrew (Hebrew; also the Android system Hebrew face) */
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Noto Sans Hebrew", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-hebrew: "Noto Sans Hebrew", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, Arial, sans-serif;
+  /* Type scale (rem, 1rem = 16px at "Normal") */
+  --fs-sm: 1rem;        /* 16  badges, captions (never body copy) */
+  --fs-base: 1.125rem;  /* 18  body */
+  --fs-step: 1.25rem;   /* 20  cooking steps, phone */
+  --fs-lg: 1.375rem;    /* 22  card titles, search input */
+  --fs-xl: 1.75rem;     /* 28  section heads */
+  --fs-2xl: 2.25rem;    /* 36  recipe title, phone */
+  --fs-3xl: 3rem;       /* 48  recipe title, laptop */
+  --fs-timer: 2.25rem;  /* 36  countdown digits */
+  --fw-regular: 400; --fw-medium: 500; --fw-bold: 700; --fw-heavy: 800;
+  --lh-body: 1.6; --lh-step: 1.55; --lh-tight: 1.2;
+  --ls-body: .012em; --ws-body: .06em; --ls-caps: .06em;
+  --measure: 36em;
+  /* Spacing (4px base) */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem; --sp-5: 1.5rem; --sp-6: 2rem; --sp-7: 3rem; --sp-8: 4rem; --sp-9: 6rem;
+  --gutter: 16px;
+  /* Radii: soft, Linne */
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+  /* Touch + focus */
+  --tap: 3rem;          /* 48px minimum at Normal, grows with text size */
+  --focus-width: 3px; --focus-offset: 3px;
+  --ease: cubic-bezier(.2,.7,.2,1); --dur-1: 140ms; --dur-2: 220ms; --dur-3: 360ms;
+}
+:root[data-text-size="large"] { --text-scale: 1.25; }
+:root[data-text-size="xl"]    { --text-scale: 1.5; }
+html { font-size: calc(var(--text-scale) * 100%); }
+@media (min-width: 900px) { :root { --fs-step: 1.4375rem; --gutter: 40px; } }
+:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+
+/* ---- Old book: light ---- */
+:root[data-palette="oldbook"] {
+  color-scheme: light;
+  --bg: #F1E7D3; --surface: #FAF3E3; --sunk: #E7DAC0; --ink: #2A1C11;
+  --ink-2: #4A3524; --border: #6E5843; --line: #D6C5A5; --accent: #6B1E24;
+  --on-accent: #FBF4E4; --accent-ink: #6B1E24; --accent-soft: #F1DFCF; --accent-2: #1E4A3A;
+  --accent-2-ink: #1E4A3A; --accent-2-soft: #DCE6DA; --focus: #1E4A3A; --good: #1E4A3A;
+  --good-soft: #DCE6DA; --bad: #6B1E24; --bad-soft: #F1DFCF; --spring: #8E3A4E;
+  --summer: #3B6337; --autumn: #8A4418; --winter: #34506E; --allyear: #665A4C;
+  --spring-tint: #F2DEDF; --summer-tint: #E0E8D4; --autumn-tint: #F3DFCA; --winter-tint: #DDE3E6;
+  --allyear-tint: #E8DFD0; --r-grain: #E3CFA2; --r-fat: #EED79A; --r-liquid: #C9D6D2;
+  --r-egg: #E9BE72; --r-dairy: #EAE0CB;
+  --seam: #6B1E24; --seam-ink: #6B1E24; --cloth: #6B1E24;
+  --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(138 106 62 / .035), transparent 60%), radial-gradient(90% 70% at 100% 100%, rgb(138 106 62 / .03), transparent 60%), repeating-linear-gradient(0deg, rgb(138 106 62 / .02) 0 1px, transparent 1px 4px);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(40 30 20 / .06), 0 14px 34px -22px rgb(40 30 20 / .28);
+}
+/* ---- Old book: dark (system) ---- */
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="oldbook"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #18120D; --surface: #221A13; --sunk: #110C08; --ink: #F2E6D0;
+    --ink-2: #D6C3A4; --border: #A48E72; --line: #3A2E22; --accent: #E3A09A;
+    --on-accent: #1A120D; --accent-ink: #EBAEA8; --accent-soft: #3A2220; --accent-2: #94C7AC;
+    --accent-2-ink: #9DCDB3; --accent-2-soft: #1C2E25; --focus: #9DCDB3; --good: #9DCDB3;
+    --good-soft: #1C2E25; --bad: #EBAEA8; --bad-soft: #3A2220; --spring: #E6A7B4;
+    --summer: #A9CD98; --autumn: #E8A878; --winter: #A6BDD6; --allyear: #C4B6A2;
+    --spring-tint: #36242A; --summer-tint: #242E1D; --autumn-tint: #382617; --winter-tint: #1F2833;
+    --allyear-tint: #2A231C; --r-grain: #4E4026; --r-fat: #54431C; --r-liquid: #2E4142;
+    --r-egg: #5C4016; --r-dairy: #443A2C;
+    --seam: #E3A09A; --seam-ink: #EBAEA8; --cloth: #4A1418;
+    --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(0 0 0 / .05), transparent 60%), repeating-linear-gradient(0deg, rgb(0 0 0 / .05) 0 1px, transparent 1px 4px);
+    --border-w: 1.5px;
+    --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+  }
+}
+/* ---- Old book: dark (manual) ---- */
+:root[data-palette="oldbook"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #18120D; --surface: #221A13; --sunk: #110C08; --ink: #F2E6D0;
+  --ink-2: #D6C3A4; --border: #A48E72; --line: #3A2E22; --accent: #E3A09A;
+  --on-accent: #1A120D; --accent-ink: #EBAEA8; --accent-soft: #3A2220; --accent-2: #94C7AC;
+  --accent-2-ink: #9DCDB3; --accent-2-soft: #1C2E25; --focus: #9DCDB3; --good: #9DCDB3;
+  --good-soft: #1C2E25; --bad: #EBAEA8; --bad-soft: #3A2220; --spring: #E6A7B4;
+  --summer: #A9CD98; --autumn: #E8A878; --winter: #A6BDD6; --allyear: #C4B6A2;
+  --spring-tint: #36242A; --summer-tint: #242E1D; --autumn-tint: #382617; --winter-tint: #1F2833;
+  --allyear-tint: #2A231C; --r-grain: #4E4026; --r-fat: #54431C; --r-liquid: #2E4142;
+  --r-egg: #5C4016; --r-dairy: #443A2C;
+  --seam: #E3A09A; --seam-ink: #EBAEA8; --cloth: #4A1418;
+  --page-texture: radial-gradient(120% 80% at 0% 0%, rgb(0 0 0 / .05), transparent 60%), repeating-linear-gradient(0deg, rgb(0 0 0 / .05) 0 1px, transparent 1px 4px);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+}
+/* ---- Old book: high contrast, light ---- */
+:root[data-palette="oldbook"][data-contrast="high"] {
+  color-scheme: light;
+  --bg: #FFFCF5; --surface: #FFFFFF; --sunk: #F3EBDA; --ink: #140C06;
+  --ink-2: #2A1C11; --border: #2A1C11; --line: #6E5843; --accent: #5A141A;
+  --on-accent: #FFFFFF; --accent-ink: #5A141A; --accent-soft: #F7E6DA; --accent-2: #123526;
+  --accent-2-ink: #123526; --accent-2-soft: #E3EEE4; --focus: #0B3D8C; --good: #123526;
+  --good-soft: #E3EEE4; --bad: #5A141A; --bad-soft: #F7E6DA; --spring: #6E2338;
+  --summer: #244A22; --autumn: #6A300C; --winter: #1F3A58; --allyear: #3F3428;
+  --spring-tint: #F8E8E9; --summer-tint: #EAF1E1; --autumn-tint: #F9EBDC; --winter-tint: #E6EDF1;
+  --allyear-tint: #F2ECE1; --r-grain: #F0DFB8; --r-fat: #F6E4B0; --r-liquid: #DCE7E3;
+  --r-egg: #F3D39A; --r-dairy: #F4EEDF;
+  --seam: #5A141A; --seam-ink: #5A141A; --cloth: #5A141A;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="oldbook"][data-contrast="high"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000; --surface: #0E0A07; --sunk: #000000; --ink: #FFFFFF;
+    --ink-2: #F6ECDD; --border: #F2E6D0; --line: #A48E72; --accent: #F7C3BD;
+    --on-accent: #000000; --accent-ink: #F9CEC9; --accent-soft: #2E1717; --accent-2: #B6E2C9;
+    --accent-2-ink: #B6E2C9; --accent-2-soft: #10241A; --focus: #FFD34D; --good: #B6E2C9;
+    --good-soft: #10241A; --bad: #F9CEC9; --bad-soft: #2E1717; --spring: #F4C3CD;
+    --summer: #C4E6B4; --autumn: #F5C49C; --winter: #C3D6EA; --allyear: #DDD2C2;
+    --spring-tint: #2A1418; --summer-tint: #15200F; --autumn-tint: #2A190B; --winter-tint: #101B26;
+    --allyear-tint: #1C1712; --r-grain: #40341A; --r-fat: #443512; --r-liquid: #1F3030;
+    --r-egg: #4A320C; --r-dairy: #342D22;
+    --seam: #F7C3BD; --seam-ink: #F9CEC9; --cloth: #000000;
+    --page-texture: none;
+    --border-w: 2px;
+    --shadow: none;
+  }
+}
+:root[data-palette="oldbook"][data-contrast="high"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000; --surface: #0E0A07; --sunk: #000000; --ink: #FFFFFF;
+  --ink-2: #F6ECDD; --border: #F2E6D0; --line: #A48E72; --accent: #F7C3BD;
+  --on-accent: #000000; --accent-ink: #F9CEC9; --accent-soft: #2E1717; --accent-2: #B6E2C9;
+  --accent-2-ink: #B6E2C9; --accent-2-soft: #10241A; --focus: #FFD34D; --good: #B6E2C9;
+  --good-soft: #10241A; --bad: #F9CEC9; --bad-soft: #2E1717; --spring: #F4C3CD;
+  --summer: #C4E6B4; --autumn: #F5C49C; --winter: #C3D6EA; --allyear: #DDD2C2;
+  --spring-tint: #2A1418; --summer-tint: #15200F; --autumn-tint: #2A190B; --winter-tint: #101B26;
+  --allyear-tint: #1C1712; --r-grain: #40341A; --r-fat: #443512; --r-liquid: #1F3030;
+  --r-egg: #4A320C; --r-dairy: #342D22;
+  --seam: #F7C3BD; --seam-ink: #F9CEC9; --cloth: #000000;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+
+/* ---- Kintsugi: light ---- */
+:root[data-palette="kintsugi"] {
+  color-scheme: light;
+  --bg: #EFEDE9; --surface: #FAF9F6; --sunk: #E3E0DA; --ink: #1D1C1A;
+  --ink-2: #43403B; --border: #66625B; --line: #D6D2CA; --accent: #2F2C28;
+  --on-accent: #FAF9F6; --accent-ink: #2F2C28; --accent-soft: #F5EFE0; --accent-2: #B8913A;
+  --accent-2-ink: #6E4F14; --accent-2-soft: #F3EAD3; --focus: #7A5716; --good: #2F5A3E;
+  --good-soft: #E1EBE2; --bad: #7C2A22; --bad-soft: #F3E1DD; --spring: #8A3F55;
+  --summer: #3E6246; --autumn: #8A4A1E; --winter: #3A5270; --allyear: #5F5A52;
+  --spring-tint: #F0E1E4; --summer-tint: #E1E9E1; --autumn-tint: #F1E3D6; --winter-tint: #DFE4EA;
+  --allyear-tint: #E6E3DE; --r-grain: #DED6C4; --r-fat: #EAD9A6; --r-liquid: #CCD7DA;
+  --r-egg: #E6C688; --r-dairy: #E7E3D9;
+  --seam: #B8913A; --seam-ink: #6E4F14; --cloth: #2F2C28;
+  --page-texture: linear-gradient(117deg, transparent 0 31%, rgb(111 103 88 / .035) 31.4%, transparent 32.6%, transparent 63%, rgb(111 103 88 / .03) 63.3%, transparent 64%), linear-gradient(64deg, transparent 0 47%, rgb(111 103 88 / .03) 47.2%, transparent 48.4%), radial-gradient(60% 45% at 18% 12%, rgb(111 103 88 / .03), transparent 70%), radial-gradient(55% 40% at 86% 64%, rgb(111 103 88 / .025), transparent 70%);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(40 30 20 / .06), 0 14px 34px -22px rgb(40 30 20 / .28);
+}
+/* ---- Kintsugi: dark (system) ---- */
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="kintsugi"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #161514; --surface: #201F1D; --sunk: #0F0E0D; --ink: #EEEBE5;
+    --ink-2: #CDC8BE; --border: #9A948A; --line: #34322E; --accent: #D9B563;
+    --on-accent: #161514; --accent-ink: #E2C278; --accent-soft: #2C2719; --accent-2: #D2AC57;
+    --accent-2-ink: #E2C278; --accent-2-soft: #2C2719; --focus: #E2C278; --good: #9CCBA8;
+    --good-soft: #1A2A1F; --bad: #EFA99E; --bad-soft: #351E1B; --spring: #E3A8B8;
+    --summer: #A2C9A8; --autumn: #E6A77C; --winter: #A7BCD6; --allyear: #BDB7AD;
+    --spring-tint: #33242A; --summer-tint: #1D2A20; --autumn-tint: #352519; --winter-tint: #1E2530;
+    --allyear-tint: #282624; --r-grain: #4A453A; --r-fat: #524428; --r-liquid: #303F45;
+    --r-egg: #57421C; --r-dairy: #403D37;
+    --seam: #D2AC57; --seam-ink: #E2C278; --cloth: #D9B563;
+    --page-texture: linear-gradient(117deg, transparent 0 31%, rgb(255 255 255 / .02) 31.4%, transparent 32.6%, transparent 63%, rgb(255 255 255 / .015) 63.3%, transparent 64%), linear-gradient(64deg, transparent 0 47%, rgb(255 255 255 / .015) 47.2%, transparent 48.4%), radial-gradient(60% 45% at 18% 12%, rgb(255 255 255 / .015), transparent 70%);
+    --border-w: 1.5px;
+    --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+  }
+}
+/* ---- Kintsugi: dark (manual) ---- */
+:root[data-palette="kintsugi"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #161514; --surface: #201F1D; --sunk: #0F0E0D; --ink: #EEEBE5;
+  --ink-2: #CDC8BE; --border: #9A948A; --line: #34322E; --accent: #D9B563;
+  --on-accent: #161514; --accent-ink: #E2C278; --accent-soft: #2C2719; --accent-2: #D2AC57;
+  --accent-2-ink: #E2C278; --accent-2-soft: #2C2719; --focus: #E2C278; --good: #9CCBA8;
+  --good-soft: #1A2A1F; --bad: #EFA99E; --bad-soft: #351E1B; --spring: #E3A8B8;
+  --summer: #A2C9A8; --autumn: #E6A77C; --winter: #A7BCD6; --allyear: #BDB7AD;
+  --spring-tint: #33242A; --summer-tint: #1D2A20; --autumn-tint: #352519; --winter-tint: #1E2530;
+  --allyear-tint: #282624; --r-grain: #4A453A; --r-fat: #524428; --r-liquid: #303F45;
+  --r-egg: #57421C; --r-dairy: #403D37;
+  --seam: #D2AC57; --seam-ink: #E2C278; --cloth: #D9B563;
+  --page-texture: linear-gradient(117deg, transparent 0 31%, rgb(255 255 255 / .02) 31.4%, transparent 32.6%, transparent 63%, rgb(255 255 255 / .015) 63.3%, transparent 64%), linear-gradient(64deg, transparent 0 47%, rgb(255 255 255 / .015) 47.2%, transparent 48.4%), radial-gradient(60% 45% at 18% 12%, rgb(255 255 255 / .015), transparent 70%);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+}
+/* ---- Kintsugi: high contrast, light ---- */
+:root[data-palette="kintsugi"][data-contrast="high"] {
+  color-scheme: light;
+  --bg: #FFFFFF; --surface: #FFFFFF; --sunk: #F1EFEB; --ink: #000000;
+  --ink-2: #1D1C1A; --border: #1D1C1A; --line: #66625B; --accent: #1D1C1A;
+  --on-accent: #FFFFFF; --accent-ink: #1D1C1A; --accent-soft: #FBF5E6; --accent-2: #8A6516;
+  --accent-2-ink: #4E3606; --accent-2-soft: #FBF5E6; --focus: #0B3D8C; --good: #1C4028;
+  --good-soft: #E8F1E9; --bad: #5E1A14; --bad-soft: #F8E8E5; --spring: #6A2438;
+  --summer: #264A2E; --autumn: #66320E; --winter: #223B58; --allyear: #3D3933;
+  --spring-tint: #F8EBEE; --summer-tint: #EBF2EB; --autumn-tint: #F8EDE3; --winter-tint: #EAEFF5;
+  --allyear-tint: #F1EFEB; --r-grain: #EDE7DA; --r-fat: #F4E7BE; --r-liquid: #DFE8EB;
+  --r-egg: #F2DCAE; --r-dairy: #F4F1EA;
+  --seam: #8A6516; --seam-ink: #4E3606; --cloth: #1D1C1A;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="kintsugi"][data-contrast="high"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000; --surface: #0B0B0A; --sunk: #000000; --ink: #FFFFFF;
+    --ink-2: #F2EFEA; --border: #EEEBE5; --line: #9A948A; --accent: #F2D27E;
+    --on-accent: #000000; --accent-ink: #F5DA92; --accent-soft: #241F10; --accent-2: #F2D27E;
+    --accent-2-ink: #F5DA92; --accent-2-soft: #241F10; --focus: #F5DA92; --good: #BDE3C6;
+    --good-soft: #0F2016; --bad: #F8C7BF; --bad-soft: #2A1310; --spring: #F2C6D2;
+    --summer: #C2E2C6; --autumn: #F3C6A2; --winter: #C6D6EA; --allyear: #DAD5CC;
+    --spring-tint: #2A1519; --summer-tint: #102015; --autumn-tint: #2A1A0E; --winter-tint: #101A26;
+    --allyear-tint: #1A1917; --r-grain: #3A352B; --r-fat: #44381C; --r-liquid: #1F2F35;
+    --r-egg: #4A3614; --r-dairy: #312E28;
+    --seam: #F2D27E; --seam-ink: #F5DA92; --cloth: #F2D27E;
+    --page-texture: none;
+    --border-w: 2px;
+    --shadow: none;
+  }
+}
+:root[data-palette="kintsugi"][data-contrast="high"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000; --surface: #0B0B0A; --sunk: #000000; --ink: #FFFFFF;
+  --ink-2: #F2EFEA; --border: #EEEBE5; --line: #9A948A; --accent: #F2D27E;
+  --on-accent: #000000; --accent-ink: #F5DA92; --accent-soft: #241F10; --accent-2: #F2D27E;
+  --accent-2-ink: #F5DA92; --accent-2-soft: #241F10; --focus: #F5DA92; --good: #BDE3C6;
+  --good-soft: #0F2016; --bad: #F8C7BF; --bad-soft: #2A1310; --spring: #F2C6D2;
+  --summer: #C2E2C6; --autumn: #F3C6A2; --winter: #C6D6EA; --allyear: #DAD5CC;
+  --spring-tint: #2A1519; --summer-tint: #102015; --autumn-tint: #2A1A0E; --winter-tint: #101A26;
+  --allyear-tint: #1A1917; --r-grain: #3A352B; --r-fat: #44381C; --r-liquid: #1F2F35;
+  --r-egg: #4A3614; --r-dairy: #312E28;
+  --seam: #F2D27E; --seam-ink: #F5DA92; --cloth: #F2D27E;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+
+/* ---- Jerusalem stone: light ---- */
+:root[data-palette="jerusalem"] {
+  color-scheme: light;
+  --bg: #F0E9DE; --surface: #FBF7F0; --sunk: #E5DBCB; --ink: #241A14;
+  --ink-2: #4A3B30; --border: #6F5D4E; --line: #D9CDBA; --accent: #8A3418;
+  --on-accent: #FFF9F2; --accent-ink: #843116; --accent-soft: #F6E2D4; --accent-2: #4E5A26;
+  --accent-2-ink: #434E1E; --accent-2-soft: #E4E8D2; --focus: #2E5A78; --good: #3D5A1E;
+  --good-soft: #E4EBD5; --bad: #8A2A18; --bad-soft: #F6E0D8; --spring: #8C3B52;
+  --summer: #44612E; --autumn: #8C4318; --winter: #35536F; --allyear: #655748;
+  --spring-tint: #F2E0E1; --summer-tint: #E4EAD7; --autumn-tint: #F5E1CF; --winter-tint: #DFE5E9;
+  --allyear-tint: #E9E1D5; --r-grain: #E6D3AC; --r-fat: #EFD9A0; --r-liquid: #CFDAD6;
+  --r-egg: #EDBF7A; --r-dairy: #EDE3D2;
+  --seam: #8A3418; --seam-ink: #843116; --cloth: #8A3418;
+  --page-texture: repeating-linear-gradient(101deg, rgb(176 138 90 / .035) 0 1px, transparent 1px 6px), radial-gradient(3px 3px at 20% 30%, rgb(176 138 90 / .04), transparent), radial-gradient(70% 50% at 85% 10%, rgb(176 138 90 / .04), transparent 70%);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(40 30 20 / .06), 0 14px 34px -22px rgb(40 30 20 / .28);
+}
+/* ---- Jerusalem stone: dark (system) ---- */
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="jerusalem"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1B1612; --surface: #25201B; --sunk: #13100D; --ink: #F3EADF;
+    --ink-2: #D6C8B8; --border: #A69482; --line: #3A322A; --accent: #EC9A78;
+    --on-accent: #1B1612; --accent-ink: #F0A585; --accent-soft: #3D251A; --accent-2: #BAC784;
+    --accent-2-ink: #C2CE8E; --accent-2-soft: #272C19; --focus: #9CC3E0; --good: #B9CF93;
+    --good-soft: #232C18; --bad: #F0A58F; --bad-soft: #3A211A; --spring: #E8A9B8;
+    --summer: #B3CE9A; --autumn: #EBA679; --winter: #A6BED6; --allyear: #C7B9A7;
+    --spring-tint: #37252A; --summer-tint: #252E1C; --autumn-tint: #3A2819; --winter-tint: #202833;
+    --allyear-tint: #2C251F; --r-grain: #4F4128; --r-fat: #56441E; --r-liquid: #2F4240;
+    --r-egg: #5E4218; --r-dairy: #463D30;
+    --seam: #EC9A78; --seam-ink: #F0A585; --cloth: #8A3418;
+    --page-texture: repeating-linear-gradient(101deg, rgb(0 0 0 / .06) 0 1px, transparent 1px 6px), radial-gradient(70% 50% at 85% 10%, rgb(0 0 0 / .03), transparent 70%);
+    --border-w: 1.5px;
+    --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+  }
+}
+/* ---- Jerusalem stone: dark (manual) ---- */
+:root[data-palette="jerusalem"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1B1612; --surface: #25201B; --sunk: #13100D; --ink: #F3EADF;
+  --ink-2: #D6C8B8; --border: #A69482; --line: #3A322A; --accent: #EC9A78;
+  --on-accent: #1B1612; --accent-ink: #F0A585; --accent-soft: #3D251A; --accent-2: #BAC784;
+  --accent-2-ink: #C2CE8E; --accent-2-soft: #272C19; --focus: #9CC3E0; --good: #B9CF93;
+  --good-soft: #232C18; --bad: #F0A58F; --bad-soft: #3A211A; --spring: #E8A9B8;
+  --summer: #B3CE9A; --autumn: #EBA679; --winter: #A6BED6; --allyear: #C7B9A7;
+  --spring-tint: #37252A; --summer-tint: #252E1C; --autumn-tint: #3A2819; --winter-tint: #202833;
+  --allyear-tint: #2C251F; --r-grain: #4F4128; --r-fat: #56441E; --r-liquid: #2F4240;
+  --r-egg: #5E4218; --r-dairy: #463D30;
+  --seam: #EC9A78; --seam-ink: #F0A585; --cloth: #8A3418;
+  --page-texture: repeating-linear-gradient(101deg, rgb(0 0 0 / .06) 0 1px, transparent 1px 6px), radial-gradient(70% 50% at 85% 10%, rgb(0 0 0 / .03), transparent 70%);
+  --border-w: 1.5px;
+  --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 18px 40px -26px rgb(0 0 0 / .9);
+}
+/* ---- Jerusalem stone: high contrast, light ---- */
+:root[data-palette="jerusalem"][data-contrast="high"] {
+  color-scheme: light;
+  --bg: #FFFDF9; --surface: #FFFFFF; --sunk: #F4EDE2; --ink: #120B07;
+  --ink-2: #241A14; --border: #241A14; --line: #6F5D4E; --accent: #6E250D;
+  --on-accent: #FFFFFF; --accent-ink: #6E250D; --accent-soft: #FAEBE0; --accent-2: #343D12;
+  --accent-2-ink: #343D12; --accent-2-soft: #EEF1E1; --focus: #0B3D8C; --good: #2A4012;
+  --good-soft: #EDF2E2; --bad: #6A1C0E; --bad-soft: #FAEAE4; --spring: #6C243A;
+  --summer: #2E4619; --autumn: #6A2E0B; --winter: #203C58; --allyear: #40362B;
+  --spring-tint: #F9ECEC; --summer-tint: #EEF2E4; --autumn-tint: #FAEDE0; --winter-tint: #EBF0F3;
+  --allyear-tint: #F4EFE7; --r-grain: #F2E4C8; --r-fat: #F7E7BC; --r-liquid: #E2EAE7;
+  --r-egg: #F6D6A6; --r-dairy: #F6F0E5;
+  --seam: #6E250D; --seam-ink: #6E250D; --cloth: #6E250D;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="jerusalem"][data-contrast="high"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000; --surface: #0E0B09; --sunk: #000000; --ink: #FFFFFF;
+    --ink-2: #F7EFE6; --border: #F3EADF; --line: #A69482; --accent: #FFBFA3;
+    --on-accent: #000000; --accent-ink: #FFC6AD; --accent-soft: #2E1A10; --accent-2: #D6E2A6;
+    --accent-2-ink: #D6E2A6; --accent-2-soft: #1A1F0C; --focus: #FFD34D; --good: #D2E6B0;
+    --good-soft: #151F0A; --bad: #FFC3B2; --bad-soft: #2E150E; --spring: #F5C6D1;
+    --summer: #CFE4BB; --autumn: #F6C8A2; --winter: #C6D8EA; --allyear: #DED3C5;
+    --spring-tint: #2A1519; --summer-tint: #14200D; --autumn-tint: #2A1A0D; --winter-tint: #101B26;
+    --allyear-tint: #1C1813; --r-grain: #40351C; --r-fat: #463814; --r-liquid: #20302F;
+    --r-egg: #4C340E; --r-dairy: #332D22;
+    --seam: #FFBFA3; --seam-ink: #FFC6AD; --cloth: #000000;
+    --page-texture: none;
+    --border-w: 2px;
+    --shadow: none;
+  }
+}
+:root[data-palette="jerusalem"][data-contrast="high"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000; --surface: #0E0B09; --sunk: #000000; --ink: #FFFFFF;
+  --ink-2: #F7EFE6; --border: #F3EADF; --line: #A69482; --accent: #FFBFA3;
+  --on-accent: #000000; --accent-ink: #FFC6AD; --accent-soft: #2E1A10; --accent-2: #D6E2A6;
+  --accent-2-ink: #D6E2A6; --accent-2-soft: #1A1F0C; --focus: #FFD34D; --good: #D2E6B0;
+  --good-soft: #151F0A; --bad: #FFC3B2; --bad-soft: #2E150E; --spring: #F5C6D1;
+  --summer: #CFE4BB; --autumn: #F6C8A2; --winter: #C6D8EA; --allyear: #DED3C5;
+  --spring-tint: #2A1519; --summer-tint: #14200D; --autumn-tint: #2A1A0D; --winter-tint: #101B26;
+  --allyear-tint: #1C1813; --r-grain: #40351C; --r-fat: #463814; --r-liquid: #20302F;
+  --r-egg: #4C340E; --r-dairy: #332D22;
+  --seam: #FFBFA3; --seam-ink: #FFC6AD; --cloth: #000000;
+  --page-texture: none;
+  --border-w: 2px;
+  --shadow: none;
+}
+
+/* Textures: only on the page background, never behind cards.
+   body { background-color: var(--bg); background-image: var(--page-texture); } */

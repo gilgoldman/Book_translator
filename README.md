@@ -1,125 +1,95 @@
-# Book Translator
+# Cookbook
 
-A Streamlit app that translates illustrated books from English to Hebrew. Upload book page images, and the app extracts text, translates it, and regenerates each image with Hebrew text while preserving the original artwork.
+A private, searchable family cookbook. Send it a photo, a link, a voice note or pasted text
+(on the web or through Telegram); an LLM files it as a structured recipe with four views:
 
-## Features
+- **Effective**: short ingredient recap, then steps with the quantities written in.
+- **Classic**: the usual ingredient list + method.
+- **Ratios**: the recipe's core in whole parts by weight, after Michael Ruhlman's *Ratio*.
+- **Source**: the original photo, voice note, page text or link.
 
-- **Text Extraction + Translation**: Uses Gemini 2.5 Flash to extract English text and translate to Hebrew in a single API call
-- **Image Editing**: Replaces English text with Hebrew while preserving illustrations using Gemini's image generation
-- **Deduplication**: Detects duplicate pages to avoid redundant processing
-- **Batch Mode**: Submit large books (50+ pages) for overnight processing at ~50% cost savings
-- **Verification** (optional): Checks each translation for quality issues
-- **RTL Support**: Proper right-to-left text positioning for Hebrew
+Search understands pantry lists ("leeks, eggs, feta"), names, and vague memories
+("that lemony chicken thing"). Ingredient-first questions work too: "I have a lot of leeks"
+lists recipes that use the most, "I don't have buttermilk" suggests swaps (also per ingredient,
+in the context of a recipe). New imports that look like a recipe already in the book are
+parked until someone picks keep original / replace / keep both.
 
-## Quick Start
+Steps carry tap-to-start timers. Any recipe can be shared as a read-only link. Text size
+(three steps) and a high-contrast mode are one tap away; text contrast meets WCAG AAA.
 
-### Local Development
+## Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/Book_translator.git
-   cd Book_translator
-   ```
+- Next.js 16 on Vercel
+- Neon Postgres + pgvector (via the Vercel Marketplace), Drizzle ORM
+- Vercel Blob for photos and voice notes
+- Vercel AI SDK with Gemini 3.8 Flash. All vendor choices live in `src/lib/ai/models.ts`.
+- Username/password login (invite-only), signed session cookie
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Setup
 
-3. **Set up secrets**
-   ```bash
-   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-   ```
-   Edit `.streamlit/secrets.toml` and add your Gemini API key:
-   ```toml
-   GEMINI_API_KEY = "your_actual_api_key_here"
-   ```
+1. **Vercel project**: import this repo.
+2. **Storage**: in the project's *Storage* tab add **Neon** (Postgres) and **Blob**. Their env vars are added for you.
+3. **Env vars**: add the rest from `.env.example` (`AUTH_SECRET`, `GOOGLE_GENERATIVE_AI_API_KEY`, `APP_URL`).
+4. **Deploy**. Migrations run automatically during the build.
+5. Open the site and sign in as `gilgoldman` (or `OWNER_USERNAME`) with the password you want:
+   on an empty database only that username can create the owner account. Change it later under
+   **Settings**.
+6. Family and friends use **Ask for access** on the sign-in page; approve them under **People**.
+   Everyone manages their name, picture, password and the recipes they added under their profile;
+   every recipe shows who added it.
+   Approved members can add recipes, notes and photos; changing tags or deleting is limited to
+   whoever added the recipe, and managing people to the owner.
 
-4. **Run the app**
-   ```bash
-   streamlit run app.py
-   ```
+### Security on Vercel
 
-### Deploy to Streamlit Cloud
+Built in: bcrypt (cost 12), signed `__Host-` session cookie, sessions revoked on password
+change or removed access, invite/approval flow, per-IP and per-username throttling in Postgres,
+Vercel BotID on sign-in and registration, strict security headers (CSP, HSTS, frame denial).
 
-1. **Push to GitHub**
-   Ensure your code is in a GitHub repository.
+Recommended in the Vercel dashboard (free on Hobby):
 
-2. **Connect to Streamlit Cloud**
-   - Go to [share.streamlit.io](https://share.streamlit.io)
-   - Click "New app"
-   - Select your repository, branch, and `app.py` as the main file
+1. **Firewall → Configure → Bot Protection**: turn on BotID (and Deep Analysis if your plan has it).
+2. **Firewall → Rules → New rule**: rate limit `POST` requests with a `Next-Action` header, e.g. 30 per
+   minute per IP, action *Deny*.
+3. **Settings → Deployment Protection**: keep *Vercel Authentication* on for Preview deployments.
+4. Use a long random `AUTH_SECRET`; rotating it signs everyone out.
 
-3. **Configure Secrets**
-   - In your app's dashboard, go to **Settings** → **Secrets**
-   - Add your secrets in TOML format:
-     ```toml
-     GEMINI_API_KEY = "your_actual_api_key_here"
-     ```
+### Telegram bot (optional)
 
-4. **Deploy**
-   Click "Deploy" and your app will be live!
+1. Create a bot with [@BotFather](https://t.me/BotFather), copy its token.
+2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (any random string) and `TELEGRAM_BOT_USERNAME` in Vercel, redeploy.
+3. Locally, with the same vars in `.env`: `npm run telegram:webhook`.
+4. In Telegram send the bot `/login username password` (the message is deleted right away).
 
-## Usage
+Then send photos (an album = one recipe), links, voice notes, pasted text, or questions:
+`leeks, eggs, feta`, `I have a lot of leeks` (or `/lots leeks`), `no buttermilk` (or `/swap buttermilk`).
+Duplicate imports come back with Keep original / Replace / Keep both buttons.
 
-1. **Upload Pages**: Upload PNG, JPG, or WEBP images of book pages
-2. **Choose Mode**:
-   - **Real-time**: Instant processing (standard pricing)
-   - **Batch**: Overnight processing (~50% cheaper, recommended for 50+ pages)
-3. **Optional Verification**: Enable to check each translation for quality (+33% cost)
-4. **Start Translation**: Click the button and watch progress
-5. **Download**: Get your translated book as a ZIP file
+## Development
 
-## Project Structure
-
-```
-book-translator/
-├── app.py              # Streamlit UI (main entry point)
-├── translator.py       # Core translation logic (extract, translate, edit)
-├── database.py         # In-memory SQLite operations
-├── batch.py            # Batch API operations
-├── utils.py            # ZIP creation, helpers
-├── requirements.txt    # Python dependencies
-├── .gitignore
-├── .streamlit/
-│   └── secrets.toml.example
-└── README.md
+```bash
+cp .env.example .env   # fill in DATABASE_URL etc.
+npm install
+npm run db:migrate
+npm run dev
 ```
 
-## API Models Used
+Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 
-| Purpose | Model | Notes |
-|---------|-------|-------|
-| Text extraction + translation | `gemini-2.5-flash` | Fast, cheap OCR + translation |
-| Image editing | `gemini-2.0-flash-exp` | Replaces text while preserving artwork |
+Schema changes: edit `src/db/schema.ts`, then `npm run db:generate`.
 
-## Cost Estimation
+### Switching LLM vendor
 
-| Book Size | Real-time Cost | Batch Cost |
-|-----------|---------------|------------|
-| 20 pages | ~$0.20 | ~$0.10 |
-| 100 pages | ~$1.00 | ~$0.50 |
-| 500 pages | ~$5.00 | ~$2.50 |
+Edit `src/lib/ai/models.ts` only: install the provider's `@ai-sdk/*` package and map the
+`extract`, `enrich`, `quick` and `text` (embedding) roles to its models. Prompts and schemas are
+shared. Voice notes need a model that accepts audio input. After changing the embedding model,
+run `npm run reembed`.
 
-*Estimates based on typical page complexity. Actual costs may vary.*
+## Design
 
-## Configuration
+`design/` holds the design research: `BRIEF.md`, three visual directions as static pages, and
+`tokens.css` for the recommended one. Round 2 explores the chosen Linne direction in three warm-stone
+palettes (`linne-*.html`). The app uses **Old book** (`linne-oldbook.html`); its tokens are in
+`src/app/globals.css`, generated from `design/linne-tokens.css`.
 
-All configuration is done via Streamlit secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `GEMINI_API_KEY` | Your Google Gemini API key |
-
-Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
-
-## Limitations
-
-- **Streamlit Cloud**: Files are ephemeral - download your ZIP before closing the session
-- **Maximum 500 pages** per upload
-- **Session-based**: Progress is lost if the app restarts (use batch mode for large books)
-- **Image editing quality**: Complex layouts may require manual review
-
-## License
-
-MIT License
+Setup checklist for the owner: `docs/setup-todo.html`.

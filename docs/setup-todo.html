@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cookbook setup to-do</title>
+<style>
+  :root { --bg:#F1E7D3; --surface:#FAF3E3; --ink:#2A1C11; --ink-2:#4A3524; --line:#D6C5A5; --border:#6E5843; --accent:#6B1E24; --good:#1E4A3A; --good-soft:#DCE6DA; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#18120D; --surface:#221A13; --ink:#F2E6D0; --ink-2:#D6C3A4; --line:#3A2E22; --border:#A48E72; --accent:#EBAEA8; --good:#9DCDB3; --good-soft:#1C2E25; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:18px/1.6 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif; }
+  main { max-width: 44rem; margin: 0 auto; padding: 24px 16px 64px; }
+  header { border-top: 6px solid var(--accent); padding-top: 16px; }
+  h1 { font-size: 2rem; margin: 0 0 4px; } h2 { font-size: 1.25rem; margin: 28px 0 8px; }
+  p.lead { color: var(--ink-2); margin-top: 0; }
+  a { color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: .2em; font-weight: 700; }
+  ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  li { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  li.done { background: var(--good-soft); border-color: var(--good); }
+  label { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+  input[type=checkbox] { width: 26px; height: 26px; margin-top: 2px; flex: none; accent-color: var(--good); }
+  .what { font-weight: 700; }
+  .how { color: var(--ink-2); font-size: 1rem; margin-top: 2px; }
+  code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 .3em; font-size: .9em; overflow-wrap: anywhere; }
+  .progress { font-weight: 700; color: var(--good); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Cookbook: your to-do</h1>
+    <p class="lead">About 20 minutes. Ticks are saved in this browser. <span class="progress" id="progress"></span></p>
+  </header>
+
+  <h2>1 · Code</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="merge"><span><span class="what">Merge the work into <code>main</code></span>
+      <span class="how">Open a pull request from <a href="https://github.com/gilgoldman/book_translator/compare/main...claude/searchable-cookbook-app-jmcp1x">claude/searchable-cookbook-app-jmcp1x</a> and merge it (or ask Claude to open it).</span></span></label></li>
+  </ol>
+
+  <h2>2 · Keys</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="gemini"><span><span class="what">Get a Gemini API key</span>
+      <span class="how"><a href="https://aistudio.google.com/apikey">Google AI Studio → API keys</a>. Copy it for step 3.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="secret"><span><span class="what">Make a long random secret for <code>AUTH_SECRET</code></span>
+      <span class="how">Any 48+ random characters, e.g. from a password manager's generator.</span></span></label></li>
+  </ol>
+
+  <h2>3 · Vercel</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="import"><span><span class="what">Import the repo</span>
+      <span class="how"><a href="https://vercel.com/new">vercel.com/new</a> → pick <code>book_translator</code>. Don't deploy yet if it asks for env vars; you can add them after.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="neon"><span><span class="what">Add the database (Neon)</span>
+      <span class="how">Project → <b>Storage</b> → Create → <a href="https://vercel.com/marketplace/neon">Neon</a> (free). Connect it to the project; <code>DATABASE_URL</code> is added for you.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="blob"><span><span class="what">Add file storage (Blob)</span>
+      <span class="how">Project → <b>Storage</b> → Create → <a href="https://vercel.com/docs/vercel-blob">Blob</a>. Connect it; <code>BLOB_READ_WRITE_TOKEN</code> is added for you.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="env"><span><span class="what">Add environment variables</span>
+      <span class="how">Project → <b>Settings → Environment Variables</b>: <code>AUTH_SECRET</code>, <code>GOOGLE_GENERATIVE_AI_API_KEY</code>, and <code>APP_URL</code> (your site address, e.g. <code>https://your-cookbook.vercel.app</code>).</span></span></label></li>
+    <li><label><input type="checkbox" data-id="deploy"><span><span class="what">Deploy</span>
+      <span class="how">Deployments → Redeploy. The database tables are created during the build. The book starts empty.</span></span></label></li>
+  </ol>
+
+  <h2>4 · First sign-in</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="owner"><span><span class="what">Claim the owner account</span>
+      <span class="how">Open your site, sign in as <code>gilgoldman</code> with <code>gilgoldman1911</code>. Only this username can create the owner account.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="password"><span><span class="what">Change your password and set your name and picture</span>
+      <span class="how">Click your name (top right) → <b>Your profile</b>.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="first"><span><span class="what">Add a first recipe</span>
+      <span class="how"><b>Add a recipe</b> → paste a link, or a photo, or record a voice note.</span></span></label></li>
+  </ol>
+
+  <h2>5 · Security switches (free)</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="botid"><span><span class="what">Turn on bot protection</span>
+      <span class="how">Project → <b>Firewall</b> → Configure → Bot Protection / <a href="https://vercel.com/docs/botid">BotID</a> on.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="ratelimit"><span><span class="what">Add a rate-limit rule</span>
+      <span class="how">Project → <b>Firewall → Rules</b> → New: requests with header <code>Next-Action</code>, 30 per minute per IP → Deny. (<a href="https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting">guide</a>)</span></span></label></li>
+    <li><label><input type="checkbox" data-id="previews"><span><span class="what">Keep preview deployments private</span>
+      <span class="how">Project → <b>Settings → Deployment Protection</b> → Vercel Authentication on.</span></span></label></li>
+  </ol>
+
+  <h2>6 · Telegram bot (optional)</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="botfather"><span><span class="what">Create the bot</span>
+      <span class="how">Message <a href="https://t.me/BotFather">@BotFather</a> → <code>/newbot</code>. Keep the token and the bot's username.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="tgenv"><span><span class="what">Add the bot's env vars and redeploy</span>
+      <span class="how"><code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_BOT_USERNAME</code>, and <code>TELEGRAM_WEBHOOK_SECRET</code> (any random letters and digits).</span></span></label></li>
+    <li><label><input type="checkbox" data-id="webhook"><span><span class="what">Point the bot at your site</span>
+      <span class="how">Open this in a browser, with your values filled in:<br>
+      <code>https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=&lt;APP_URL&gt;/api/telegram&amp;secret_token=&lt;SECRET&gt;</code><br>It should say <code>"Webhook was set"</code>.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="tglogin"><span><span class="what">Connect your account</span>
+      <span class="how">In the bot, send <code>/login gilgoldman your-password</code>. The message is deleted right away.</span></span></label></li>
+  </ol>
+
+  <h2>7 · Family &amp; friends</h2>
+  <ol>
+    <li><label><input type="checkbox" data-id="invite"><span><span class="what">Send them the sign-up link</span>
+      <span class="how"><code>&lt;APP_URL&gt;/register</code>. Approve each request under <b>People</b>. For your parents: the <b>Text &amp; colours</b> button makes text bigger and adds high contrast.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="tune"><span><span class="what">Tell Claude how the first real imports went</span>
+      <span class="how">A screenshot, a link and a voice note are ideal for tuning the reading and the duplicate check.</span></span></label></li>
+  </ol>
+</main>
+<script>
+  const boxes = [...document.querySelectorAll("input[type=checkbox]")];
+  const key = "cookbook-setup-todo";
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(key) || "{}"); } catch {}
+  const render = () => {
+    boxes.forEach((b) => b.closest("li").classList.toggle("done", b.checked));
+    const n = boxes.filter((b) => b.checked).length;
+    document.getElementById("progress").textContent = n ? `${n} of ${boxes.length} done.` : "";
+  };
+  boxes.forEach((b) => {
+    b.checked = !!saved[b.dataset.id];
+    b.addEventListener("change", () => {
+      saved[b.dataset.id] = b.checked;
+      try { localStorage.setItem(key, JSON.stringify(saved)); } catch {}
+      render();
+    });
+  });
+  render();
+</script>
+</body>
+</html>

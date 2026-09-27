@@ -1,4 +1,6 @@
 import "server-only";
+import { and, eq, isNotNull } from "drizzle-orm";
+import { db, users } from "@/db";
 
 // Minimal Telegram Bot API client. No SDK needed for a webhook bot.
 
@@ -71,3 +73,23 @@ export type TgMessage = {
   audio?: { file_id: string; mime_type?: string; file_name?: string };
   document?: { file_id: string; mime_type?: string; file_name?: string };
 };
+
+/** Best-effort ping to the owner's Telegram (if linked and the bot is configured). */
+export async function notifyOwner(text: string) {
+  if (!process.env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const owners = await db()
+      .select({ chatId: users.telegramChatId })
+      .from(users)
+      .where(and(eq(users.isAdmin, true), isNotNull(users.telegramChatId)));
+    const appUrl = process.env.APP_URL?.replace(/\/$/, "");
+    for (const o of owners) {
+      await tg("sendMessage", {
+        chat_id: o.chatId,
+        text: `${text}${appUrl ? `\n\nApprove at ${appUrl}/settings` : ""}`,
+      });
+    }
+  } catch (err) {
+    console.error("notifyOwner failed", err);
+  }
+}

@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, inArray, sql } from "drizzle-orm";
+import { and, desc, inArray, isNull, sql } from "drizzle-orm";
 import { db, recipes } from "@/db";
 import { embedText } from "@/lib/ai/extract";
 
@@ -40,7 +40,12 @@ type CardRow = { photos: string[] } & Omit<RecipeCard, "photo" | "match">;
 const toCard = ({ photos, ...r }: CardRow): RecipeCard => ({ ...r, photo: photos[0] ?? null });
 
 export async function recentRecipes(limit = 60): Promise<RecipeCard[]> {
-  const rows = await db().select(cardColumns).from(recipes).orderBy(desc(recipes.createdAt)).limit(limit);
+  const rows = await db()
+    .select(cardColumns)
+    .from(recipes)
+    .where(isNull(recipes.duplicateOf))
+    .orderBy(desc(recipes.createdAt))
+    .limit(limit);
   return rows.map(toCard);
 }
 
@@ -117,7 +122,11 @@ export async function searchRecipes(q: string, limit = 24): Promise<RecipeCard[]
   const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
   if (ranked.length === 0) return [];
 
-  const rows = await db().select(cardColumns).from(recipes).where(inArray(recipes.id, ranked));
+  // Imports parked as possible duplicates stay hidden until someone decides.
+  const rows = await db()
+    .select(cardColumns)
+    .from(recipes)
+    .where(and(inArray(recipes.id, ranked), isNull(recipes.duplicateOf)));
   const byId = new Map(rows.map((r) => [r.id, toCard(r)]));
   return ranked
     .map((id) => {

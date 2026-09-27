@@ -127,3 +127,20 @@ export const enrichmentSchema = z.object({
   ratio: ratioSchema,
 });
 export type Enrichment = z.infer<typeof enrichmentSchema>;
+
+export const substitutionSchema = z.object({
+  options: z
+    .array(
+      z.object({
+        use: z.string().describe('What to use, e.g. "Milk + lemon juice"'),
+        amount: z
+          .string()
+          .describe('How much to replace the given amount, e.g. "250 ml milk + 1 tbsp lemon juice"'),
+        how: z.string().describe("One short sentence of method, e.g. 'Stir and rest 10 minutes.'"),
+        effect: z.string().describe("How the result changes, honestly, in a few words"),
+      }),
+    )
+    .describe("2-3 options, best first. Prefer common pantry items."),
+  tip: z.string().nullable().describe("Optional: when it's better to pick another recipe instead"),
+});
+export type Substitution = z.infer<typeof substitutionSchema>;

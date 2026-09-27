@@ -1,11 +1,30 @@
-import { asc, eq, lt } from "drizzle-orm";
+import { timingSafeEqual } from "node:crypto";
+import { and, asc, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
 import { db, pendingMedia, recipes, sources, users } from "@/db";
+import { suggestSubstitutes } from "@/lib/ai/substitute";
 import { checkCredentials } from "@/lib/auth";
+import { resolveDuplicate } from "@/lib/dedupe";
+import { ingredientDiff } from "@/lib/dedupe-rules";
 import { ingest, NotARecipeError, type IncomingFile, type IngestRequest } from "@/lib/ingest";
+import { parseIngredientIntent } from "@/lib/ingredient-intent";
+import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
+import { isRateLimited } from "@/lib/rate-limit";
 import { searchRecipes } from "@/lib/search";
 import { downloadFile, edit, send, tg, type TgMessage, type TgUpdate } from "@/lib/telegram";
-import { classifyText, esc, parseCallback, renderRecipe, viewKeyboard, type TgView } from "@/lib/telegram-format";
+import {
+  classifyText,
+  duplicateKeyboard,
+  esc,
+  parseCallback,
+  parseDuplicateCallback,
+  renderAbundance,
+  renderDuplicatePrompt,
+  renderRecipe,
+  renderSubstitution,
+  viewKeyboard,
+  type TgView,
+} from "@/lib/telegram-format";
 
 export const maxDuration = 300;
 
@@ -19,10 +38,27 @@ const HELP = `Send me anything and I'll file it in the cookbook:
 · pasted recipe text
 
 Or ask: <i>leeks, eggs, feta</i> or <i>that lemony chicken</i>.
+<i>I have a lot of leeks</i> or /lots leeks — recipes that use the most.
+<i>I don't have buttermilk</i> or /swap buttermilk — what to use instead.
 /find … searches, /add … forces an import.`;
 
+function secretMatches(given: string | null) {
+  const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!expected || !given) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The approved user linked to this chat, if any. */
+async function linkedUser(chatId: number) {
+  return db().query.users.findFirst({
+    where: and(eq(users.telegramChatId, chatId), eq(users.status, "approved")),
+  });
+}
+
 export async function POST(request: Request) {
-  if (request.headers.get("x-telegram-bot-api-secret-token") !== process.env.TELEGRAM_WEBHOOK_SECRET) {
+  if (!secretMatches(request.headers.get("x-telegram-bot-api-secret-token"))) {
     return new Response("forbidden", { status: 403 });
   }
   const update = (await request.json()) as TgUpdate;
@@ -47,14 +83,18 @@ async function handle(update: TgUpdate) {
   if (intent?.kind === "login") {
     // Don't leave the password sitting in the chat.
     await tg("deleteMessage", { chat_id: chatId, message_id: msg.message_id }).catch(() => {});
+    if (await isRateLimited(`tg-login:${chatId}`, 5, 15 * 60)) {
+      return send(chatId, "Too many attempts. Please wait 15 minutes.");
+    }
     const user = await checkCredentials(intent.username, intent.password);
-    if (!user) return send(chatId, "That username and password don't match.");
+    if (!user || user.status === "declined") return send(chatId, "That username and password don't match.");
+    if (user.status === "pending") return send(chatId, "Your request is still waiting for approval.");
     await db().update(users).set({ telegramChatId: null }).where(eq(users.telegramChatId, chatId));
     await db().update(users).set({ telegramChatId: chatId }).where(eq(users.id, user.id));
     return send(chatId, `Hi ${esc(user.displayName ?? user.username)}, you're connected.\n\n${HELP}`);
   }
 
-  const user = await db().query.users.findFirst({ where: eq(users.telegramChatId, chatId) });
+  const user = await linkedUser(chatId);
   if (!user) {
     return send(chatId, "Hello! This is a private cookbook. Connect with:\n<code>/login username password</code>");
   }
@@ -74,7 +114,29 @@ async function handle(update: TgUpdate) {
   if (!intent) return send(chatId, HELP);
   if (intent.kind === "url") return importAndReply(chatId, user.id, async () => ({ kind: "url", url: intent.url }));
   if (intent.kind === "import") return importAndReply(chatId, user.id, async () => ({ kind: "text", text: intent.text }));
-  if (intent.kind === "search") return searchAndReply(chatId, intent.query);
+  if (intent.kind === "search") {
+    const ingredientIntent = parseIngredientIntent(intent.query);
+    if (ingredientIntent?.kind === "abundance") return abundanceReply(chatId, ingredientIntent.ingredient);
+    if (ingredientIntent?.kind === "substitute") return substituteReply(chatId, ingredientIntent.ingredient);
+    return searchAndReply(chatId, intent.query);
+  }
+}
+
+async function abundanceReply(chatId: number, text: string) {
+  const name = await resolveIngredient(text);
+  const [uses, pairs] = await Promise.all([recipesUsingMost(name, 8), goesWellWith(name, 8)]);
+  return send(chatId, renderAbundance(name, uses, pairs), {
+    reply_markup: uses.length
+      ? { inline_keyboard: uses.map((u, i) => [{ text: `${i + 1}. ${u.title}`.slice(0, 60), callback_data: `o:${u.id}` }]) }
+      : undefined,
+  });
+}
+
+async function substituteReply(chatId: number, text: string) {
+  if (await isRateLimited(`tg-swap:${chatId}`, 30, 60 * 60)) return send(chatId, "Let's take a short break — try again soon.");
+  const name = await resolveIngredient(text);
+  void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+  return send(chatId, renderSubstitution(name, await suggestSubstitutes(name)));
 }
 
 function pickMedia(msg: TgMessage): { kind: "image" | "audio"; fileId: string; mediaType: string } | null {
@@ -122,8 +184,9 @@ async function collectAlbum(msg: TgMessage, media: { kind: "image" | "audio"; fi
   // Housekeeping for albums whose owner crashed.
   await db().delete(pendingMedia).where(lt(pendingMedia.createdAt, new Date(Date.now() - 3600_000)));
 
-  const user = await db().query.users.findFirst({ where: eq(users.telegramChatId, msg.chat.id) });
-  await importAndReply(msg.chat.id, user?.id ?? null, async () => ({
+  const user = await linkedUser(msg.chat.id);
+  if (!user) return;
+  await importAndReply(msg.chat.id, user.id, async () => ({
     kind: "image",
     caption: parts.find((p) => p.caption)?.caption ?? undefined,
     files: await Promise.all(parts.map((p) => fetchFile(p.fileId, p.mediaType))),
@@ -134,8 +197,21 @@ async function importAndReply(chatId: number, userId: string | null, build: () =
   const status = await send(chatId, "Reading it… 🍳");
   void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
   try {
-    const id = await ingest(await build(), userId);
-    await showRecipe(chatId, id, "effective", status.message_id);
+    const { recipeId, duplicate } = await ingest(await build(), userId);
+    if (duplicate) {
+      const [fresh, original] = await Promise.all([
+        db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) }),
+        db().query.recipes.findFirst({ where: eq(recipes.id, duplicate.id) }),
+      ]);
+      const diff = ingredientDiff(
+        original?.ingredients.map((i) => i.canonical) ?? [],
+        fresh?.ingredients.map((i) => i.canonical) ?? [],
+      );
+      return edit(chatId, status.message_id, renderDuplicatePrompt(fresh?.title ?? "", duplicate.title, diff), {
+        reply_markup: duplicateKeyboard(recipeId),
+      });
+    }
+    await showRecipe(chatId, recipeId, "effective", status.message_id);
   } catch (err) {
     console.error("telegram import failed", err);
     const why = err instanceof NotARecipeError ? err.message : "Something went wrong reading that. Try again?";
@@ -163,11 +239,23 @@ async function searchAndReply(chatId: number, query: string) {
 
 async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   await tg("answerCallbackQuery", { callback_query_id: cb.id }).catch(() => {});
-  const parsed = cb.data ? parseCallback(cb.data) : null;
   const chatId = cb.message?.chat.id;
-  if (!parsed || !chatId) return;
-  const user = await db().query.users.findFirst({ where: eq(users.telegramChatId, chatId) });
+  if (!chatId || !cb.data) return;
+  const user = await linkedUser(chatId);
   if (!user) return;
+
+  const dup = parseDuplicateCallback(cb.data);
+  if (dup) {
+    try {
+      const id = await resolveDuplicate(dup.id, dup.choice, { userId: user.id, isAdmin: user.isAdmin });
+      return showRecipe(chatId, id, "effective", cb.message?.message_id);
+    } catch (err) {
+      return send(chatId, esc(err instanceof Error ? err.message : "Couldn't do that."));
+    }
+  }
+
+  const parsed = parseCallback(cb.data);
+  if (!parsed) return;
   await showRecipe(chatId, parsed.id, parsed.view, parsed.open ? undefined : cb.message?.message_id);
 }
 

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { classifyText, parseCallback, renderRecipe, viewKeyboard, type TgRecipe } from "./telegram-format";
+import {
+  classifyText,
+  duplicateKeyboard,
+  parseCallback,
+  parseDuplicateCallback,
+  renderAbundance,
+  renderRecipe,
+  renderSubstitution,
+  viewKeyboard,
+  type TgRecipe,
+} from "./telegram-format";
 
 const id = "0b6c2f7e-1d7e-4a57-9e36-0a5e3f2b8c11";
 
@@ -89,5 +99,31 @@ describe("classifyText", () => {
   it("treats short text as a search and long text as a pasted recipe", () => {
     expect(classifyText("leeks, eggs, feta")).toEqual({ kind: "search", query: "leeks, eggs, feta" });
     expect(classifyText("Soup\n2 leeks\n1 l stock\nSweat leeks\nAdd stock").kind).toBe("import");
+  });
+});
+
+describe("duplicate prompt", () => {
+  it("round-trips the three choices", () => {
+    const rows = duplicateKeyboard(id).inline_keyboard.flat();
+    expect(rows.map((b) => parseDuplicateCallback(b.callback_data)?.choice)).toEqual([
+      "keep-original",
+      "replace",
+      "keep-both",
+    ]);
+    expect(parseDuplicateCallback(`d:${id}:x`)).toBeNull();
+  });
+});
+
+describe("ingredient-first replies", () => {
+  it("renders swaps and abundance lists", () => {
+    const swap = renderSubstitution("buttermilk", {
+      options: [{ use: "Milk + lemon", amount: "250 ml + 1 tbsp", how: "Rest 10 min.", effect: "Nearly the same" }],
+      tip: null,
+    });
+    expect(swap).toContain("<b>No buttermilk? Try:</b>");
+    expect(swap).toContain("<b>Milk + lemon</b> — 250 ml + 1 tbsp");
+    const lots = renderAbundance("leek", [{ title: "Leek & feta tart", amount: "450 g" }], [{ name: "potato" }]);
+    expect(lots).toContain("1. Leek &amp; feta tart — <i>450 g</i>");
+    expect(lots).toContain("Goes well with: potato");
   });
 });

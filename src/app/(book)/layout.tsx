@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { A11yControls } from "@/components/a11y-controls";
 import { TimersProvider } from "@/components/timers";
 import { requireSession } from "@/lib/auth";
 
@@ -10,16 +11,19 @@ export default async function BookLayout({ children }: LayoutProps<"/">) {
         <Link href="/" className="brand">
           Cookbook
         </Link>
-        <nav>
-          <Link href="/add" aria-label="Add a recipe" className="nav-add">
-            +
+        <nav aria-label="Main">
+          <Link href="/add" className="nav-link">
+            <span aria-hidden>+</span> Add
           </Link>
-          <Link href="/settings" aria-label="Settings" className="nav-more">
-            ···
+          <A11yControls />
+          <Link href="/settings" className="nav-link">
+            Settings
           </Link>
         </nav>
       </header>
-      <main className="page">{children}</main>
+      <main id="main" className="page">
+        {children}
+      </main>
     </TimersProvider>
   );
 }

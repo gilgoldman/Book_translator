@@ -1,7 +1,9 @@
 import { put } from "@vercel/blob";
-import { eq, inArray } from "drizzle-orm";
-import { db, ingredients, recipeIngredients, recipes, sources, type SourceKind } from "@/db";
+import { eq } from "drizzle-orm";
+import { db, recipes, sources, type SourceKind } from "@/db";
 import { embedText, embeddingText, enrichRecipe, extractRecipe, type ExtractInput } from "@/lib/ai/extract";
+import { findDuplicate, type DuplicateMatch } from "@/lib/dedupe";
+import { linkIngredients } from "@/lib/ingredient-links";
 import { randomToken } from "@/lib/tokens";
 import { fetchPage, pageToPrompt } from "./url";
 
@@ -18,13 +20,26 @@ export class NotARecipeError extends Error {
   }
 }
 
-/** Store the raw input, then extract, enrich, embed and save. Returns the new recipe id. */
-export async function ingest(req: IngestRequest, userId: string | null): Promise<string> {
+export type IngestResult = { recipeId: string; duplicate: DuplicateMatch | null };
+
+/**
+ * Store the raw input, then extract, enrich, embed and save. If the result looks like a
+ * recipe already in the book, it is saved but parked (hidden from search) until someone
+ * picks keep original / replace / keep both.
+ */
+export async function ingest(req: IngestRequest, userId: string | null): Promise<IngestResult> {
   const sourceId = await saveSource(req, userId);
   try {
     const recipeId = await processSource(sourceId, req, userId);
     await db().update(sources).set({ status: "done" }).where(eq(sources.id, sourceId));
-    return recipeId;
+    const duplicate = await findDuplicate(recipeId).catch((err) => {
+      console.error("duplicate check failed", err);
+      return null;
+    });
+    if (duplicate) {
+      await db().update(recipes).set({ duplicateOf: duplicate.id }).where(eq(recipes.id, recipeId));
+    }
+    return { recipeId, duplicate };
   } catch (err) {
     await db()
       .update(sources)
@@ -116,30 +131,4 @@ async function processSource(sourceId: string, req: IngestRequest, userId: strin
 
   await linkIngredients(recipe.id, extracted.ingredients);
   return recipe.id;
-}
-
-export async function linkIngredients(recipeId: string, list: { canonical: string; optional: boolean }[]) {
-  const byName = new Map<string, boolean>();
-  for (const i of list) {
-    const name = i.canonical.trim().toLowerCase();
-    if (!name) continue;
-    // Required wins if an ingredient appears both ways.
-    byName.set(name, (byName.get(name) ?? true) && i.optional);
-  }
-  const names = [...byName.keys()];
-  if (names.length === 0) return;
-
-  await db()
-    .insert(ingredients)
-    .values(names.map((name) => ({ name })))
-    .onConflictDoNothing();
-  const rows = await db()
-    .select({ id: ingredients.id, name: ingredients.name })
-    .from(ingredients)
-    .where(inArray(ingredients.name, names));
-
-  await db().delete(recipeIngredients).where(eq(recipeIngredients.recipeId, recipeId));
-  await db()
-    .insert(recipeIngredients)
-    .values(rows.map((r) => ({ recipeId, ingredientId: r.id, optional: byName.get(r.name) ?? false })));
 }

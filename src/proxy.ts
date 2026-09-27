@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 // Everything is private except login, public share pages and the Telegram webhook
 // (which checks its own secret).
-const PUBLIC_PREFIXES = ["/login", "/r/", "/api/telegram"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/r/", "/api/telegram"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

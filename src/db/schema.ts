@@ -15,12 +15,19 @@ import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
 
 export const EMBEDDING_DIMENSIONS = 768;
 
+export type UserStatus = "pending" | "approved" | "declined";
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
   displayName: text("display_name"),
   passwordHash: text("password_hash").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // New sign-ups wait for the owner's approval.
+  status: text("status").$type<UserStatus>().notNull().default("pending"),
+  requestNote: text("request_note"),
+  // Bumped on password change / revoke: old session cookies stop working.
+  sessionVersion: integer("session_version").notNull().default(0),
   telegramChatId: bigint("telegram_chat_id", { mode: "number" }).unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -65,6 +72,8 @@ export const recipes = pgTable(
     photos: jsonb("photos").$type<string[]>().notNull().default([]),
     shareToken: text("share_token").notNull().unique(),
     sourceId: uuid("source_id").references(() => sources.id),
+    // Set on a fresh import that looks like an existing recipe, until someone decides.
+    duplicateOf: uuid("duplicate_of"),
     embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -115,3 +124,17 @@ export const pendingMedia = pgTable(
   },
   (t) => [primaryKey({ columns: [t.groupId, t.messageId] })],
 );
+
+// Fixed-window counters for login/registration throttling (per IP and per username).
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+});
+
+// Cached LLM substitution advice, keyed by ingredient (+ recipe for in-context swaps).
+export const substitutions = pgTable("substitutions", {
+  key: text("key").primaryKey(),
+  result: jsonb("result").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

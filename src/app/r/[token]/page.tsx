@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db, recipes } from "@/db";
+import { A11yControls } from "@/components/a11y-controls";
 import { RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
 import { TimersProvider } from "@/components/timers";
@@ -27,7 +28,10 @@ export default async function SharedRecipe({ params }: PageProps<"/r/[token]">) 
   if (!r) notFound();
   return (
     <TimersProvider>
-      <main className="page shared">
+      <main id="main" className="page shared">
+        <div className="shared-bar">
+          <A11yControls />
+        </div>
         <article className={`recipe season-${r.season}`}>
           {r.photos[0] && <img src={r.photos[0]} alt="" className="hero" />}
           <header dir={dirFor(r.language)}>

@@ -8,13 +8,14 @@ import { downscaleImage } from "@/lib/image";
 
 type Props = {
   id: string;
+  canEdit: boolean;
   notes: string | null;
   shareUrl: string;
   tags: { cuisine: string; course: string; season: string; diet: string[] };
 };
 
 /** Everything that isn't cooking lives behind one quiet toggle. */
-export function RecipeExtras({ id, notes, shareUrl, tags }: Props) {
+export function RecipeExtras({ id, canEdit, notes, shareUrl, tags }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
   const [t, setT] = useState(tags);
@@ -55,41 +56,49 @@ export function RecipeExtras({ id, notes, shareUrl, tags }: Props) {
             />
           </label>
 
-          <div className="field tag-fields">
-            <span>Tags</span>
-            <select value={t.cuisine} onChange={(e) => setT({ ...t, cuisine: e.target.value })}>
-              {CUISINES.map((c) => (
-                <option key={c} value={c}>{titleCase(c)}</option>
-              ))}
-            </select>
-            <select value={t.course} onChange={(e) => setT({ ...t, course: e.target.value })}>
-              {COURSES.map((c) => (
-                <option key={c} value={c}>{titleCase(c)}</option>
-              ))}
-            </select>
-            <select value={t.season} onChange={(e) => setT({ ...t, season: e.target.value })}>
-              {SEASONS.map((c) => (
-                <option key={c} value={c}>{titleCase(c)}</option>
-              ))}
-            </select>
-            <div className="diet-checks">
-              {DIETS.map((d) => (
-                <label key={d}>
-                  <input
-                    type="checkbox"
-                    checked={t.diet.includes(d)}
-                    onChange={(e) =>
-                      setT({ ...t, diet: e.target.checked ? [...t.diet, d] : t.diet.filter((x) => x !== d) })
-                    }
-                  />
-                  {d}
-                </label>
-              ))}
+          {canEdit && (
+            <div className="field tag-fields">
+              <span>Tags</span>
+              <select value={t.cuisine} onChange={(e) => setT({ ...t, cuisine: e.target.value })}>
+                {CUISINES.map((c) => (
+                  <option key={c} value={c}>
+                    {titleCase(c)}
+                  </option>
+                ))}
+              </select>
+              <select value={t.course} onChange={(e) => setT({ ...t, course: e.target.value })}>
+                {COURSES.map((c) => (
+                  <option key={c} value={c}>
+                    {titleCase(c)}
+                  </option>
+                ))}
+              </select>
+              <select value={t.season} onChange={(e) => setT({ ...t, season: e.target.value })}>
+                {SEASONS.map((c) => (
+                  <option key={c} value={c}>
+                    {titleCase(c)}
+                  </option>
+                ))}
+              </select>
+              <div className="diet-checks">
+                {DIETS.map((d) => (
+                  <label key={d}>
+                    <input
+                      type="checkbox"
+                      checked={t.diet.includes(d)}
+                      onChange={(e) =>
+                        setT({ ...t, diet: e.target.checked ? [...t.diet, d] : t.diet.filter((x) => x !== d) })
+                      }
+                    />
+                    {d}
+                  </label>
+                ))}
+              </div>
+              <button className="quiet" onClick={() => startTransition(() => saveTags(id, t))}>
+                save tags
+              </button>
             </div>
-            <button className="quiet" onClick={() => startTransition(() => saveTags(id, t))}>
-              save tags
-            </button>
-          </div>
+          )}
 
           <div className="field">
             <span>Share</span>
@@ -108,12 +117,14 @@ export function RecipeExtras({ id, notes, shareUrl, tags }: Props) {
             </button>
           </div>
 
-          <button
-            className="quiet danger"
-            onClick={() => confirm("Delete this recipe?") && startTransition(() => deleteRecipe(id))}
-          >
-            delete recipe
-          </button>
+          {canEdit && (
+            <button
+              className="quiet danger"
+              onClick={() => confirm("Delete this recipe?") && startTransition(() => deleteRecipe(id))}
+            >
+              delete recipe
+            </button>
+          )}
           {pending && <p className="muted">saving…</p>}
         </div>
       )}

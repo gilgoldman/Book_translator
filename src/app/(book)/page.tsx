@@ -1,11 +1,27 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { RecipeMeta } from "@/components/recipe-meta";
+import { requireSession } from "@/lib/auth";
+import { pendingDuplicates } from "@/lib/dedupe";
+import { parseIngredientIntent } from "@/lib/ingredient-intent";
 import { searchRecipes, type RecipeCard } from "@/lib/search";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
+  const session = await requireSession();
   const { q } = await searchParams;
   const query = typeof q === "string" ? q : "";
-  const results = await searchRecipes(query);
+
+  // "I have a lot of leeks" / "I don't have buttermilk" go to the ingredient page.
+  const intent = parseIngredientIntent(query);
+  if (intent) {
+    const path = `/ingredients/${encodeURIComponent(intent.ingredient)}`;
+    redirect(intent.kind === "substitute" ? `${path}?swap=1` : path);
+  }
+
+  const [results, waiting] = await Promise.all([
+    searchRecipes(query),
+    query ? Promise.resolve([]) : pendingDuplicates(session.userId, session.isAdmin),
+  ]);
 
   return (
     <>
@@ -19,6 +35,25 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           enterKeyHint="search"
         />
       </form>
+
+      {!query && (
+        <p className="search-hint muted">
+          Try <em>leeks, eggs, feta</em> · <em>I have a lot of courgettes</em> · <em>no buttermilk</em>
+        </p>
+      )}
+
+      {waiting.length > 0 && (
+        <section className="notice" aria-label="Imports waiting for a decision">
+          <p>These imports look like recipes you already have. Choose what to keep:</p>
+          <ul>
+            {waiting.map((w) => (
+              <li key={w.id}>
+                <Link href={`/recipes/${w.id}`}>{w.title}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {results.length === 0 ? (
         <p className="empty muted">

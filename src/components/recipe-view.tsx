@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { substituteInRecipe } from "@/app/actions";
+import type { Substitution } from "@/lib/recipe-types";
+import { SubstitutionCard } from "./substitution";
 import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
 import { dirFor } from "@/lib/format";
 import { AddTimer, TimerPill } from "./timers";
@@ -45,10 +49,13 @@ function usePersistentUnits(): [Units, (u: Units) => void] {
 
 export function RecipeView({
   recipe,
+  recipeId,
   source,
   withTimers = true,
 }: {
   recipe: RecipeViewData;
+  /** When set (signed-in pages), ingredients offer "recipes with this" and swaps. */
+  recipeId?: string;
   source?: SourceViewData;
   withTimers?: boolean;
 }) {
@@ -99,7 +106,9 @@ export function RecipeView({
         onTouchEnd={onTouchEnd}
       >
         {view === "effective" && <EffectiveView recipe={recipe} units={units} withTimers={withTimers} />}
-        {view === "classic" && <ClassicView recipe={recipe} units={units} withTimers={withTimers} />}
+        {view === "classic" && (
+          <ClassicView recipe={recipe} recipeId={recipeId} units={units} withTimers={withTimers} />
+        )}
         {view === "ratios" && <RatiosView recipe={recipe} />}
         {view === "source" && source !== undefined && <SourceView source={source} />}
       </div>
@@ -145,12 +154,22 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
   );
 }
 
-function ClassicView({ recipe, units, withTimers }: { recipe: RecipeViewData; units: Units; withTimers: boolean }) {
-  const groups = new Map<string, Ingredient[]>();
-  for (const ing of recipe.ingredients) {
+function ClassicView({
+  recipe,
+  recipeId,
+  units,
+  withTimers,
+}: {
+  recipe: RecipeViewData;
+  recipeId?: string;
+  units: Units;
+  withTimers: boolean;
+}) {
+  const groups = new Map<string, { ing: Ingredient; index: number }[]>();
+  recipe.ingredients.forEach((ing, index) => {
     const g = ing.group ?? "";
-    groups.set(g, [...(groups.get(g) ?? []), ing]);
-  }
+    groups.set(g, [...(groups.get(g) ?? []), { ing, index }]);
+  });
   return (
     <div className="classic">
       <section className="ingredients">
@@ -158,10 +177,13 @@ function ClassicView({ recipe, units, withTimers }: { recipe: RecipeViewData; un
           <div key={group}>
             {group && <h3>{group}</h3>}
             <ul>
-              {list.map((i, k) => (
-                <li key={k} className={i.optional ? "optional" : undefined}>
-                  <span className="qty">{amount(i, units)}</span> {i.name}
-                  {i.note && <span className="note">, {i.note}</span>}
+              {list.map(({ ing: i, index }) => (
+                <li key={index} className={i.optional ? "optional" : undefined}>
+                  {recipeId ? (
+                    <IngredientRow ing={i} index={index} recipeId={recipeId} units={units} />
+                  ) : (
+                    <IngredientText ing={i} units={units} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -177,6 +199,57 @@ function ClassicView({ recipe, units, withTimers }: { recipe: RecipeViewData; un
         ))}
       </ol>
     </div>
+  );
+}
+
+function IngredientText({ ing, units }: { ing: Ingredient; units: Units }) {
+  return (
+    <>
+      <span className="qty">{amount(ing, units)}</span> {ing.name}
+      {ing.note && <span className="note">, {ing.note}</span>}
+      {ing.optional && <span className="note"> (optional)</span>}
+    </>
+  );
+}
+
+/** Tap an ingredient: recipes that use it, or what to use if you don't have it. */
+function IngredientRow({ ing, index, recipeId, units }: { ing: Ingredient; index: number; recipeId: string; units: Units }) {
+  const [open, setOpen] = useState(false);
+  const [swap, setSwap] = useState<Substitution | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <>
+      <button className="ingredient-button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <IngredientText ing={ing} units={units} />
+      </button>
+      {open && (
+        <div className="ingredient-panel">
+          <div className="button-row">
+            <button
+              className="secondary"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  try {
+                    setSwap(await substituteInRecipe(recipeId, index));
+                  } catch {
+                    setError("Couldn't get suggestions right now.");
+                  }
+                })
+              }
+            >
+              {pending ? "Thinking…" : "Don't have it?"}
+            </button>
+            <Link className="secondary button-link" href={`/ingredients/${encodeURIComponent(ing.canonical)}`}>
+              More with {ing.canonical}
+            </Link>
+          </div>
+          {swap && <SubstitutionCard result={swap} />}
+          {error && <p className="error">{error}</p>}
+        </div>
+      )}
+    </>
   );
 }
 

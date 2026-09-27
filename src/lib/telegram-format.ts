@@ -1,4 +1,4 @@
-import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
+import type { Enrichment, Ingredient, Step, Substitution } from "@/lib/recipe-types";
 import { formatDuration, formatMinutes, titleCase } from "@/lib/format";
 
 // Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit).
@@ -86,6 +86,56 @@ export function viewKeyboard(id: string, current: TgView, appUrl?: string) {
   const rows: { text: string; callback_data?: string; url?: string }[][] = [row];
   if (appUrl) rows.push([{ text: "open in cookbook ↗", url: `${appUrl}/recipes/${id}` }]);
   return { inline_keyboard: rows };
+}
+
+export type DuplicateCallback = { id: string; choice: "keep-original" | "replace" | "keep-both" };
+
+const DUP_CODES = { o: "keep-original", r: "replace", b: "keep-both" } as const;
+
+export function duplicateKeyboard(newId: string) {
+  return {
+    inline_keyboard: [
+      [{ text: "Keep original", callback_data: `d:${newId}:o` }],
+      [{ text: "Replace with new", callback_data: `d:${newId}:r` }],
+      [{ text: "Keep both", callback_data: `d:${newId}:b` }],
+    ],
+  };
+}
+
+export function parseDuplicateCallback(data: string): DuplicateCallback | null {
+  const m = data.match(/^d:([0-9a-f-]{36}):([orb])$/);
+  return m ? { id: m[1], choice: DUP_CODES[m[2] as keyof typeof DUP_CODES] } : null;
+}
+
+export function renderDuplicatePrompt(newTitle: string, originalTitle: string, diff: { added: string[]; removed: string[] }) {
+  const lines = [`This looks like <b>${esc(originalTitle)}</b>, which is already in the book.`, ""];
+  if (newTitle !== originalTitle) lines.push(`New import: <i>${esc(newTitle)}</i>`);
+  if (diff.added.length) lines.push(`New has: ${esc(diff.added.join(", "))}`);
+  if (diff.removed.length) lines.push(`Original has: ${esc(diff.removed.join(", "))}`);
+  if (!diff.added.length && !diff.removed.length) lines.push("Same ingredients.");
+  lines.push("", "What should I do?");
+  return lines.join("\n");
+}
+
+export function renderSubstitution(ingredient: string, s: Substitution) {
+  const lines = [`<b>No ${esc(ingredient)}? Try:</b>`, ""];
+  s.options.forEach((o, i) => {
+    lines.push(`${i + 1}. <b>${esc(o.use)}</b> — ${esc(o.amount)}`, `   ${esc(o.how)} <i>${esc(o.effect)}</i>`);
+  });
+  if (s.tip) lines.push("", `<i>${esc(s.tip)}</i>`);
+  return clip(lines.join("\n"));
+}
+
+export function renderAbundance(
+  ingredient: string,
+  uses: { title: string; amount: string | null }[],
+  pairs: { name: string }[],
+) {
+  if (uses.length === 0) return `No recipes with ${esc(ingredient)} yet.`;
+  const lines = [`<b>Lots of ${esc(ingredient)}?</b> These use the most:`, ""];
+  uses.forEach((u, i) => lines.push(`${i + 1}. ${esc(u.title)}${u.amount ? ` — <i>${esc(u.amount)}</i>` : ""}`));
+  if (pairs.length) lines.push("", `Goes well with: ${esc(pairs.map((p) => p.name).join(", "))}`);
+  return clip(lines.join("\n"));
 }
 
 /** "v:<id>:<view>" switches view in place; "o:<id>" opens a recipe from a search list as a new message. */

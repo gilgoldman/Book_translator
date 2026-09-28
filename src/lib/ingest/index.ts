@@ -88,7 +88,8 @@ async function saveSource(req: IngestRequest, userId: string | null): Promise<st
   return row.id;
 }
 
-async function processSource(
+// Exported only for the one-off seed (scripts/seed.ts); un-export when it is removed.
+export async function processSource(
   sourceId: string,
   req: IngestRequest,
   userId: string | null,

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsx scripts/migrate.ts && next build && tsx scripts/telegram-sync.ts",
+    "build": "tsx scripts/migrate.ts && next build && tsx scripts/telegram-sync.ts && npm run seed",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
@@ -13,7 +13,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "telegram:sync": "tsx scripts/telegram-sync.ts",
     "reembed": "tsx scripts/reembed.ts",
-    "translate": "NODE_OPTIONS=--conditions=react-server tsx scripts/translate.ts"
+    "translate": "NODE_OPTIONS=--conditions=react-server tsx scripts/translate.ts",
+    "seed": "NODE_OPTIONS=--conditions=react-server tsx scripts/seed.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.82",

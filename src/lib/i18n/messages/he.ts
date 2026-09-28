@@ -175,6 +175,10 @@ export const he: Messages = {
   "source.open": "לפתוח את הדף המקורי ({host}) ↗",
   "source.imageAlt": "המתכון המקורי",
   "subs.best": "האפשרות הטובה ביותר:",
+  "subs.askedYes": "כן, זה עובד",
+  "subs.askedChanges": "עובד, עם שינויים",
+  "subs.askedNo": "לא ממש",
+  "subs.others": "אפשרויות נוספות",
 
   // timers
   "timers.title": "טיימרים",
@@ -289,6 +293,7 @@ export const he: Messages = {
   // ingredient page
   "ingredientPage.kicker": "מצרך",
   "ingredientPage.noSwap": "אין {name}? אפשר לנסות את אלה",
+  "ingredientPage.asked": "{use} במקום {name}?",
   "ingredientPage.thinking": "חושב על תחליפים טובים…",
   "ingredientPage.usesMost": "משתמשים בהכי הרבה {name}",
   "ingredientPage.none": "עדיין אין מתכונים עם {name}.",

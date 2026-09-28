@@ -3,14 +3,14 @@ import { and, asc, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
 import { db, pendingMedia, recipeColumns, recipes, sources, users } from "@/db";
 import { isAiBusy } from "@/lib/ai/errors";
-import { suggestSubstitutes } from "@/lib/ai/substitute";
+import { substituteContext, suggestSubstitutes } from "@/lib/ai/substitute";
 import { hearVoiceNote } from "@/lib/ai/voice";
 import { checkCredentials } from "@/lib/auth";
 import { resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
 import { DEFAULT_LOCALE, detectLocale, isLocale, matchLocale, type Locale } from "@/lib/i18n/config";
 import { ingest, NotARecipeError, type IncomingFile, type IngestRequest } from "@/lib/ingest";
-import { parseIngredientIntent } from "@/lib/ingredient-intent";
+import { findIngredientLine, parseIngredientIntent } from "@/lib/ingredient-intent";
 import { localName, localNames } from "@/lib/ingredient-names";
 import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -26,6 +26,7 @@ import {
   parseCallback,
   parseDuplicateCallback,
   parseSaveVoiceCallback,
+  recipeIdOf,
   renderAbundance,
   renderDuplicatePrompt,
   renderRecipe,
@@ -143,14 +144,17 @@ async function handle(update: TgUpdate) {
   if (intent.kind === "import") {
     return importAndReply(chatId, user.id, t, msg.message_id, async () => ({ kind: "text", text: intent.text }));
   }
-  if (intent.kind === "search") return answer(chatId, intent.query, t);
+  if (intent.kind === "search") return answer(chatId, intent.query, t, { userId: user.id, replyTo: msg.reply_to_message });
 }
 
+/** Who asked, and the message they replied to, if any: a recipe there is what "no…" is about. */
+type Asker = { userId: string; replyTo?: TgMessage };
+
 /** A question, typed or spoken: "I have a lot of…", "no…", or a search. */
-async function answer(chatId: number, query: string, t: BotTranslator) {
+async function answer(chatId: number, query: string, t: BotTranslator, asker: Asker) {
   const ingredientIntent = parseIngredientIntent(query);
   if (ingredientIntent?.kind === "abundance") return abundanceReply(chatId, ingredientIntent.ingredient, t);
-  if (ingredientIntent?.kind === "substitute") return substituteReply(chatId, ingredientIntent.ingredient, t);
+  if (ingredientIntent?.kind === "substitute") return substituteReply(chatId, ingredientIntent, t, asker);
   return searchAndReply(chatId, query, t);
 }
 
@@ -182,7 +186,7 @@ async function voiceNote(
       reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true },
       reply_markup: saveVoiceKeyboard(t),
     });
-    await answer(chatId, heard.query, t);
+    await answer(chatId, heard.query, t, { userId: user.id, replyTo: msg.reply_to_message });
     react(chatId, msg.message_id, BOT.reactions.answered);
     return;
   }
@@ -209,12 +213,49 @@ async function abundanceReply(chatId: number, text: string, t: BotTranslator) {
   });
 }
 
-async function substituteReply(chatId: number, text: string, t: BotTranslator) {
+async function substituteReply(
+  chatId: number,
+  { ingredient, candidate }: { ingredient: string; candidate?: string },
+  t: BotTranslator,
+  asker: Asker,
+) {
   if (await isRateLimited(`tg-swap:${chatId}`, BOT.swapsPerHour, 60 * 60)) return send(chatId, t("tg.slowDown"));
-  const name = await resolveIngredient(text);
+  const name = await resolveIngredient(ingredient);
   typing(chatId);
-  const [label, swaps] = await Promise.all([localName(name, t.locale), suggestSubstitutes(name, t.locale)]);
-  return send(chatId, renderSubstitution(label, swaps, t));
+  const inRecipe = await recipeInQuestion(asker, name, ingredient);
+  const line = inRecipe?.recipe.ingredients[inRecipe.index];
+  const [label, swaps] = await Promise.all([
+    localName(line?.canonical ?? name, t.locale),
+    inRecipe && line
+      ? suggestSubstitutes(line.canonical, t.locale, substituteContext(inRecipe.recipe, inRecipe.index), candidate)
+      : suggestSubstitutes(name, t.locale, undefined, candidate),
+  ]);
+  if (!inRecipe) return send(chatId, renderSubstitution(label, swaps, t));
+  const title = localizeRecipe(inRecipe.recipe, t.locale).recipe.title;
+  return send(chatId, renderSubstitution(label, swaps, t, title), {
+    reply_markup: openKeyboard([{ id: inRecipe.recipe.id, title }], t),
+  });
+}
+
+/**
+ * The recipe a "no buttermilk?" is about: the one they replied to, else the one the bot showed
+ * them last if that was recent. Only if it uses the ingredient; otherwise the answer is general.
+ */
+async function recipeInQuestion(asker: Asker, name: string, said: string) {
+  let id = recipeIdOf(asker.replyTo?.reply_markup);
+  if (!id) {
+    const u = await db().query.users.findFirst({
+      where: eq(users.id, asker.userId),
+      columns: { telegramRecipeId: true, telegramRecipeAt: true },
+    });
+    const shownAt = u?.telegramRecipeAt?.getTime() ?? 0;
+    if (Date.now() - shownAt < BOT.recipeMemoryMinutes * 60_000) id = u?.telegramRecipeId ?? null;
+  }
+  if (!id) return null;
+  const recipe = await db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
+  if (!recipe) return null;
+  const index = findIngredientLine(recipe.ingredients, name, said);
+  return index < 0 ? null : { recipe, index };
 }
 
 function pickMedia(msg: TgMessage): { kind: "image" | "audio"; fileId: string; mediaType: string } | null {
@@ -426,5 +467,11 @@ async function showRecipe(chatId: number, id: string, view: TgView, t: BotTransl
     source ?? null,
   );
   const reply_markup = viewKeyboard(r.id, view, t, appUrl());
-  return messageId ? edit(chatId, messageId, text, { reply_markup }) : send(chatId, text, { reply_markup });
+  await (messageId ? edit(chatId, messageId, text, { reply_markup }) : send(chatId, text, { reply_markup }));
+  // What they're looking at now: a "no buttermilk?" next is about this recipe.
+  await db()
+    .update(users)
+    .set({ telegramRecipeId: r.id, telegramRecipeAt: new Date() })
+    .where(eq(users.telegramChatId, chatId))
+    .catch((err) => console.error("couldn't remember the recipe shown", err));
 }

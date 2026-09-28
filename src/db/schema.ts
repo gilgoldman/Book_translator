@@ -32,6 +32,9 @@ export const users = pgTable("users", {
   // Bumped on password change / revoke: old session cookies stop working.
   sessionVersion: integer("session_version").notNull().default(0),
   telegramChatId: bigint("telegram_chat_id", { mode: "number" }).unique(),
+  // The recipe the bot last showed them: "no buttermilk?" right after is about that one.
+  telegramRecipeId: uuid("telegram_recipe_id"),
+  telegramRecipeAt: timestamp("telegram_recipe_at", { withTimezone: true }),
   // null: follow the browser (or Telegram) language.
   locale: text("locale").$type<Locale>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

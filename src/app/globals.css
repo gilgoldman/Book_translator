@@ -460,6 +460,13 @@ legend { font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
 .subs .what { font-size: var(--fs-lg); font-weight: var(--fw-bold); line-height: 1.35; }
 .subs .how { color: var(--ink-2); }
 .sub-tip { margin-top: var(--sp-3); font-style: italic; color: var(--ink-2); }
+/* "Would yogurt work?": the verdict, then the other options. */
+.sub-asked { margin-top: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-lg); border: 3px solid var(--accent); background: var(--accent-soft); }
+.sub-asked.verdict-no { border-color: var(--line); background: var(--bg); }
+.sub-asked > p { margin: 0 0 var(--sp-1); }
+.sub-asked .what { font-size: var(--fs-lg); line-height: 1.35; }
+.sub-asked .how { color: var(--ink-2); }
+.sub-others { margin: var(--sp-4) 0 0; font-weight: var(--fw-bold); }
 
 /* ---------- people, profile ---------- */
 .people { list-style: none; padding: 0; margin: 0 0 var(--sp-5); display: grid; gap: var(--sp-3); }

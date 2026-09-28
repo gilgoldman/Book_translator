@@ -12,6 +12,7 @@ import {
   renderResults,
   renderSubstitution,
   parseSaveVoiceCallback,
+  recipeIdOf,
   saveVoiceKeyboard,
   variant,
   viewKeyboard,
@@ -185,13 +186,44 @@ describe("voice note taken as a question", () => {
 });
 
 describe("ingredient-first replies", () => {
-  it("renders swaps and abundance lists", () => {
-    const swap = renderSubstitution("buttermilk", {
-      options: [{ use: "Milk + lemon", amount: "250 ml + 1 tbsp", how: "Rest 10 min.", effect: "Nearly the same" }],
-      tip: null,
-    }, en);
+  it("renders swaps", () => {
+    const options = [{ use: "Milk + lemon", amount: "250 ml + 1 tbsp", how: "Rest 10 min.", effect: "Nearly the same" }];
+    const swap = renderSubstitution("buttermilk", { asked: null, options, tip: null }, en);
     expect(swap).toContain("<b>🔄 No buttermilk? Try:</b>");
     expect(swap).toContain("1️⃣ <b>Milk + lemon</b> — 250 ml + 1 tbsp");
+    expect(renderSubstitution("buttermilk", { asked: null, options, tip: null }, en, "Pancakes")).toContain(
+      "<b>🔄 No buttermilk for Pancakes? Try:</b>",
+    );
+  });
+
+  it("answers a named substitute first, then the other options", () => {
+    const swap = renderSubstitution(
+      "buttermilk",
+      {
+        asked: { use: "yogurt", verdict: "with-changes", amount: "200 g + 50 ml water", how: "Thin it.", effect: "Tangier" },
+        options: [{ use: "Milk + lemon", amount: "250 ml + 1 tbsp", how: "Rest 10 min.", effect: "Nearly the same" }],
+        tip: null,
+      },
+      en,
+      "Pancakes",
+    );
+    expect(swap).toContain("<b>🔄 yogurt instead of buttermilk in Pancakes?</b>");
+    expect(swap).toContain("<b>⚠️ Works, with changes</b> — 200 g + 50 ml water");
+    expect(swap).toContain("<b>Other options:</b>\n1️⃣ <b>Milk + lemon</b>");
+  });
+
+  it("reads the recipe id off a recipe message's buttons", () => {
+    expect(recipeIdOf(viewKeyboard(id, "effective", en, "https://app"))).toBe(id);
+    expect(recipeIdOf(openKeyboard([{ id, title: "Pancakes" }], en))).toBeNull();
+    expect(recipeIdOf(undefined)).toBeNull();
+  });
+
+  it("keeps old cached answers without a verdict working", () => {
+    const old = { options: [], tip: "Pick another recipe." } as unknown as Parameters<typeof renderSubstitution>[1];
+    expect(renderSubstitution("saffron", old, en)).toContain("<b>🔄 No saffron? Try:</b>");
+  });
+
+  it("still renders abundance", () => {
     const lots = renderAbundance("leek", [{ title: "Leek & feta tart", amount: "450 g" }], [{ name: "potato" }], en);
     expect(lots).toContain("1️⃣ Leek &amp; feta tart — <i>450 g</i>");
     expect(lots).toContain("💞 Goes well with: potato");

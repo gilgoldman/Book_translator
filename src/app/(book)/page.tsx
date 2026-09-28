@@ -18,11 +18,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const query = typeof params.q === "string" ? params.q : "";
   const by = typeof params.by === "string" ? params.by : "";
 
-  // "I have a lot of leeks" / "I don't have buttermilk" go to the ingredient page.
+  // "I have a lot of leeks" / "I don't have buttermilk, would yogurt work?" go to the ingredient page.
   const intent = parseIngredientIntent(query);
   if (intent) {
     const path = `/ingredients/${encodeURIComponent(intent.ingredient)}`;
-    redirect(intent.kind === "substitute" ? `${path}?swap=1` : path);
+    if (intent.kind === "abundance") redirect(path);
+    redirect(`${path}?swap=1${intent.candidate ? `&with=${encodeURIComponent(intent.candidate)}` : ""}`);
   }
 
   const [results, waiting, person] = await Promise.all([

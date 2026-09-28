@@ -91,6 +91,8 @@ export type TgMessage = {
   voice?: { file_id: string; mime_type?: string };
   audio?: { file_id: string; mime_type?: string; file_name?: string };
   document?: { file_id: string; mime_type?: string; file_name?: string };
+  reply_to_message?: TgMessage;
+  reply_markup?: { inline_keyboard?: { callback_data?: string }[][] };
 };
 
 /** Best-effort ping to the owner's Telegram (if linked and the bot is configured), in their language. */

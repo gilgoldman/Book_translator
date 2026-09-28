@@ -95,12 +95,12 @@ Prompt or format changes: bumping `PROMPT_VERSION` (`src/lib/translations.ts`) o
 out of date. Readers keep seeing the older translation while a new one is made on their next
 view; to redo them all at once, deploy and then run `npm run translate`.
 
-### Seed recipes
+### One-off seed (temporary)
 
-`scripts/seed/*.json` holds recipes to load in bulk (`mom-cookbook.json`: 264 recipes from
-Mom's Word cookbook, one entry per recipe, text as written). `npm run seed` imports them through
-the normal pipeline under the owner's account (or `SEED_USERNAME`); it needs `DATABASE_URL` and
-`GOOGLE_GENERATIVE_AI_API_KEY`, and a re-run skips what's already in.
+`scripts/seed.ts` loads `scripts/seed/mom-cookbook.json` (264 recipes from Mom's Word cookbook,
+text as written) under `savta`, through the normal import pipeline. It runs after every build
+within a 20-minute budget and picks up where it stopped; recipes already in are skipped. When the
+build log says `Seed: done`, remove it as listed in `CLAUDE.md`.
 
 ### Adding a language
 

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsx scripts/migrate.ts && next build && tsx scripts/telegram-sync.ts",
+    "build": "tsx scripts/migrate.ts && next build && tsx scripts/telegram-sync.ts && npm run seed",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",

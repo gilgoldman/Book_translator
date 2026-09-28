@@ -74,6 +74,9 @@ export const extractedRecipeSchema = z.object({
     .array(z.string())
     .describe("Hidden search tags: techniques, equipment, flavours, occasions. Lowercase English, 5-15 items"),
   author: z.string().nullable().describe("Author or site name if known"),
+  dishImages: z
+    .array(z.number().int())
+    .describe("0-based indexes of attached images that show the finished food rather than recipe text; empty otherwise"),
 });
 export type ExtractedRecipe = z.infer<typeof extractedRecipeSchema>;
 
@@ -215,6 +218,16 @@ export function segmentsToWritten(segments: EffectiveSegment[]): { text: string;
 }
 
 export const substitutionSchema = z.object({
+  asked: z
+    .object({
+      use: z.string().describe("The substitute they asked about, as they named it"),
+      verdict: z.enum(["yes", "with-changes", "no"]).describe("Does it work here?"),
+      amount: z.string().nullable().describe("How much to use for the given amount; null when it doesn't work"),
+      how: z.string().describe("One short sentence: how to use it, or why it won't work"),
+      effect: z.string().describe("How the result changes, honestly, in a few words"),
+    })
+    .nullable()
+    .describe("Only when they asked about a specific substitute; else null"),
   options: z
     .array(
       z.object({
@@ -226,7 +239,7 @@ export const substitutionSchema = z.object({
         effect: z.string().describe("How the result changes, honestly, in a few words"),
       }),
     )
-    .describe("2-3 options, best first. Prefer common pantry items."),
+    .describe("2-3 options, best first, other than the one they asked about. Prefer common pantry items."),
   tip: z.string().nullable().describe("Optional: when it's better to pick another recipe instead"),
 });
 export type Substitution = z.infer<typeof substitutionSchema>;

@@ -20,7 +20,8 @@ export async function generateMetadata({ params }: PageProps<"/ingredients/[name
 export default async function IngredientPage({ params, searchParams }: PageProps<"/ingredients/[name]">) {
   const t = await getT();
   const name = await resolveIngredient(decodeURIComponent((await params).name));
-  const { swap } = await searchParams;
+  const { swap, with: asked } = await searchParams;
+  const candidate = typeof asked === "string" && asked.trim() ? asked.trim().slice(0, 80) : undefined;
   const [uses, pairs, label] = await Promise.all([
     recipesUsingMost(name, t.locale),
     goesWellWith(name),
@@ -34,9 +35,13 @@ export default async function IngredientPage({ params, searchParams }: PageProps
 
   const swapSection = (
     <section aria-labelledby="swap">
-      <h2 id="swap">{t("ingredientPage.noSwap", { name: label })}</h2>
+      <h2 id="swap">
+        {candidate
+          ? t("ingredientPage.asked", { use: candidate, name: label })
+          : t("ingredientPage.noSwap", { name: label })}
+      </h2>
       <Suspense fallback={<p className="muted">{t("ingredientPage.thinking")}</p>}>
-        <Swaps name={name} locale={t.locale} failed={t("ingredient.swapFailed")} />
+        <Swaps name={name} candidate={candidate} locale={t.locale} failed={t("ingredient.swapFailed")} />
       </Suspense>
     </section>
   );
@@ -96,8 +101,18 @@ export default async function IngredientPage({ params, searchParams }: PageProps
   );
 }
 
-async function Swaps({ name, locale, failed }: { name: string; locale: Locale; failed: string }) {
-  const result = await suggestSubstitutes(name, locale).catch((err) => {
+async function Swaps({
+  name,
+  candidate,
+  locale,
+  failed,
+}: {
+  name: string;
+  candidate?: string;
+  locale: Locale;
+  failed: string;
+}) {
+  const result = await suggestSubstitutes(name, locale, undefined, candidate).catch((err) => {
     console.error("substitutes failed", err);
     return null;
   });

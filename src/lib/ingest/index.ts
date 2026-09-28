@@ -8,6 +8,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { linkIngredients } from "@/lib/ingredient-links";
 import { randomToken } from "@/lib/tokens";
 import { ensureTranslations } from "@/lib/translations";
+import { dishPhotos } from "./photos";
 import { fetchPage, pageToPrompt } from "./url";
 
 export type IncomingFile = { data: Uint8Array; mediaType: string; name: string };
@@ -34,9 +35,9 @@ export type IngestResult = { recipeId: string; duplicate: DuplicateMatch | null 
  * that translation is made before returning; every other language follows in the background.
  */
 export async function ingest(req: IngestRequest, userId: string | null, reader?: Locale): Promise<IngestResult> {
-  const sourceId = await saveSource(req, userId);
+  const { id: sourceId, files } = await saveSource(req, userId);
   try {
-    const { id: recipeId, language } = await processSource(sourceId, req, userId);
+    const { id: recipeId, language } = await processSource(sourceId, req, userId, files);
     await db().update(sources).set({ status: "done" }).where(eq(sources.id, sourceId));
     const [duplicate] = await Promise.all([
       findDuplicate(recipeId).catch((err) => {
@@ -60,7 +61,10 @@ export async function ingest(req: IngestRequest, userId: string | null, reader?:
   }
 }
 
-async function saveSource(req: IngestRequest, userId: string | null): Promise<string> {
+type StoredFile = { url: string; mediaType: string };
+
+/** The source row, and where its files went (in the order they were sent). */
+async function saveSource(req: IngestRequest, userId: string | null): Promise<{ id: string; files: StoredFile[] }> {
   const kind: SourceKind = req.kind;
   const [row] = await db()
     .insert(sources)
@@ -84,14 +88,16 @@ async function saveSource(req: IngestRequest, userId: string | null): Promise<st
       }),
     );
     await db().update(sources).set({ files }).where(eq(sources.id, row.id));
+    return { id: row.id, files };
   }
-  return row.id;
+  return { id: row.id, files: [] };
 }
 
 async function processSource(
   sourceId: string,
   req: IngestRequest,
   userId: string | null,
+  files: StoredFile[],
 ): Promise<{ id: string; language: string }> {
   let input: ExtractInput;
   let heroImage: string | null = null;
@@ -108,12 +114,14 @@ async function processSource(
     input = { kind: "files", files: req.files, caption: req.caption };
   }
 
-  const content = await structure(input);
+  const { content, dishImages } = await structure(input);
+  // A photo of the finished dish sent along with the recipe becomes its cover.
+  const photos = heroImage ? [heroImage] : dishPhotos(files, dishImages);
   const [recipe] = await db()
     .insert(recipes)
     .values({
       ...content,
-      photos: heroImage ? [heroImage] : [],
+      photos,
       shareToken: randomToken(12),
       sourceId,
       createdBy: userId,
@@ -132,7 +140,7 @@ async function structure(input: ExtractInput) {
     enrichRecipe(extracted),
     embedText(embeddingText(extracted)),
   ]);
-  return {
+  const content = {
     title: extracted.title,
     titleEnglish: extracted.titleEnglish,
     description: extracted.description,
@@ -152,6 +160,7 @@ async function structure(input: ExtractInput) {
     tags: extracted.tags,
     embedding,
   };
+  return { content, dishImages: extracted.dishImages };
 }
 
 /**
@@ -161,7 +170,7 @@ async function structure(input: ExtractInput) {
  */
 export async function restructureRecipe(recipeId: string, edited: { title: string; ingredients: string; method: string }) {
   const text = `${edited.title}\n\nIngredients:\n${edited.ingredients}\n\nMethod:\n${edited.method}`;
-  const content = await structure({ kind: "text", text });
+  const { content } = await structure({ kind: "text", text });
   // The person's own title wins over the model's rewording.
   await db()
     .update(recipes)

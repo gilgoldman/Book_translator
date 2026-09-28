@@ -40,6 +40,12 @@ export const BOT = {
   /** "No buttermilk?" answers per person per hour (each one asks the AI). */
   swapsPerHour: 30,
 
+  /**
+   * "No buttermilk?" is about the recipe they reply to, else the one the bot last showed them
+   * if it was this recent and uses it. Otherwise it gets a general answer.
+   */
+  recipeMemoryMinutes: 120,
+
   /** When Google's AI is busy, retry an import after these waits; give up after this long. */
   busyRetryWaitsMs: [20_000, 40_000],
   busyGiveUpMs: 120_000,
@@ -63,7 +69,7 @@ export const BOT = {
 const en = {
   // Shown on /start and /help.
   "tg.help":
-    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>, in writing or out loud 🎙\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk</i> or /swap buttermilk\n\n/find searches · /add imports text as is",
+    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>, in writing or out loud 🎙\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk, would yogurt work?</i> or /swap buttermilk\n(right after a recipe, or as a reply to one, it's about that recipe)\n\n/find searches · /add imports text as is",
   // For a sticker, a PDF, anything it can't read.
   "tg.nudge": "🙂 Send me a photo, link, voice note or recipe text, or ask me something.",
 
@@ -92,6 +98,14 @@ const en = {
   "tg.needsMore": "🛒 needs {n} more",
   "tg.haveAll": "✅ you have it all",
   "tg.noSwap": "🔄 No {name}? Try:",
+  "tg.noSwapIn": "🔄 No {name} for {title}? Try:",
+  // "Would yogurt work?": the question, the verdict, then the other ideas.
+  "tg.asked": "🔄 {use} instead of {name}?",
+  "tg.askedIn": "🔄 {use} instead of {name} in {title}?",
+  "tg.askedYes": "✅ Yes, it works",
+  "tg.askedChanges": "⚠️ Works, with changes",
+  "tg.askedNo": "❌ Not really",
+  "tg.swapOthers": "Other options:",
   "tg.lots": "🧺 Lots of {name}? These use the most:",
   "tg.pairs": "💞 Goes well with: {list}",
   "tg.slowDown": "🫖 Let's take a breather. Try again soon.",
@@ -122,7 +136,7 @@ export type BotKey = keyof typeof en;
 
 const he: Record<BotKey, string> = {
   "tg.help":
-    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>, בכתב או בהקלטה 🎙\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון</i> או /swap רוויון\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
+    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>, בכתב או בהקלטה 🎙\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון, אפשר יוגורט?</i> או /swap רוויון\n(מיד אחרי מתכון, או בתגובה אליו, זה לגבי המתכון הזה)\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
   "tg.nudge": "🙂 שלחו לי תמונה, קישור, הקלטה או טקסט של מתכון, או תשאלו אותי משהו.",
 
   "tg.private": "👋 היי! זה ספר מתכונים משפחתי ופרטי 📖\nאפשר להתחבר עם:\n<code>/login username password</code>",
@@ -146,6 +160,13 @@ const he: Record<BotKey, string> = {
   "tg.needsMore": "🛒 חסרים עוד {n}",
   "tg.haveAll": "✅ יש לך הכול",
   "tg.noSwap": "🔄 אין {name}? אפשר לנסות:",
+  "tg.noSwapIn": "🔄 אין {name} בשביל {title}? אפשר לנסות:",
+  "tg.asked": "🔄 {use} במקום {name}?",
+  "tg.askedIn": "🔄 {use} במקום {name} ב{title}?",
+  "tg.askedYes": "✅ כן, זה עובד",
+  "tg.askedChanges": "⚠️ עובד, עם שינויים",
+  "tg.askedNo": "❌ לא ממש",
+  "tg.swapOthers": "אפשרויות נוספות:",
   "tg.lots": "🧺 הרבה {name}? אלה משתמשים בהכי הרבה:",
   "tg.pairs": "💞 הולך טוב עם: {list}",
   "tg.slowDown": "🫖 בואו ניקח הפסקה קטנה. אפשר לנסות שוב בקרוב.",

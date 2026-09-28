@@ -212,13 +212,43 @@ export function renderResults(results: { title: string; match?: { missing: numbe
     .join("\n");
 }
 
-export function renderSubstitution(ingredient: string, s: Substitution, t: BotTranslator) {
-  const lines = [`<b>${esc(t("tg.noSwap", { name: ingredient }))}</b>`, ""];
+const VERDICT = { yes: "tg.askedYes", "with-changes": "tg.askedChanges", no: "tg.askedNo" } as const;
+
+/**
+ * Swaps for a missing ingredient, in a recipe when `title` is given. When they asked about a
+ * substitute ("would yogurt work?"), its verdict comes first and the rest are other options.
+ */
+export function renderSubstitution(ingredient: string, s: Substitution, t: BotTranslator, title?: string) {
+  const lines: string[] = [];
+  // Answers cached before "asked" existed don't have it.
+  const asked = s.asked ?? null;
+  if (asked) {
+    const q = title
+      ? t("tg.askedIn", { use: asked.use, name: ingredient, title })
+      : t("tg.asked", { use: asked.use, name: ingredient });
+    lines.push(`<b>${esc(q)}</b>`, "", `<b>${esc(t(VERDICT[asked.verdict]))}</b>${asked.amount ? ` — ${esc(asked.amount)}` : ""}`);
+    lines.push(`   ${esc(asked.how)} <i>${esc(asked.effect)}</i>`);
+    if (s.options.length) lines.push("", `<b>${esc(t("tg.swapOthers"))}</b>`);
+  } else {
+    const head = title ? t("tg.noSwapIn", { name: ingredient, title }) : t("tg.noSwap", { name: ingredient });
+    lines.push(`<b>${esc(head)}</b>`, "");
+  }
   s.options.forEach((o, i) => {
     lines.push(`${num(i + 1)} <b>${esc(o.use)}</b> — ${esc(o.amount)}`, `   ${esc(o.how)} <i>${esc(o.effect)}</i>`);
   });
   if (s.tip) lines.push("", `💡 <i>${esc(s.tip)}</i>`);
   return clip(lines.join("\n"));
+}
+
+/** The recipe a bot message shows, from its view buttons; null for any other message. */
+export function recipeIdOf(markup: { inline_keyboard?: { callback_data?: string }[][] } | undefined): string | null {
+  for (const row of markup?.inline_keyboard ?? []) {
+    for (const button of row) {
+      const parsed = button.callback_data ? parseCallback(button.callback_data) : null;
+      if (parsed && !parsed.open) return parsed.id;
+    }
+  }
+  return null;
 }
 
 export function renderAbundance(

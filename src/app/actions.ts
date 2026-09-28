@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, recipes, sources, users } from "@/db";
 import { isAiBusy } from "@/lib/ai/errors";
-import { suggestSubstitutes } from "@/lib/ai/substitute";
+import { substituteContext, suggestSubstitutes } from "@/lib/ai/substitute";
 import {
   checkCredentials,
   createUser,
@@ -381,15 +381,9 @@ export async function substituteInRecipe(recipeId: string, index: number): Promi
   const locale = await getLocale();
   const r = await db().query.recipes.findFirst({
     where: eq(recipes.id, recipeId),
-    columns: { titleEnglish: true, ingredients: true, steps: true },
+    columns: { id: true, titleEnglish: true, ingredients: true, steps: true },
   });
   const ing = r?.ingredients[index];
   if (!r || !ing) throw new Error("Ingredient not found");
-  const word = ing.name.toLowerCase();
-  return suggestSubstitutes(ing.canonical, locale, {
-    recipeId,
-    recipeTitle: r.titleEnglish,
-    line: ing.original,
-    usedIn: r.steps.map((s) => s.text).filter((t) => t.toLowerCase().includes(word.split(" ").pop() ?? word)),
-  });
+  return suggestSubstitutes(ing.canonical, locale, substituteContext(r, index));
 }

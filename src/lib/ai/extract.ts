@@ -19,7 +19,7 @@ Rules:
 - Be faithful. Never invent ingredients or steps. Fix obvious OCR/speech errors only.
 - Keep ingredient names and step text in the recipe's original language. "canonical" and tags are always English.
 - For voice notes: the speaker may ramble, repeat or correct themselves; keep the final intent.
-- For photos/screenshots: read every part of the image, including handwriting and multiple columns. If several images are given they are pages of the same recipe.
+- For photos/screenshots: read every part of the image, including handwriting and multiple columns. If several images are given they belong to the same recipe: pages of it, and maybe photos of the finished dish. A dish photo has no recipe text; never read ingredients off it, and list its index in "dishImages".
 - Quantities: fill both "metric" and "volume" renderings for every measurable ingredient, converting with realistic densities (flour 125 g per cup, sugar 200 g, butter 227 g, water 240 ml…). Weigh countable items in grams where it helps ("1 medium onion (≈150 g)").
 - Timers: add one for every explicit wait or cook time (rest, rise, bake, simmer, chill, marinate). Use the upper bound of ranges.
 - Tags: cuisine/course/diet/season are the visible categories; "tags" are hidden search helpers (technique, equipment, key flavours, occasion).
@@ -35,7 +35,7 @@ export async function extractRecipe(input: ExtractInput): Promise<ExtractedRecip
   } else {
     content.push({
       type: "text",
-      text: `Extract the recipe from the attached ${input.files.length > 1 ? "files" : "file"}.${
+      text: `Extract the recipe from the attached ${input.files.length > 1 ? `files (indexes 0-${input.files.length - 1}, in order)` : "file (index 0)"}.${
         input.caption ? `\nThe sender added this note: ${input.caption}` : ""
       }`,
     });

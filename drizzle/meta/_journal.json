@@ -43,6 +43,13 @@
       "when": 1790533949538,
       "tag": "0005_i18n",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790602623256,
+      "tag": "0006_telegram_recipe",
+      "breakpoints": true
     }
   ]
 }

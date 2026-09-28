@@ -176,6 +176,10 @@ export const en = {
   "source.open": "Open the original page ({host}) ↗",
   "source.imageAlt": "The original recipe",
   "subs.best": "Best option:",
+  "subs.askedYes": "Yes, it works",
+  "subs.askedChanges": "Works, with changes",
+  "subs.askedNo": "Not really",
+  "subs.others": "Other options",
 
   // timers
   "timers.title": "Timers",
@@ -290,6 +294,7 @@ export const en = {
   // ingredient page
   "ingredientPage.kicker": "Ingredient",
   "ingredientPage.noSwap": "No {name}? Try one of these",
+  "ingredientPage.asked": "{use} instead of {name}?",
   "ingredientPage.thinking": "Thinking of good swaps…",
   "ingredientPage.usesMost": "Uses the most {name}",
   "ingredientPage.none": "No recipes with {name} yet.",

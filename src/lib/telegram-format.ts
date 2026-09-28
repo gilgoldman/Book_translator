@@ -1,8 +1,10 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
+import { isLocale, type Locale } from "@/lib/i18n/config";
 import type { MessageKey, Translator } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
 
-// Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit).
+// Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit). Friendly and
+// colourful but short: emoji carry the tone so the words don't have to.
 
 export const TG_VIEWS = ["effective", "classic", "ratios", "source"] as const;
 export type TgView = (typeof TG_VIEWS)[number];
@@ -27,6 +29,24 @@ export type TgSource = { kind: string; url: string | null; files: { url: string;
 
 const LIMIT = 4000;
 
+const COURSE_EMOJI: Record<string, string> = {
+  breakfast: "🍳", starter: "🥟", soup: "🍲", salad: "🥗", main: "🍽", side: "🥔", dessert: "🍰",
+  baking: "🥧", bread: "🍞", drink: "🍹", sauce: "🥣", snack: "🥨", preserve: "🫙", other: "🍴",
+};
+const SEASON_EMOJI: Record<string, string> = { spring: "🌸", summer: "☀️", autumn: "🍂", winter: "❄️", "all-year": "🗓" };
+// One colour per ratio component, so the proportions read at a glance.
+const BAR_COLOURS = ["🟨", "🟧", "🟥", "🟩", "🟦", "🟪"];
+const KEYCAPS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+
+/** 1️⃣ … 🔟, then "11." and on. */
+export const num = (n: number) => KEYCAPS[n - 1] ?? `${n}.`;
+
+/** One of a message's "|"-separated variants, the same one for the same seed. */
+export const variant = (text: string, seed: number) => {
+  const all = text.split("|");
+  return all[Math.abs(seed) % all.length];
+};
+
 export function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -34,6 +54,9 @@ export function esc(s: string) {
 function clip(s: string) {
   return s.length > LIMIT ? s.slice(0, LIMIT - 20).replace(/<[^>]*$/, "") + "\n…" : s;
 }
+
+/** Button labels are cut short; never in the middle of an emoji. */
+const buttonText = (s: string, max = 60) => [...s].slice(0, max).join("");
 
 /** A category's label, or the stored value if it isn't one we know. */
 function category(t: Translator, kind: string, value: string) {
@@ -43,18 +66,19 @@ function category(t: Translator, kind: string, value: string) {
 }
 
 function header(r: TgRecipe, t: Translator) {
+  const time = formatMinutes(r.totalMinutes, t);
   const meta = [
     category(t, "cuisine", r.cuisine),
     category(t, "course", r.course),
-    category(t, "season", r.season),
-    formatMinutes(r.totalMinutes, t),
+    `${SEASON_EMOJI[r.season] ?? ""} ${category(t, "season", r.season)}`.trim(),
+    time && `⏱ ${time}`,
     r.servings && t("tg.makes", { n: r.servings }),
   ]
     .filter(Boolean)
     .join(" · ");
   const sub = r.subtitle && r.subtitle !== r.title ? `\n<i>${esc(r.subtitle)}</i>` : "";
-  const by = r.addedBy ? `\n${esc(t("common.addedBy", { name: r.addedBy }))}` : "";
-  return `<b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>${by}`;
+  const by = r.addedBy ? `\n🧑‍🍳 ${esc(t("common.addedBy", { name: r.addedBy }))}` : "";
+  return `${COURSE_EMOJI[r.course] ?? "🍴"} <b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>${by}`;
 }
 
 const timerNote = (timers: { label: string; seconds: number }[], t: Translator) =>
@@ -62,68 +86,89 @@ const timerNote = (timers: { label: string; seconds: number }[], t: Translator) 
     ? `  ⏱ ${timers.map((x) => `${esc(x.label.toLowerCase())} ${formatDuration(x.seconds, t)}`).join(", ")}`
     : "";
 
+const bar = (parts: number, k: number) =>
+  BAR_COLOURS[k % BAR_COLOURS.length].repeat(Math.min(12, Math.max(1, Math.round(parts))));
+
 export function renderRecipe(r: TgRecipe, view: TgView, t: Translator, source: TgSource = null): string {
   const parts = [header(r, t), ""];
 
   if (view === "effective" && r.enrichment) {
     const e = r.enrichment;
-    parts.push(e.recap.map((x) => `· ${x.metric ? `${esc(x.metric)} ` : ""}${esc(x.name)}`).join("\n"), "");
+    parts.push(e.recap.map((x) => `• ${x.metric ? `${esc(x.metric)} ` : ""}${esc(x.name)}`).join("\n"), "");
     e.effectiveSteps.forEach((s, i) => {
       const text = s.segments
         .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(seg.metric) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
         .join("");
-      parts.push(`${i + 1}. ${text}${timerNote(s.timers, t)}`);
+      parts.push(`${num(i + 1)} ${text}${timerNote(s.timers, t)}`);
     });
   } else if (view === "ratios" && r.enrichment) {
     const x = r.enrichment.ratio;
-    if (x.family) parts.push(`<b>${esc(x.family)}</b>`);
+    if (x.family) parts.push(`⚖️ <b>${esc(x.family)}</b>`);
     parts.push(`<code>${esc(x.formula)}</code>`, "");
-    for (const c of x.components) {
-      parts.push(`${"▮".repeat(Math.max(1, Math.round(c.parts)))} ${c.parts} ${esc(c.name)}${c.grams ? ` (${Math.round(c.grams)} g)` : ""}`);
-    }
-    if (x.extras.length) parts.push("", ...x.extras.map((e) => `· ${esc(e.name)}: ${esc(e.amount)}`));
-    parts.push("", `<i>${esc(x.insight)}</i>`);
+    x.components.forEach((c, k) => {
+      parts.push(`${bar(c.parts, k)} ${c.parts} ${esc(c.name)}${c.grams ? ` (${Math.round(c.grams)} g)` : ""}`);
+    });
+    if (x.extras.length) parts.push("", ...x.extras.map((e) => `• ${esc(e.name)}: ${esc(e.amount)}`));
+    parts.push("", `💡 <i>${esc(x.insight)}</i>`);
   } else if (view === "source") {
     if (!source) parts.push(`<i>${esc(t("tg.noOriginal"))}</i>`);
     else {
-      if (source.url) parts.push(esc(source.url));
+      if (source.url) parts.push(`🔗 ${esc(source.url)}`);
       for (const f of source.files) parts.push(`${f.mediaType.startsWith("audio/") ? "🎙" : "🖼"} ${esc(f.url)}`);
       if (source.text) parts.push("", esc(source.text.slice(0, 2500)));
     }
   } else {
-    parts.push(r.ingredients.map((i) => `· ${esc(i.metric ?? i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
-    r.steps.forEach((s, i) => parts.push(`${i + 1}. ${esc(s.text)}${timerNote(s.timers, t)}`));
+    parts.push(r.ingredients.map((i) => `• ${esc(i.metric ?? i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
+    r.steps.forEach((s, i) => parts.push(`${num(i + 1)} ${esc(s.text)}${timerNote(s.timers, t)}`));
   }
   return clip(parts.join("\n"));
 }
 
+type Button = { text: string; callback_data?: string; url?: string };
+
+// Buttons carry the language they were written in, so tapping one answers in it too.
+
+/** The four views as a 2×2 grid, then a link to the app. */
 export function viewKeyboard(id: string, current: TgView, t: Translator, appUrl?: string) {
-  const row = TG_VIEWS.map((v) => ({
+  const buttons: Button[] = TG_VIEWS.map((v) => ({
     text: v === current ? `· ${t(`tg.view.${v}`)} ·` : t(`tg.view.${v}`),
-    callback_data: `v:${id}:${v}`,
+    callback_data: `v:${id}:${v}:${t.locale}`,
   }));
-  const rows: { text: string; callback_data?: string; url?: string }[][] = [row];
+  const rows: Button[][] = [buttons.slice(0, 2), buttons.slice(2)];
   if (appUrl) rows.push([{ text: t("tg.openInApp"), url: `${appUrl}/recipes/${id}` }]);
   return { inline_keyboard: rows };
 }
 
-export type DuplicateCallback = { id: string; choice: "keep-original" | "replace" | "keep-both" };
+/** A numbered list of recipes, one button each that opens it. */
+export function openKeyboard(list: { id: string; title: string }[], t: Translator) {
+  return {
+    inline_keyboard: list.map((r, i) => [{ text: buttonText(`${num(i + 1)} ${r.title}`), callback_data: `o:${r.id}:${t.locale}` }]),
+  };
+}
+
+export type DuplicateCallback = {
+  id: string;
+  choice: "keep-original" | "replace" | "keep-both";
+  locale: Locale | null;
+};
 
 const DUP_CODES = { o: "keep-original", r: "replace", b: "keep-both" } as const;
+
+const localeOf = (code: string | undefined) => (isLocale(code) ? code : null);
 
 export function duplicateKeyboard(newId: string, t: Translator) {
   return {
     inline_keyboard: [
-      [{ text: t("dup.keep"), callback_data: `d:${newId}:o` }],
-      [{ text: t("dup.replace"), callback_data: `d:${newId}:r` }],
-      [{ text: t("dup.both"), callback_data: `d:${newId}:b` }],
+      [{ text: `📌 ${t("dup.keep")}`, callback_data: `d:${newId}:o:${t.locale}` }],
+      [{ text: `🔁 ${t("dup.replace")}`, callback_data: `d:${newId}:r:${t.locale}` }],
+      [{ text: `👯 ${t("dup.both")}`, callback_data: `d:${newId}:b:${t.locale}` }],
     ],
   };
 }
 
 export function parseDuplicateCallback(data: string): DuplicateCallback | null {
-  const m = data.match(/^d:([0-9a-f-]{36}):([orb])$/);
-  return m ? { id: m[1], choice: DUP_CODES[m[2] as keyof typeof DUP_CODES] } : null;
+  const m = data.match(/^d:([0-9a-f-]{36}):([orb])(?::(\w+))?$/);
+  return m ? { id: m[1], choice: DUP_CODES[m[2] as keyof typeof DUP_CODES], locale: localeOf(m[3]) } : null;
 }
 
 export function renderDuplicatePrompt(
@@ -141,12 +186,24 @@ export function renderDuplicatePrompt(
   return lines.join("\n");
 }
 
+/** Search results: what each needs, if the search named ingredients. */
+export function renderResults(results: { title: string; match?: { missing: number } }[], t: Translator) {
+  return results
+    .map((r, i) => {
+      const match = r.match
+        ? ` — <i>${esc(r.match.missing ? t("tg.needsMore", { n: r.match.missing }) : t("tg.haveAll"))}</i>`
+        : "";
+      return `${num(i + 1)} ${esc(r.title)}${match}`;
+    })
+    .join("\n");
+}
+
 export function renderSubstitution(ingredient: string, s: Substitution, t: Translator) {
   const lines = [`<b>${esc(t("tg.noSwap", { name: ingredient }))}</b>`, ""];
   s.options.forEach((o, i) => {
-    lines.push(`${i + 1}. <b>${esc(o.use)}</b> — ${esc(o.amount)}`, `   ${esc(o.how)} <i>${esc(o.effect)}</i>`);
+    lines.push(`${num(i + 1)} <b>${esc(o.use)}</b> — ${esc(o.amount)}`, `   ${esc(o.how)} <i>${esc(o.effect)}</i>`);
   });
-  if (s.tip) lines.push("", `<i>${esc(s.tip)}</i>`);
+  if (s.tip) lines.push("", `💡 <i>${esc(s.tip)}</i>`);
   return clip(lines.join("\n"));
 }
 
@@ -156,20 +213,23 @@ export function renderAbundance(
   pairs: { name: string }[],
   t: Translator,
 ) {
-  if (uses.length === 0) return esc(t("ingredientPage.none", { name: ingredient }));
+  if (uses.length === 0) return `🤷 ${esc(t("ingredientPage.none", { name: ingredient }))}`;
   const lines = [`<b>${esc(t("tg.lots", { name: ingredient }))}</b>`, ""];
-  uses.forEach((u, i) => lines.push(`${i + 1}. ${esc(u.title)}${u.amount ? ` — <i>${esc(u.amount)}</i>` : ""}`));
+  uses.forEach((u, i) => lines.push(`${num(i + 1)} ${esc(u.title)}${u.amount ? ` — <i>${esc(u.amount)}</i>` : ""}`));
   if (pairs.length) lines.push("", esc(t("tg.pairs", { list: pairs.map((p) => p.name).join(", ") })));
   return clip(lines.join("\n"));
 }
 
-/** "v:<id>:<view>" switches view in place; "o:<id>" opens a recipe from a search list as a new message. */
-export function parseCallback(data: string): { id: string; view: TgView; open: boolean } | null {
-  const open = data.match(/^o:([0-9a-f-]{36})$/);
-  if (open) return { id: open[1], view: "effective", open: true };
-  const m = data.match(/^v:([0-9a-f-]{36}):(\w+)$/);
+/**
+ * "v:<id>:<view>[:<lang>]" switches view in place; "o:<id>[:<lang>]" opens a recipe from a
+ * list as a new message. Buttons sent before languages were added have no <lang>.
+ */
+export function parseCallback(data: string): { id: string; view: TgView; open: boolean; locale: Locale | null } | null {
+  const open = data.match(/^o:([0-9a-f-]{36})(?::(\w+))?$/);
+  if (open) return { id: open[1], view: "effective", open: true, locale: localeOf(open[2]) };
+  const m = data.match(/^v:([0-9a-f-]{36}):(\w+)(?::(\w+))?$/);
   if (!m || !(TG_VIEWS as readonly string[]).includes(m[2])) return null;
-  return { id: m[1], view: m[2] as TgView, open: false };
+  return { id: m[1], view: m[2] as TgView, open: false, locale: localeOf(m[3]) };
 }
 
 export type TgIntent =

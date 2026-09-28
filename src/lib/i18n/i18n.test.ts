@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOCALE_CODES, matchLocale } from "./config";
+import { detectLocale, LOCALE_CODES, matchLocale } from "./config";
 import { MESSAGES } from "./messages";
 import { rich } from "./translate";
 import { translatorFor } from "./translator-for";
@@ -33,6 +33,17 @@ describe("i18n", () => {
     expect(matchLocale("fr-FR,en;q=0.5")).toBe("en");
     expect(matchLocale("fr")).toBe(null);
     expect(matchLocale(undefined)).toBe(null);
+  });
+
+  it("tells Hebrew from English by the letters, ignoring links and commands", () => {
+    expect(detectLocale("יש לי הרבה כרישות")).toBe("he");
+    expect(detectLocale("I have a lot of leeks")).toBe("en");
+    expect(detectLocale("/lots כרישה")).toBe("he");
+    expect(detectLocale("תשמור את זה https://www.seriouseats.com/lemon-meringue-pie")).toBe("he");
+    expect(detectLocale("https://example.com/recipe")).toBeNull();
+    expect(detectLocale("/start")).toBeNull();
+    expect(detectLocale("")).toBeNull();
+    expect(detectLocale(undefined)).toBeNull();
   });
 
   it("splits rich messages around elements", () => {

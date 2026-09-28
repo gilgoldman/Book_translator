@@ -33,6 +33,18 @@ export function matchLocale(header: string | null | undefined): Locale | null {
   return null;
 }
 
+/**
+ * The app language a message is written in, told by its letters: Hebrew script or Latin.
+ * Links, a leading /command and @mentions don't count. Null when there are no letters.
+ */
+export function detectLocale(text: string | null | undefined): Locale | null {
+  const words = (text ?? "").replace(/^\s*\/\w+(?:@\w+)?|https?:\/\/\S+|@\w+/g, " ");
+  const hebrew = words.match(/[א-ת]/g)?.length ?? 0;
+  const latin = words.match(/[a-z]/gi)?.length ?? 0;
+  if (!hebrew && !latin) return null;
+  return hebrew >= latin ? "he" : "en";
+}
+
 const RTL = new Set(["he", "ar", "fa", "ur", "yi"]);
 export const dirFor = (lang: string) => (RTL.has(lang) ? "rtl" : "ltr");
 

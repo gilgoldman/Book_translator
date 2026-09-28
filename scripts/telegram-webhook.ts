@@ -1,5 +1,8 @@
-// Points the Telegram bot at this deployment: `npm run telegram:webhook`.
+// Points the Telegram bot at this deployment and sets its profile and / menu in every app
+// language: `npm run telegram:webhook`.
 import "dotenv/config";
+import { DEFAULT_LOCALE, LOCALE_CODES } from "../src/lib/i18n/config";
+import { translatorFor } from "../src/lib/i18n/translator-for";
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL } = process.env;
 if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_WEBHOOK_SECRET || !APP_URL) {
@@ -21,12 +24,16 @@ console.log(
     drop_pending_updates: true,
   }),
 );
-console.log(
-  await api("setMyCommands", {
-    commands: [
-      { command: "find", description: "Search the cookbook" },
-      { command: "add", description: "Import pasted text as a recipe" },
-      { command: "help", description: "What I can do" },
-    ],
-  }),
-);
+
+// The default language is what everyone else sees; the others follow the person's Telegram language.
+for (const locale of LOCALE_CODES) {
+  const t = translatorFor(locale);
+  const language = locale === DEFAULT_LOCALE ? {} : { language_code: locale };
+  const commands = (["find", "lots", "swap", "add", "help"] as const).map((command) => ({
+    command,
+    description: t(`tg.cmd.${command}`),
+  }));
+  console.log(locale, "commands", await api("setMyCommands", { commands, ...language }));
+  console.log(locale, "about", await api("setMyShortDescription", { short_description: t("tg.about"), ...language }));
+  console.log(locale, "intro", await api("setMyDescription", { description: t("tg.intro"), ...language }));
+}

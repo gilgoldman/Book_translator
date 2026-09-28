@@ -54,7 +54,7 @@ export function typing(chatId: number) {
 }
 
 /** An emoji reaction on their message: says "got it" without another message. Best-effort. */
-export function react(chatId: number, messageId: number, emoji: "👀" | "🔥" | "🤔" | "😢") {
+export function react(chatId: number, messageId: number, emoji: string) {
   void tg("setMessageReaction", {
     chat_id: chatId,
     message_id: messageId,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  botTranslator,
   classifyText,
   duplicateKeyboard,
   num,
@@ -14,10 +15,8 @@ import {
   viewKeyboard,
   type TgRecipe,
 } from "./telegram-format";
-import { translatorFor } from "./i18n/translator-for";
-
-const en = translatorFor("en");
-const he = translatorFor("he");
+const en = botTranslator("en");
+const he = botTranslator("he");
 
 const id = "0b6c2f7e-1d7e-4a57-9e36-0a5e3f2b8c11";
 

@@ -8,8 +8,6 @@ import { checkCredentials } from "@/lib/auth";
 import { resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
 import { DEFAULT_LOCALE, detectLocale, isLocale, matchLocale, type Locale } from "@/lib/i18n/config";
-import type { Translator } from "@/lib/i18n/translate";
-import { translatorFor } from "@/lib/i18n/translator-for";
 import { ingest, NotARecipeError, type IncomingFile, type IngestRequest } from "@/lib/ingest";
 import { parseIngredientIntent } from "@/lib/ingredient-intent";
 import { localName, localNames } from "@/lib/ingredient-names";
@@ -17,7 +15,9 @@ import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredi
 import { isRateLimited } from "@/lib/rate-limit";
 import { searchRecipes } from "@/lib/search";
 import { downloadFile, edit, react, send, tg, typing, type TgMessage, type TgUpdate } from "@/lib/telegram";
+import { BOT } from "@/lib/telegram-bot";
 import {
+  botTranslator,
   classifyText,
   duplicateKeyboard,
   esc,
@@ -31,18 +31,15 @@ import {
   renderSubstitution,
   variant,
   viewKeyboard,
+  type BotTranslator,
   type TgView,
 } from "@/lib/telegram-format";
 import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 export const maxDuration = 300;
 
-// When the AI is busy, retry the whole import after these waits, but give up once the
-// next try couldn't finish within two minutes of the message arriving.
-const BUSY_WAITS_MS = [20_000, 40_000];
-const GIVE_UP_AFTER_MS = 120_000;
+// How the bot behaves and what it says: src/lib/telegram-bot.ts.
 
-const ALBUM_WAIT_MS = 2500;
 const appUrl = () => process.env.APP_URL?.replace(/\/$/, "");
 
 /** The person's app language, else their Telegram language, else English. */
@@ -55,8 +52,9 @@ function translatorForChat(
   user: { locale: string | null } | null | undefined,
   languageCode?: string,
   said?: string | null,
-): Translator {
-  return translatorFor(detectLocale(said) ?? chatLocale(user, languageCode));
+): BotTranslator {
+  const written = BOT.followWrittenLanguage ? detectLocale(said) : null;
+  return botTranslator(written ?? chatLocale(user, languageCode));
 }
 
 function secretMatches(given: string | null) {
@@ -149,11 +147,11 @@ async function handle(update: TgUpdate) {
   }
 }
 
-async function abundanceReply(chatId: number, text: string, t: Translator) {
+async function abundanceReply(chatId: number, text: string, t: BotTranslator) {
   const name = await resolveIngredient(text);
   const [uses, pairs, label] = await Promise.all([
-    recipesUsingMost(name, t.locale, 8),
-    goesWellWith(name, 8),
+    recipesUsingMost(name, t.locale, BOT.lotsResults),
+    goesWellWith(name, BOT.pairings),
     localName(name, t.locale),
   ]);
   const pairNames = await localNames(pairs.map((p) => p.name), t.locale);
@@ -163,8 +161,8 @@ async function abundanceReply(chatId: number, text: string, t: Translator) {
   });
 }
 
-async function substituteReply(chatId: number, text: string, t: Translator) {
-  if (await isRateLimited(`tg-swap:${chatId}`, 30, 60 * 60)) return send(chatId, t("tg.slowDown"));
+async function substituteReply(chatId: number, text: string, t: BotTranslator) {
+  if (await isRateLimited(`tg-swap:${chatId}`, BOT.swapsPerHour, 60 * 60)) return send(chatId, t("tg.slowDown"));
   const name = await resolveIngredient(text);
   typing(chatId);
   const [label, swaps] = await Promise.all([localName(name, t.locale), suggestSubstitutes(name, t.locale)]);
@@ -203,7 +201,7 @@ async function collectAlbum(msg: TgMessage, media: { kind: "image" | "audio"; fi
       caption: msg.caption ?? null,
     })
     .onConflictDoNothing();
-  await new Promise((r) => setTimeout(r, ALBUM_WAIT_MS));
+  await new Promise((r) => setTimeout(r, BOT.albumWaitMs));
 
   const parts = await db()
     .select()
@@ -227,16 +225,19 @@ async function collectAlbum(msg: TgMessage, media: { kind: "image" | "audio"; fi
   }));
 }
 
-/** Import what they sent. 👀 on their message while reading, then 🔥 once it's in the book. */
+/**
+ * Import what they sent, reacting on their message as it goes. When the AI is busy, retry the
+ * whole import after BOT.busyRetryWaitsMs, but give up once the next try couldn't finish in time.
+ */
 async function importAndReply(
   chatId: number,
   userId: string | null,
-  t: Translator,
+  t: BotTranslator,
   messageId: number,
   build: () => Promise<IngestRequest>,
 ) {
   const started = Date.now();
-  react(chatId, messageId, "👀");
+  react(chatId, messageId, BOT.reactions.reading);
   const status = await send(chatId, variant(t("tg.reading"), messageId));
   typing(chatId);
   try {
@@ -251,8 +252,8 @@ async function importAndReply(
         // Google's AI is overloaded: say so, then try again if another attempt as long as the
         // slowest one so far still ends within the time limit.
         longestAttempt = Math.max(longestAttempt, Date.now() - attemptStart);
-        const wait = BUSY_WAITS_MS[attempt];
-        const timeLeft = GIVE_UP_AFTER_MS - (Date.now() - started);
+        const wait = BOT.busyRetryWaitsMs[attempt];
+        const timeLeft = BOT.busyGiveUpMs - (Date.now() - started);
         if (!isAiBusy(err) || wait === undefined || wait + longestAttempt > timeLeft) throw err;
         console.warn(`telegram import: AI busy, retrying in ${wait / 1000}s`);
         if (attempt === 0) await edit(chatId, status.message_id, esc(t("tg.busyRetrying")));
@@ -261,7 +262,7 @@ async function importAndReply(
       }
     }
     const { recipeId, duplicate } = result;
-    // Looks familiar: the 👀 stays while they choose.
+    // Looks familiar: the "reading" reaction stays while they choose.
     if (duplicate) {
       const [fresh, original] = await Promise.all([
         db().query.recipes.findFirst({ where: eq(recipes.id, recipeId), columns: recipeColumns }),
@@ -285,18 +286,18 @@ async function importAndReply(
       );
     }
     await showRecipe(chatId, recipeId, "effective", t, status.message_id);
-    react(chatId, messageId, "🔥");
+    react(chatId, messageId, BOT.reactions.saved);
   } catch (err) {
     console.error("telegram import failed", err);
     const notRecipe = err instanceof NotARecipeError;
-    react(chatId, messageId, notRecipe ? "🤔" : "😢");
+    react(chatId, messageId, notRecipe ? BOT.reactions.notRecipe : BOT.reactions.failed);
     const key = notRecipe ? "err.notRecipe" : isAiBusy(err) ? "tg.stillBusy" : "tg.failed";
     await edit(chatId, status.message_id, esc(t(key)));
   }
 }
 
-async function searchAndReply(chatId: number, query: string, t: Translator) {
-  const results = await searchRecipes(query, t.locale, 6);
+async function searchAndReply(chatId: number, query: string, t: BotTranslator) {
+  const results = await searchRecipes(query, t.locale, BOT.searchResults);
   if (results.length === 0) return send(chatId, esc(t("tg.nothingFor", { query })));
   return send(chatId, renderResults(results, t), { reply_markup: openKeyboard(results, t) });
 }
@@ -310,7 +311,7 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   const dup = parseDuplicateCallback(cb.data);
   const parsed = dup ? null : parseCallback(cb.data);
   // Answer in the language the buttons were written in.
-  const t = translatorFor(dup?.locale ?? parsed?.locale ?? chatLocale(user, cb.from?.language_code));
+  const t = botTranslator(dup?.locale ?? parsed?.locale ?? chatLocale(user, cb.from?.language_code));
 
   if (dup) {
     try {
@@ -326,7 +327,7 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   await showRecipe(chatId, parsed.id, parsed.view, t, parsed.open ? undefined : cb.message?.message_id);
 }
 
-async function showRecipe(chatId: number, id: string, view: TgView, t: Translator, messageId?: number) {
+async function showRecipe(chatId: number, id: string, view: TgView, t: BotTranslator, messageId?: number) {
   const load = () => db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
   let r = await load();
   if (!r) return send(chatId, esc(t("tg.gone")));

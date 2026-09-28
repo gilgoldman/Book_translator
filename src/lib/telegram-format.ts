@@ -1,10 +1,18 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import type { MessageKey, Translator } from "@/lib/i18n/translate";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
+import { BOT, BOT_WORDS, type BotKey } from "@/lib/telegram-bot";
 
-// Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit). Friendly and
-// colourful but short: emoji carry the tone so the words don't have to.
+// Pure renderers for the Telegram bot (HTML parse mode, 4096-char limit). What it says and
+// how it looks is set in telegram-bot.ts.
+
+/** The bot's words plus the app's, in one language. */
+export type BotTranslator = Translator<MessageKey | BotKey>;
+
+export const botTranslator = (locale: Locale): BotTranslator =>
+  createTranslator<MessageKey | BotKey>(locale, { ...MESSAGES[locale], ...BOT_WORDS[locale] });
 
 export const TG_VIEWS = ["effective", "classic", "ratios", "source"] as const;
 export type TgView = (typeof TG_VIEWS)[number];
@@ -29,13 +37,6 @@ export type TgSource = { kind: string; url: string | null; files: { url: string;
 
 const LIMIT = 4000;
 
-const COURSE_EMOJI: Record<string, string> = {
-  breakfast: "🍳", starter: "🥟", soup: "🍲", salad: "🥗", main: "🍽", side: "🥔", dessert: "🍰",
-  baking: "🥧", bread: "🍞", drink: "🍹", sauce: "🥣", snack: "🥨", preserve: "🫙", other: "🍴",
-};
-const SEASON_EMOJI: Record<string, string> = { spring: "🌸", summer: "☀️", autumn: "🍂", winter: "❄️", "all-year": "🗓" };
-// One colour per ratio component, so the proportions read at a glance.
-const BAR_COLOURS = ["🟨", "🟧", "🟥", "🟩", "🟦", "🟪"];
 const KEYCAPS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
 /** 1️⃣ … 🔟, then "11." and on. */
@@ -59,18 +60,18 @@ function clip(s: string) {
 const buttonText = (s: string, max = 60) => [...s].slice(0, max).join("");
 
 /** A category's label, or the stored value if it isn't one we know. */
-function category(t: Translator, kind: string, value: string) {
+function category(t: BotTranslator, kind: string, value: string) {
   const key = `${kind}.${value}` as MessageKey;
   const label = t(key);
   return label === key ? value : label;
 }
 
-function header(r: TgRecipe, t: Translator) {
+function header(r: TgRecipe, t: BotTranslator) {
   const time = formatMinutes(r.totalMinutes, t);
   const meta = [
     category(t, "cuisine", r.cuisine),
     category(t, "course", r.course),
-    `${SEASON_EMOJI[r.season] ?? ""} ${category(t, "season", r.season)}`.trim(),
+    `${BOT.look.season[r.season] ?? ""} ${category(t, "season", r.season)}`.trim(),
     time && `⏱ ${time}`,
     r.servings && t("tg.makes", { n: r.servings }),
   ]
@@ -78,18 +79,18 @@ function header(r: TgRecipe, t: Translator) {
     .join(" · ");
   const sub = r.subtitle && r.subtitle !== r.title ? `\n<i>${esc(r.subtitle)}</i>` : "";
   const by = r.addedBy ? `\n🧑‍🍳 ${esc(t("common.addedBy", { name: r.addedBy }))}` : "";
-  return `${COURSE_EMOJI[r.course] ?? "🍴"} <b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>${by}`;
+  return `${BOT.look.course[r.course] ?? "🍴"} <b>${esc(r.title)}</b>${sub}\n<i>${esc(meta)}</i>${by}`;
 }
 
-const timerNote = (timers: { label: string; seconds: number }[], t: Translator) =>
+const timerNote = (timers: { label: string; seconds: number }[], t: BotTranslator) =>
   timers.length
     ? `  ⏱ ${timers.map((x) => `${esc(x.label.toLowerCase())} ${formatDuration(x.seconds, t)}`).join(", ")}`
     : "";
 
 const bar = (parts: number, k: number) =>
-  BAR_COLOURS[k % BAR_COLOURS.length].repeat(Math.min(12, Math.max(1, Math.round(parts))));
+  BOT.look.ratioBars[k % BOT.look.ratioBars.length].repeat(Math.min(12, Math.max(1, Math.round(parts))));
 
-export function renderRecipe(r: TgRecipe, view: TgView, t: Translator, source: TgSource = null): string {
+export function renderRecipe(r: TgRecipe, view: TgView, t: BotTranslator, source: TgSource = null): string {
   const parts = [header(r, t), ""];
 
   if (view === "effective" && r.enrichment) {
@@ -129,7 +130,7 @@ type Button = { text: string; callback_data?: string; url?: string };
 // Buttons carry the language they were written in, so tapping one answers in it too.
 
 /** The four views as a 2×2 grid, then a link to the app. */
-export function viewKeyboard(id: string, current: TgView, t: Translator, appUrl?: string) {
+export function viewKeyboard(id: string, current: TgView, t: BotTranslator, appUrl?: string) {
   const buttons: Button[] = TG_VIEWS.map((v) => ({
     text: v === current ? `· ${t(`tg.view.${v}`)} ·` : t(`tg.view.${v}`),
     callback_data: `v:${id}:${v}:${t.locale}`,
@@ -140,7 +141,7 @@ export function viewKeyboard(id: string, current: TgView, t: Translator, appUrl?
 }
 
 /** A numbered list of recipes, one button each that opens it. */
-export function openKeyboard(list: { id: string; title: string }[], t: Translator) {
+export function openKeyboard(list: { id: string; title: string }[], t: BotTranslator) {
   return {
     inline_keyboard: list.map((r, i) => [{ text: buttonText(`${num(i + 1)} ${r.title}`), callback_data: `o:${r.id}:${t.locale}` }]),
   };
@@ -156,7 +157,7 @@ const DUP_CODES = { o: "keep-original", r: "replace", b: "keep-both" } as const;
 
 const localeOf = (code: string | undefined) => (isLocale(code) ? code : null);
 
-export function duplicateKeyboard(newId: string, t: Translator) {
+export function duplicateKeyboard(newId: string, t: BotTranslator) {
   return {
     inline_keyboard: [
       [{ text: `📌 ${t("dup.keep")}`, callback_data: `d:${newId}:o:${t.locale}` }],
@@ -175,7 +176,7 @@ export function renderDuplicatePrompt(
   newTitle: string,
   originalTitle: string,
   diff: { added: string[]; removed: string[] },
-  t: Translator,
+  t: BotTranslator,
 ) {
   const lines = [t("tg.dupLooks", { title: `<b>${esc(originalTitle)}</b>` }), ""];
   if (newTitle !== originalTitle) lines.push(t("tg.dupNew", { title: `<i>${esc(newTitle)}</i>` }));
@@ -187,7 +188,7 @@ export function renderDuplicatePrompt(
 }
 
 /** Search results: what each needs, if the search named ingredients. */
-export function renderResults(results: { title: string; match?: { missing: number } }[], t: Translator) {
+export function renderResults(results: { title: string; match?: { missing: number } }[], t: BotTranslator) {
   return results
     .map((r, i) => {
       const match = r.match
@@ -198,7 +199,7 @@ export function renderResults(results: { title: string; match?: { missing: numbe
     .join("\n");
 }
 
-export function renderSubstitution(ingredient: string, s: Substitution, t: Translator) {
+export function renderSubstitution(ingredient: string, s: Substitution, t: BotTranslator) {
   const lines = [`<b>${esc(t("tg.noSwap", { name: ingredient }))}</b>`, ""];
   s.options.forEach((o, i) => {
     lines.push(`${num(i + 1)} <b>${esc(o.use)}</b> — ${esc(o.amount)}`, `   ${esc(o.how)} <i>${esc(o.effect)}</i>`);
@@ -211,7 +212,7 @@ export function renderAbundance(
   ingredient: string,
   uses: { title: string; amount: string | null }[],
   pairs: { name: string }[],
-  t: Translator,
+  t: BotTranslator,
 ) {
   if (uses.length === 0) return `🤷 ${esc(t("ingredientPage.none", { name: ingredient }))}`;
   const lines = [`<b>${esc(t("tg.lots", { name: ingredient }))}</b>`, ""];

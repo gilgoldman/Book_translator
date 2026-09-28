@@ -1,4 +1,4 @@
-// Recognises ingredient-first questions in the search box and the Telegram bot:
+// Recognises ingredient-first questions in the search box and the chat bot:
 //   "I have a lot of leeks"                        -> abundance: recipes that use the most leek
 //   "I don't have buttermilk"                      -> substitute: what to use instead
 //   "No buttermilk, would yogurt work?"            -> substitute, asking about a candidate

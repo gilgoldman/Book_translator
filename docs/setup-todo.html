@@ -86,11 +86,12 @@
       <span class="how">Message <a href="https://t.me/BotFather">@BotFather</a> → <code>/newbot</code>. Keep the token and the bot's username.</span></span></label></li>
     <li><label><input type="checkbox" data-id="tgenv"><span><span class="what">Add the bot's env vars and redeploy</span>
       <span class="how"><code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_BOT_USERNAME</code>, and <code>TELEGRAM_WEBHOOK_SECRET</code> (any random letters and digits).</span></span></label></li>
-    <li><label><input type="checkbox" data-id="webhook"><span><span class="what">Point the bot at your site</span>
-      <span class="how">Open this in a browser, with your values filled in:<br>
-      <code>https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=&lt;APP_URL&gt;/api/telegram&amp;secret_token=&lt;SECRET&gt;</code><br>It should say <code>"Webhook was set"</code>.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="webhook"><span><span class="what">Check the bot found your site</span>
+      <span class="how">Each production deploy points the bot at the site and sets its <code>/</code> menu and profile in English and Hebrew. In the deploy's build log, look for <code>Telegram bot synced</code>.</span></span></label></li>
     <li><label><input type="checkbox" data-id="tglogin"><span><span class="what">Connect your account</span>
       <span class="how">In the bot, send <code>/login gilgoldman your-password</code>. The message is deleted right away.</span></span></label></li>
+    <li><label><input type="checkbox" data-id="persona"><span><span class="what">Make it sound like the family (optional)</span>
+      <span class="how">Everything the bot says, in English and Hebrew, plus its emoji and limits, is in one file: <code>src/lib/assistant/persona.ts</code>. Edit it (or ask Claude) and deploy.</span></span></label></li>
   </ol>
 
   <h2>7 · Family &amp; friends</h2>

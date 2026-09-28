@@ -19,7 +19,7 @@ const FALLBACK_MODEL_ID = process.env.LLM_FALLBACK_MODEL ?? "gemini-3.5-flash";
 
 /**
  * Attempts per call on top of the first (waits 2 s, 4 s). Kept short on purpose: the backup
- * model handles overload, and the Telegram bot retries whole imports on top of this.
+ * model handles overload, and the chat bot retries whole imports on top of this.
  */
 export const AI_MAX_RETRIES = 2;
 
@@ -94,7 +94,7 @@ export const ai = customProvider({
     enrich: withFallback("medium"),
     // Translating a recipe's words into the other app languages.
     translate: withFallback("low"),
-    // Small, fast jobs (query understanding, Telegram replies).
+    // Small, fast jobs (query understanding, chat bot replies).
     quick: withFallback("low"),
   },
   embeddingModels: {

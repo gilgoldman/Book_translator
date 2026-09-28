@@ -6,6 +6,7 @@ import type { Translator } from "@/lib/i18n/translate";
 import { translatorFor } from "@/lib/i18n/translator-for";
 
 // Minimal Telegram Bot API client. No SDK needed for a webhook bot.
+// What the bot says and does is the assistant's (src/lib/assistant); webhook.ts connects the two.
 
 const token = () => {
   const t = process.env.TELEGRAM_BOT_TOKEN;

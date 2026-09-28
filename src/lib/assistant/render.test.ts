@@ -6,6 +6,7 @@ import {
   num,
   openButtons,
   renderAbundance,
+  renderDuplicatePrompt,
   renderRecipe,
   renderResults,
   renderSubstitution,
@@ -83,6 +84,63 @@ describe("renderRecipe", () => {
     expect(out).toContain("💡 <i>Less water, more tender.</i>");
   });
 
+  it("shows the original: link, files and text, or says there's none", () => {
+    const source = {
+      kind: "image",
+      url: "https://example.test/tart",
+      files: [
+        { url: "https://blob.test/1.jpg", mediaType: "image/jpeg" },
+        { url: "https://blob.test/2.ogg", mediaType: "audio/ogg" },
+      ],
+      text: "Grandma's <best> tart",
+    };
+    const out = renderRecipe(recipe, "source", en, source);
+    expect(out).toContain("🔗 https://example.test/tart\n🖼 https://blob.test/1.jpg\n🎙 https://blob.test/2.ogg\n\nGrandma's &lt;best&gt; tart");
+    expect(renderRecipe(recipe, "source", en)).toContain("<i>🤷 No original saved.</i>");
+  });
+
+  it("shows the classic view, and falls back to it without an effective view or ratios", () => {
+    const classic = renderRecipe(recipe, "classic", en);
+    expect(classic).toContain("• 300 g flour\n• 200 g cold butter");
+    expect(classic).toContain("1️⃣ Rub butter into flour, add 100 g water, chill.  ⏱ chill 1 h");
+    const plain = { ...recipe, enrichment: null };
+    expect(renderRecipe(plain, "effective", en)).toBe(classic);
+    expect(renderRecipe(plain, "ratios", en)).toBe(classic);
+    // No metric amount: the line as written.
+    const unmeasured = { ...recipe, ingredients: [{ ...recipe.ingredients[0], metric: null, original: "a pinch of salt" }] };
+    expect(renderRecipe(unmeasured, "classic", en)).toContain("• a pinch of salt\n");
+  });
+
+  it("leaves out amounts it doesn't have", () => {
+    const e = recipe.enrichment!;
+    const vague = {
+      ...recipe,
+      enrichment: {
+        ...e,
+        recap: [{ name: "flour", metric: null, volume: null }],
+        effectiveSteps: [{ segments: [{ text: "butter", ingredient: 1, metric: null, volume: null }], timers: [] }],
+        ratio: { ...e.ratio, components: [{ name: "flour", parts: 3, grams: null }] },
+      },
+    };
+    expect(renderRecipe(vague, "effective", en)).toContain("• flour\n\n1️⃣ <b>butter</b>");
+    expect(renderRecipe(vague, "ratios", en)).toContain("🟨🟨🟨 3 flour\n");
+    expect(renderRecipe(recipe, "source", en, { kind: "text", url: null, files: [], text: "Just words" })).toMatch(/\n\nJust words$/);
+  });
+
+  it("keeps what it doesn't know as stored, and leaves out what's missing", () => {
+    const odd = { ...recipe, cuisine: "martian", course: "mystery", season: "monsoon", totalMinutes: null, servings: null, subtitle: "Pâte brisée" };
+    const out = renderRecipe(odd, "classic", en);
+    expect(out.split("\n").slice(0, 2)).toEqual(["🍴 <b>Pâte brisée</b>", "<i>martian · mystery · monsoon</i>"]);
+  });
+
+  it("draws ratios without a family or extras", () => {
+    const bare = { ...recipe, enrichment: { ...recipe.enrichment!, ratio: { ...recipe.enrichment!.ratio, family: null, extras: [] } } };
+    const out = renderRecipe(bare, "ratios", en);
+    expect(out).not.toContain("⚖️");
+    expect(out).not.toContain("• salt");
+    expect(out).toContain("🟥 1 water (100 g)");
+  });
+
   it("stays under chat apps' message limit", () => {
     const long = { ...recipe, steps: Array.from({ length: 400 }, () => ({ text: "Stir well and wait.", timers: [] })) };
     expect(renderRecipe(long, "classic", en).length).toBeLessThanOrEqual(4000);
@@ -124,6 +182,21 @@ describe("buttons", () => {
 
   it("save a voice note taken as a question", () => {
     expect(actions(saveVoiceButtons(he))).toEqual([{ kind: "saveVoice", locale: "he" }]);
+  });
+});
+
+describe("duplicate prompt", () => {
+  it("names both recipes and what differs", () => {
+    const out = renderDuplicatePrompt("Leek <tart>", "Leek tart", { added: ["feta"], removed: ["egg", "milk"] }, en);
+    expect(out).toBe(
+      "👀 Looks like <b>Leek tart</b>, already in the book.\n\n🆕 New: <i>Leek &lt;tart&gt;</i>\n➕ New has: feta\n➖ Original has: egg, milk\n\nWhat should I do?",
+    );
+  });
+
+  it("says when the ingredients are the same", () => {
+    expect(renderDuplicatePrompt("Leek tart", "Leek tart", { added: [], removed: [] }, he)).toBe(
+      "👀 נראה כמו <b>Leek tart</b>, שכבר בספר.\n\nאותם מצרכים.\n\nמה לעשות?",
+    );
   });
 });
 
@@ -173,9 +246,32 @@ describe("ingredient-first replies", () => {
     expect(swap).toContain("<b>Other options:</b>\n1️⃣ <b>Milk + lemon</b>");
   });
 
+  it("gives the verdict alone when there's nothing else, with a tip", () => {
+    const swap = renderSubstitution(
+      "saffron",
+      { asked: { use: "turmeric", verdict: "no", amount: null, how: "Only for colour.", effect: "No saffron taste" }, options: [], tip: "Leave it out." },
+      en,
+    );
+    expect(swap).toBe(
+      "<b>🔄 turmeric instead of saffron?</b>\n\n<b>❌ Not really</b>\n   Only for colour. <i>No saffron taste</i>\n\n💡 <i>Leave it out.</i>",
+    );
+    expect(renderSubstitution("saffron", { asked: { use: "safflower", verdict: "yes", amount: null, how: "", effect: "" }, options: [], tip: null }, en)).toContain(
+      "<b>✅ Yes, it works</b>",
+    );
+  });
+
   it("keeps old cached answers without a verdict working", () => {
     const old = { options: [], tip: "Pick another recipe." } as unknown as Parameters<typeof renderSubstitution>[1];
     expect(renderSubstitution("saffron", old, en)).toContain("<b>🔄 No saffron? Try:</b>");
+  });
+
+  it("keeps long answers under chat apps' message limit", () => {
+    const options = Array.from({ length: 200 }, () => ({ use: "Milk + lemon", amount: "250 ml", how: "Rest 10 minutes.", effect: "Nearly the same" }));
+    expect(renderSubstitution("buttermilk", { asked: null, options, tip: null }, en).length).toBeLessThanOrEqual(4000);
+    const uses = Array.from({ length: 300 }, () => ({ title: "Leek & feta tart", amount: null }));
+    const lots = renderAbundance("leek", uses, [], en);
+    expect(lots.length).toBeLessThanOrEqual(4000);
+    expect(lots.endsWith("\n…")).toBe(true);
   });
 
   it("still renders abundance", () => {

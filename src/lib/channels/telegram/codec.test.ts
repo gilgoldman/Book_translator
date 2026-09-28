@@ -41,6 +41,11 @@ describe("buttons", () => {
     expect(decodeAction(`v:${id}:ratios`)).toEqual({ kind: "view", recipeId: id, view: "ratios", locale: null });
     expect(decodeAction(`d:${id}:o`)).toEqual({ kind: "duplicate", recipeId: id, choice: "keep-original", locale: null });
     expect(decodeAction("s")).toEqual({ kind: "saveVoice", locale: null });
+    // …and are written the same way when there's no language to carry.
+    expect(encodeAction({ kind: "open", recipeId: id, locale: null })).toBe(`o:${id}`);
+    expect(encodeAction({ kind: "saveVoice", locale: null })).toBe("s");
+    // A language the app no longer speaks reads as none.
+    expect(decodeAction(`o:${id}:fr`)).toEqual({ kind: "open", recipeId: id, locale: null });
   });
 
   it("ignore anything else", () => {
@@ -62,6 +67,9 @@ describe("buttons", () => {
     expect(recipeIdOf(inlineKeyboard(viewButtons(id, "effective", en, "https://app")))).toBe(id);
     expect(recipeIdOf(inlineKeyboard(openButtons([{ id, title: "Pancakes" }], en)))).toBeNull();
     expect(recipeIdOf(undefined)).toBeNull();
+    expect(recipeIdOf({})).toBeNull();
+    // A link button carries no callback data.
+    expect(recipeIdOf({ inline_keyboard: [[{}], [{ callback_data: `v:${id}:source` }]] })).toBe(id);
   });
 });
 
@@ -78,6 +86,18 @@ describe("messages", () => {
     const photo = { message_id: 1, chat, photo: [{ file_id: "s", width: 90, height: 90 }, { file_id: "l", width: 1280, height: 1280 }] };
     expect(pickMedia(photo)).toEqual({ kind: "image", fileId: "l", mediaType: "image/jpeg" });
     expect(pickMedia({ message_id: 2, chat, voice: { file_id: "v" } })).toEqual({ kind: "audio", fileId: "v", mediaType: "audio/ogg" });
-    expect(pickMedia({ message_id: 3, chat, document: { file_id: "d", mime_type: "application/pdf" } })).toBeNull();
+    expect(pickMedia({ message_id: 2, chat, voice: { file_id: "v", mime_type: "audio/mp4" } })).toMatchObject({ mediaType: "audio/mp4" });
+  });
+
+  it("pick audio files and images or audio sent as files, nothing else", () => {
+    const chat = { id: 1, type: "private" };
+    expect(pickMedia({ message_id: 1, chat, audio: { file_id: "a" } })).toEqual({ kind: "audio", fileId: "a", mediaType: "audio/mpeg" });
+    expect(pickMedia({ message_id: 1, chat, audio: { file_id: "a", mime_type: "audio/x-m4a" } })).toMatchObject({ mediaType: "audio/x-m4a" });
+    expect(pickMedia({ message_id: 2, chat, document: { file_id: "d", mime_type: "image/png" } })).toEqual({ kind: "image", fileId: "d", mediaType: "image/png" });
+    expect(pickMedia({ message_id: 3, chat, document: { file_id: "d", mime_type: "audio/wav" } })).toEqual({ kind: "audio", fileId: "d", mediaType: "audio/wav" });
+    expect(pickMedia({ message_id: 4, chat, document: { file_id: "d", mime_type: "application/pdf" } })).toBeNull();
+    expect(pickMedia({ message_id: 5, chat, document: { file_id: "d" } })).toBeNull();
+    expect(pickMedia({ message_id: 6, chat, photo: [] })).toBeNull();
+    expect(pickMedia({ message_id: 7, chat, text: "hi" })).toBeNull();
   });
 });

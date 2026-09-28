@@ -71,7 +71,9 @@ Recommended in the Vercel dashboard (free on Hobby):
 
 **Changing the bot**: its personality is one file, `src/lib/assistant/persona.ts`: everything
 it says (in both languages), its reactions, look and limits. Edit it and deploy. Only Telegram's
-`/` menu, profile and sign-in words are in `src/lib/channels/telegram/settings.ts`.
+`/` menu, profile and sign-in words are in `src/lib/channels/telegram/settings.ts`. `npm test`
+checks both: every language has the same `{placeholders}`, only `<b>`, `<i>` and `<code>` are
+used, and the menu and profile fit Telegram's limits.
 
 It answers in the language you write to it in. Send photos (an album = one recipe), links,
 voice notes, pasted text, or questions:
@@ -105,20 +107,41 @@ view; to redo them all at once, deploy and then run `npm run translate`.
    `messages/index.ts`. TypeScript and `i18n.test.ts` flag any missing string or placeholder.
 3. Deploy, then `npm run translate` to give existing recipes and ingredients the new language
    (recipes also translate themselves the first time someone opens them in it).
-4. Optional: phrasing for "I have a lot of…" in `src/lib/ingredient-intent.ts`.
+4. Add its words for the chat bot in `src/lib/assistant/persona.ts` and
+   `src/lib/channels/telegram/settings.ts` (TypeScript asks for them). The next deploy sends
+   Telegram the menu and profile in it.
+5. Optional: phrasing for "I have a lot of…" in `src/lib/ingredient-intent.ts`.
 
 ### Adding a chat channel
 
-The assistant (`src/lib/assistant`) knows nothing about Telegram; Telegram is one channel
-(`src/lib/channels/telegram`). Another one, say WhatsApp, is a folder next to it that:
+The chat bot is two parts. The assistant (`src/lib/assistant`) decides what to do and say, and
+knows nothing about Telegram. Telegram is one channel (`src/lib/channels/telegram`):
 
-1. Receives messages (a webhook in `src/app/api/<channel>/route.ts`) and knows who is writing
-   (Telegram links a chat to an account with `/login`).
-2. Hands each message to `onMessage` and each button tap to `onTap`, with a `Chat` that sends
-   the replies. `src/lib/assistant/chat.ts` lists what a channel gives and gets.
-3. Turns the replies' rich text (`<b>`, `<i>`, `<code>`) and buttons into its own format.
+| In `src/` | What it does |
+| --- | --- |
+| `lib/assistant/persona.ts` | Personality: words, reactions, look, limits |
+| `lib/assistant/index.ts` | `onMessage` for what someone sends, `onTap` for a button |
+| `lib/assistant/chat.ts` | What a channel gives the assistant and must do for it (`Chat`) |
+| `lib/assistant/render.ts` | Replies as rich text (`<b>`, `<i>`, `<code>`) and buttons |
+| `lib/channels/telegram/webhook.ts` | Who is writing (`/login`), albums, the `Chat` for Telegram |
+| `lib/channels/telegram/codec.ts` | Buttons as callback data (fixed formats: old buttons use them) |
+| `lib/channels/telegram/api.ts` | The Bot API |
+| `app/api/telegram/route.ts` | The webhook: checks the secret, answers at once |
 
-`src/lib/assistant/index.test.ts` drives the assistant through a pretend channel.
+Another channel, say WhatsApp, is a folder next to `telegram/` that:
+
+1. Receives messages: a route in `src/app/api/<channel>/route.ts` that checks the service's
+   secret or signature, added to `PUBLIC_PREFIXES` in `src/proxy.ts` so sign-in doesn't block it.
+2. Knows who is writing, linked to an account (Telegram: `/login`).
+3. Hands each message to `onMessage` and each button tap to `onTap`, with a `Chat` that sends
+   the replies.
+4. Turns the replies' rich text and buttons into its own format, and taps back into `Action`s.
+5. Keeps words only it needs (menus, sign-in) in its own `settings.ts`; `speaker(locale, words)`
+   adds them to the assistant's.
+
+Tests: `src/lib/assistant/index.test.ts` drives the assistant through a pretend channel, and
+`src/lib/channels/telegram/*.test.ts` pin every call Telegram gets. A new channel's tests can
+follow `webhook.test.ts`.
 
 ### Switching LLM vendor
 

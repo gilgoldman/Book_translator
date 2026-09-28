@@ -95,13 +95,6 @@ Prompt or format changes: bumping `PROMPT_VERSION` (`src/lib/translations.ts`) o
 out of date. Readers keep seeing the older translation while a new one is made on their next
 view; to redo them all at once, deploy and then run `npm run translate`.
 
-### One-off seed (temporary)
-
-`scripts/seed.ts` loads `scripts/seed/mom-cookbook.json` (264 recipes from Mom's Word cookbook,
-text as written) under `savta`, through the normal import pipeline. It runs after every build
-within a 20-minute budget and picks up where it stopped; recipes already in are skipped. When the
-build log says `Seed: done`, remove it as listed in `CLAUDE.md`.
-
 ### Adding a language
 
 1. Add it to `LOCALES` in `src/lib/i18n/config.ts`.

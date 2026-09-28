@@ -1,5 +1,5 @@
 // Imports the recipes in scripts/seed/*.json through the normal text pipeline (extract,
-// enrich, embed, link ingredients, translate), filed under the owner. Safe to re-run: a
+// enrich, embed, link ingredients, translate), filed under SEED_USERNAME (default: the owner). Safe to re-run: a
 // recipe whose text is already a source is skipped, so an interrupted run just continues.
 //
 //   npm run seed                      every file in scripts/seed
@@ -20,9 +20,9 @@ const CONCURRENCY = 4;
 const dir = new URL("./seed/", import.meta.url);
 const only = process.argv[2];
 
-const owner = process.env.OWNER_USERNAME ?? "gilgoldman";
-const [user] = await db().select({ id: users.id }).from(users).where(eq(users.username, owner));
-if (!user) throw new Error(`No user "${owner}": sign in once to create the owner account first.`);
+const username = process.env.SEED_USERNAME ?? process.env.OWNER_USERNAME ?? "gilgoldman";
+const [user] = await db().select({ id: users.id }).from(users).where(eq(users.username, username));
+if (!user) throw new Error(`No user "${username}": they need an account first.`);
 
 const files = (await readdir(dir)).filter((f) => f.endsWith(".json") && (!only || f === `${only}.json`));
 let added = 0;

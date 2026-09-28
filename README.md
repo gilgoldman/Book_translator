@@ -99,7 +99,7 @@ view; to redo them all at once, deploy and then run `npm run translate`.
 
 `scripts/seed/*.json` holds recipes to load in bulk (`mom-cookbook.json`: 264 recipes from
 Mom's Word cookbook, one entry per recipe, text as written). `npm run seed` imports them through
-the normal pipeline under the owner's account; it needs `DATABASE_URL` and
+the normal pipeline under the owner's account (or `SEED_USERNAME`); it needs `DATABASE_URL` and
 `GOOGLE_GENERATIVE_AI_API_KEY`, and a re-run skips what's already in.
 
 ### Adding a language

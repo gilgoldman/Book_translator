@@ -120,7 +120,10 @@ export const ratioSchema = z.object({
 });
 export type Ratio = z.infer<typeof ratioSchema>;
 
-/** Bump when stored effective steps should be rewritten; older ones redo themselves when opened. */
+/**
+ * Bump when stored effective steps should be rewritten; older ones redo themselves when
+ * opened. Then run `npm run translate` so every recipe is redone at once.
+ */
 export const ENRICHMENT_VERSION = 2;
 
 export type Enrichment = {

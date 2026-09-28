@@ -90,6 +90,20 @@ describe("recipe text", () => {
     expect(broken.enrichment!.effectiveSteps[0].timers[0].label).toBe("אידוי");
   });
 
+  it("uses what still fits of a translation saved in an older format", () => {
+    // Effective steps as pieces, from before steps were sentences with {0} slots.
+    const old = {
+      ...hebrew,
+      effectiveSteps: [
+        { segments: [{ text: "מאדים ", ingredient: null, metric: null, volume: null }], timers: ["אידוי"] },
+      ],
+    } as unknown as Parameters<typeof applyText>[1];
+    const he = applyText(recipe, old);
+    expect(he.title).toBe("טארט כרישה");
+    expect(he.steps[0].text).toBe("מאדים את הכרישות.");
+    expect(he.enrichment!.effectiveSteps).toEqual(recipe.enrichment!.effectiveSteps);
+  });
+
   it("lets a translation move ingredients anywhere in the sentence, and never loses their names", () => {
     const whites = ing("egg whites", "4 (≈132 g)", "egg white");
     const sugar = ing("sugar", "100 g");

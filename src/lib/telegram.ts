@@ -48,6 +48,20 @@ export function edit(chatId: number, messageId: number, text: string, extra: Rec
   });
 }
 
+/** "typing…" at the top of the chat for a few seconds. Best-effort. */
+export function typing(chatId: number) {
+  void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+}
+
+/** An emoji reaction on their message: says "got it" without another message. Best-effort. */
+export function react(chatId: number, messageId: number, emoji: string) {
+  void tg("setMessageReaction", {
+    chat_id: chatId,
+    message_id: messageId,
+    reaction: [{ type: "emoji", emoji }],
+  }).catch(() => {});
+}
+
 export async function downloadFile(fileId: string): Promise<Uint8Array> {
   const file = await tg<{ file_path: string }>("getFile", { file_id: fileId });
   const res = await fetch(`https://api.telegram.org/file/bot${token()}/${file.file_path}`);

@@ -20,6 +20,24 @@ export async function isRateLimited(key: string, limit: number, windowSeconds: n
   return Number(rows[0]?.count ?? 0) > limit;
 }
 
+/**
+ * True for the first caller in a window, false for everyone else until it ends or the
+ * work is released: a light lock for background work. Not releasing it after a failure
+ * spaces out the retries.
+ */
+export async function claim(key: string, seconds: number): Promise<boolean> {
+  return !(await isRateLimited(key, 1, seconds));
+}
+
+export async function release(key: string) {
+  await db().execute(sql`delete from rate_limits where key = ${key}`);
+}
+
+/** Drops counters whose window ended long ago (no window here is longer than an hour). */
+export async function pruneRateLimits() {
+  await db().execute(sql`delete from rate_limits where window_start < now() - interval '1 day'`);
+}
+
 export async function clientIp(): Promise<string> {
   const h = await headers();
   // On Vercel, x-real-ip / the first x-forwarded-for entry is set by the edge and not spoofable.

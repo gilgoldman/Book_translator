@@ -1,51 +1,60 @@
 import { timingSafeEqual } from "node:crypto";
 import { and, asc, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
-import { db, pendingMedia, recipes, sources, users } from "@/db";
+import { db, pendingMedia, recipeColumns, recipes, sources, users } from "@/db";
 import { isAiBusy } from "@/lib/ai/errors";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
 import { checkCredentials } from "@/lib/auth";
 import { resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
-import { DEFAULT_LOCALE, isLocale, matchLocale } from "@/lib/i18n/config";
-import type { Translator } from "@/lib/i18n/translate";
-import { translatorFor } from "@/lib/i18n/translator-for";
+import { DEFAULT_LOCALE, detectLocale, isLocale, matchLocale, type Locale } from "@/lib/i18n/config";
 import { ingest, NotARecipeError, type IncomingFile, type IngestRequest } from "@/lib/ingest";
 import { parseIngredientIntent } from "@/lib/ingredient-intent";
 import { localName, localNames } from "@/lib/ingredient-names";
 import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
 import { isRateLimited } from "@/lib/rate-limit";
 import { searchRecipes } from "@/lib/search";
-import { downloadFile, edit, send, tg, type TgMessage, type TgUpdate } from "@/lib/telegram";
+import { downloadFile, edit, react, send, tg, typing, type TgMessage, type TgUpdate } from "@/lib/telegram";
+import { BOT } from "@/lib/telegram-bot";
 import {
+  botTranslator,
   classifyText,
   duplicateKeyboard,
   esc,
+  openKeyboard,
   parseCallback,
   parseDuplicateCallback,
   renderAbundance,
   renderDuplicatePrompt,
   renderRecipe,
+  renderResults,
   renderSubstitution,
+  variant,
   viewKeyboard,
+  type BotTranslator,
   type TgView,
 } from "@/lib/telegram-format";
-import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 export const maxDuration = 300;
 
-// When the AI is busy, retry the whole import after these waits, but give up once the
-// next try couldn't finish within two minutes of the message arriving.
-const BUSY_WAITS_MS = [20_000, 40_000];
-const GIVE_UP_AFTER_MS = 120_000;
+// How the bot behaves and what it says: src/lib/telegram-bot.ts.
 
-const ALBUM_WAIT_MS = 2500;
 const appUrl = () => process.env.APP_URL?.replace(/\/$/, "");
 
-/** Reply in the person's app language, else their Telegram language, else English. */
-function translatorForChat(user: { locale: string | null } | null | undefined, languageCode?: string): Translator {
-  const locale = isLocale(user?.locale) ? user.locale : (matchLocale(languageCode) ?? DEFAULT_LOCALE);
-  return translatorFor(locale);
+/** The person's app language, else their Telegram language, else English. */
+function chatLocale(user: { locale: string | null } | null | undefined, languageCode?: string): Locale {
+  return isLocale(user?.locale) ? user.locale : (matchLocale(languageCode) ?? DEFAULT_LOCALE);
+}
+
+/** Answer in the language they wrote to us in (Hebrew or English), else as `chatLocale`. */
+function translatorForChat(
+  user: { locale: string | null } | null | undefined,
+  languageCode?: string,
+  said?: string | null,
+): BotTranslator {
+  const written = BOT.followWrittenLanguage ? detectLocale(said) : null;
+  return botTranslator(written ?? chatLocale(user, languageCode));
 }
 
 function secretMatches(given: string | null) {
@@ -60,6 +69,7 @@ function secretMatches(given: string | null) {
 async function linkedUser(chatId: number) {
   return db().query.users.findFirst({
     where: and(eq(users.telegramChatId, chatId), eq(users.status, "approved")),
+    columns: { id: true, locale: true, isAdmin: true },
   });
 }
 
@@ -86,6 +96,8 @@ async function handle(update: TgUpdate) {
   const text = (msg.text ?? "").trim();
   const intent = text ? classifyText(text) : null;
   const language = msg.from?.language_code;
+  // What they typed sets the reply's language; a login's words are just a username and password.
+  const said = intent?.kind === "login" ? null : text || msg.caption;
 
   if (intent?.kind === "login") {
     // Don't leave the password sitting in the chat.
@@ -104,24 +116,29 @@ async function handle(update: TgUpdate) {
   }
 
   const user = await linkedUser(chatId);
-  if (!user) return send(chatId, translatorForChat(null, language)("tg.private"));
-  const t = translatorForChat(user, language);
+  if (!user) return send(chatId, translatorForChat(null, language, said)("tg.private"));
+  const t = translatorForChat(user, language, said);
   if (intent?.kind === "start" || intent?.kind === "help") return send(chatId, t("tg.help"));
 
   // Media
   const media = pickMedia(msg);
   if (media) {
     if (msg.media_group_id) return collectAlbum(msg, media);
-    return importAndReply(chatId, user.id, t, async () => ({
+    return importAndReply(chatId, user.id, t, msg.message_id, async () => ({
       kind: media.kind,
       caption: msg.caption,
       files: [await fetchFile(media.fileId, media.mediaType)],
     }));
   }
 
-  if (!intent) return send(chatId, t("tg.help"));
-  if (intent.kind === "url") return importAndReply(chatId, user.id, t, async () => ({ kind: "url", url: intent.url }));
-  if (intent.kind === "import") return importAndReply(chatId, user.id, t, async () => ({ kind: "text", text: intent.text }));
+  // A sticker, a PDF…: a one-line nudge, not the whole help.
+  if (!intent) return send(chatId, t("tg.nudge"));
+  if (intent.kind === "url") {
+    return importAndReply(chatId, user.id, t, msg.message_id, async () => ({ kind: "url", url: intent.url }));
+  }
+  if (intent.kind === "import") {
+    return importAndReply(chatId, user.id, t, msg.message_id, async () => ({ kind: "text", text: intent.text }));
+  }
   if (intent.kind === "search") {
     const ingredientIntent = parseIngredientIntent(intent.query);
     if (ingredientIntent?.kind === "abundance") return abundanceReply(chatId, ingredientIntent.ingredient, t);
@@ -130,26 +147,24 @@ async function handle(update: TgUpdate) {
   }
 }
 
-async function abundanceReply(chatId: number, text: string, t: Translator) {
+async function abundanceReply(chatId: number, text: string, t: BotTranslator) {
   const name = await resolveIngredient(text);
   const [uses, pairs, label] = await Promise.all([
-    recipesUsingMost(name, t.locale, 8),
-    goesWellWith(name, 8),
+    recipesUsingMost(name, t.locale, BOT.lotsResults),
+    goesWellWith(name, BOT.pairings),
     localName(name, t.locale),
   ]);
   const pairNames = await localNames(pairs.map((p) => p.name), t.locale);
   const localPairs = pairs.map((p) => ({ name: pairNames.get(p.name) ?? p.name }));
   return send(chatId, renderAbundance(label, uses, localPairs, t), {
-    reply_markup: uses.length
-      ? { inline_keyboard: uses.map((u, i) => [{ text: `${i + 1}. ${u.title}`.slice(0, 60), callback_data: `o:${u.id}` }]) }
-      : undefined,
+    reply_markup: uses.length ? openKeyboard(uses, t) : undefined,
   });
 }
 
-async function substituteReply(chatId: number, text: string, t: Translator) {
-  if (await isRateLimited(`tg-swap:${chatId}`, 30, 60 * 60)) return send(chatId, t("tg.slowDown"));
+async function substituteReply(chatId: number, text: string, t: BotTranslator) {
+  if (await isRateLimited(`tg-swap:${chatId}`, BOT.swapsPerHour, 60 * 60)) return send(chatId, t("tg.slowDown"));
   const name = await resolveIngredient(text);
-  void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+  typing(chatId);
   const [label, swaps] = await Promise.all([localName(name, t.locale), suggestSubstitutes(name, t.locale)]);
   return send(chatId, renderSubstitution(label, swaps, t));
 }
@@ -186,7 +201,7 @@ async function collectAlbum(msg: TgMessage, media: { kind: "image" | "audio"; fi
       caption: msg.caption ?? null,
     })
     .onConflictDoNothing();
-  await new Promise((r) => setTimeout(r, ALBUM_WAIT_MS));
+  await new Promise((r) => setTimeout(r, BOT.albumWaitMs));
 
   const parts = await db()
     .select()
@@ -201,22 +216,30 @@ async function collectAlbum(msg: TgMessage, media: { kind: "image" | "audio"; fi
 
   const user = await linkedUser(msg.chat.id);
   if (!user) return;
-  await importAndReply(msg.chat.id, user.id, translatorForChat(user, msg.from?.language_code), async () => ({
+  const caption = parts.find((p) => p.caption)?.caption ?? undefined;
+  const t = translatorForChat(user, msg.from?.language_code, caption);
+  await importAndReply(msg.chat.id, user.id, t, parts[0].messageId, async () => ({
     kind: "image",
-    caption: parts.find((p) => p.caption)?.caption ?? undefined,
+    caption,
     files: await Promise.all(parts.map((p) => fetchFile(p.fileId, p.mediaType))),
   }));
 }
 
+/**
+ * Import what they sent, reacting on their message as it goes. When the AI is busy, retry the
+ * whole import after BOT.busyRetryWaitsMs, but give up once the next try couldn't finish in time.
+ */
 async function importAndReply(
   chatId: number,
   userId: string | null,
-  t: Translator,
+  t: BotTranslator,
+  messageId: number,
   build: () => Promise<IngestRequest>,
 ) {
   const started = Date.now();
-  const status = await send(chatId, t("tg.reading"));
-  void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+  react(chatId, messageId, BOT.reactions.reading);
+  const status = await send(chatId, variant(t("tg.reading"), messageId));
+  typing(chatId);
   try {
     const req = await build();
     let result: Awaited<ReturnType<typeof ingest>> | null = null;
@@ -224,25 +247,26 @@ async function importAndReply(
     for (let attempt = 0; !result; attempt++) {
       const attemptStart = Date.now();
       try {
-        result = await ingest(req, userId);
+        result = await ingest(req, userId, t.locale);
       } catch (err) {
         // Google's AI is overloaded: say so, then try again if another attempt as long as the
         // slowest one so far still ends within the time limit.
         longestAttempt = Math.max(longestAttempt, Date.now() - attemptStart);
-        const wait = BUSY_WAITS_MS[attempt];
-        const timeLeft = GIVE_UP_AFTER_MS - (Date.now() - started);
+        const wait = BOT.busyRetryWaitsMs[attempt];
+        const timeLeft = BOT.busyGiveUpMs - (Date.now() - started);
         if (!isAiBusy(err) || wait === undefined || wait + longestAttempt > timeLeft) throw err;
         console.warn(`telegram import: AI busy, retrying in ${wait / 1000}s`);
         if (attempt === 0) await edit(chatId, status.message_id, esc(t("tg.busyRetrying")));
         await new Promise((r) => setTimeout(r, wait));
-        void tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+        typing(chatId);
       }
     }
     const { recipeId, duplicate } = result;
+    // Looks familiar: the "reading" reaction stays while they choose.
     if (duplicate) {
       const [fresh, original] = await Promise.all([
-        db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) }),
-        db().query.recipes.findFirst({ where: eq(recipes.id, duplicate.id) }),
+        db().query.recipes.findFirst({ where: eq(recipes.id, recipeId), columns: recipeColumns }),
+        db().query.recipes.findFirst({ where: eq(recipes.id, duplicate.id), columns: recipeColumns }),
       ]);
       const canonical = (list: { canonical: string }[] | undefined) => list?.map((i) => i.canonical) ?? [];
       const names = await localNames([...canonical(original?.ingredients), ...canonical(fresh?.ingredients)], t.locale);
@@ -262,29 +286,20 @@ async function importAndReply(
       );
     }
     await showRecipe(chatId, recipeId, "effective", t, status.message_id);
+    react(chatId, messageId, BOT.reactions.saved);
   } catch (err) {
     console.error("telegram import failed", err);
-    const key = err instanceof NotARecipeError ? "err.notRecipe" : isAiBusy(err) ? "tg.stillBusy" : "tg.failed";
+    const notRecipe = err instanceof NotARecipeError;
+    react(chatId, messageId, notRecipe ? BOT.reactions.notRecipe : BOT.reactions.failed);
+    const key = notRecipe ? "err.notRecipe" : isAiBusy(err) ? "tg.stillBusy" : "tg.failed";
     await edit(chatId, status.message_id, esc(t(key)));
   }
 }
 
-async function searchAndReply(chatId: number, query: string, t: Translator) {
-  const results = (await searchRecipes(query, t.locale, 6)).slice(0, 6);
+async function searchAndReply(chatId: number, query: string, t: BotTranslator) {
+  const results = await searchRecipes(query, t.locale, BOT.searchResults);
   if (results.length === 0) return send(chatId, esc(t("tg.nothingFor", { query })));
-  const lines = results.map((r, i) => {
-    const match = r.match
-      ? ` — <i>${esc(r.match.missing ? t("tg.needsMore", { n: r.match.missing }) : t("tg.haveAll"))}</i>`
-      : "";
-    return `${i + 1}. ${esc(r.title)}${match}`;
-  });
-  return send(chatId, lines.join("\n"), {
-    reply_markup: {
-      inline_keyboard: results.map((r, i) => [
-        { text: `${i + 1}. ${r.title}`.slice(0, 60), callback_data: `o:${r.id}` },
-      ]),
-    },
-  });
+  return send(chatId, renderResults(results, t), { reply_markup: openKeyboard(results, t) });
 }
 
 async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
@@ -293,9 +308,11 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   if (!chatId || !cb.data) return;
   const user = await linkedUser(chatId);
   if (!user) return;
-  const t = translatorForChat(user, cb.from?.language_code);
-
   const dup = parseDuplicateCallback(cb.data);
+  const parsed = dup ? null : parseCallback(cb.data);
+  // Answer in the language the buttons were written in.
+  const t = botTranslator(dup?.locale ?? parsed?.locale ?? chatLocale(user, cb.from?.language_code));
+
   if (dup) {
     try {
       const id = await resolveDuplicate(dup.id, dup.choice, { userId: user.id, isAdmin: user.isAdmin });
@@ -306,27 +323,32 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
     }
   }
 
-  const parsed = parseCallback(cb.data);
   if (!parsed) return;
   await showRecipe(chatId, parsed.id, parsed.view, t, parsed.open ? undefined : cb.message?.message_id);
 }
 
-async function showRecipe(chatId: number, id: string, view: TgView, t: Translator, messageId?: number) {
-  let r = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
+async function showRecipe(chatId: number, id: string, view: TgView, t: BotTranslator, messageId?: number) {
+  const load = () => db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
+  let r = await load();
   if (!r) return send(chatId, esc(t("tg.gone")));
-  // We're already off the request path, so an older recipe can be translated right here.
-  if (localizeRecipe(r, t.locale).status === "pending" || enrichmentOutdated(r)) {
-    await ensureTranslations(r.id, [t.locale]);
-    r = (await db().query.recipes.findFirst({ where: eq(recipes.id, id) })) ?? r;
+  let localized = localizeRecipe(r, t.locale);
+  if (localized.status === "pending") {
+    // Nothing in their language yet, and we're off the request path: worth the wait.
+    typing(chatId);
+    await ensureTranslations(id, [t.locale]);
+    r = (await load()) ?? r;
+    localized = localizeRecipe(r, t.locale);
+  } else if (localized.refresh) {
+    // An older translation is fine for now; the new one is made after this reply.
+    after(() => ensureTranslations(id, [t.locale]));
   }
-  const localized = localizeRecipe(r, t.locale);
-  const source =
-    view === "source" && r.sourceId
-      ? ((await db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) })) ?? null)
-      : null;
-  const uploader = r.createdBy
-    ? await db().query.users.findFirst({ where: eq(users.id, r.createdBy), columns: { displayName: true, username: true } })
-    : null;
+  const { sourceId, createdBy } = r;
+  const [source, uploader] = await Promise.all([
+    view === "source" && sourceId ? db().query.sources.findFirst({ where: eq(sources.id, sourceId) }) : null,
+    createdBy
+      ? db().query.users.findFirst({ where: eq(users.id, createdBy), columns: { displayName: true, username: true } })
+      : null,
+  ]);
   const text = renderRecipe(
     {
       ...localized.recipe,
@@ -335,7 +357,7 @@ async function showRecipe(chatId: number, id: string, view: TgView, t: Translato
     },
     view,
     t,
-    source,
+    source ?? null,
   );
   const reply_markup = viewKeyboard(r.id, view, t, appUrl());
   return messageId ? edit(chatId, messageId, text, { reply_markup }) : send(chatId, text, { reply_markup });

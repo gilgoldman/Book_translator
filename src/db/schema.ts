@@ -89,6 +89,12 @@ export const recipes = pgTable(
   (t) => [index("recipes_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops"))],
 );
 
+/**
+ * Columns for reading a recipe to show or edit it: all but the search embedding, a
+ * 768-number vector that only search and duplicate checks need (in SQL).
+ */
+export const recipeColumns = { embedding: false } as const;
+
 // Canonical ingredients + join table: the "graph" behind "what can I make with X".
 export const ingredients = pgTable("ingredients", {
   id: uuid("id").primaryKey().defaultRandom(),

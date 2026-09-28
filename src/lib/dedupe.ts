@@ -70,7 +70,10 @@ export async function resolveDuplicate(
 ): Promise<string> {
   const fresh = await db().query.recipes.findFirst({ where: eq(recipes.id, newId) });
   if (!fresh?.duplicateOf) return newId;
-  const original = await db().query.recipes.findFirst({ where: eq(recipes.id, fresh.duplicateOf) });
+  const original = await db().query.recipes.findFirst({
+    where: eq(recipes.id, fresh.duplicateOf),
+    columns: { id: true, createdBy: true, photos: true },
+  });
   if (!original) {
     await db().update(recipes).set({ duplicateOf: null }).where(eq(recipes.id, newId));
     return newId;

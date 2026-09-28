@@ -1,23 +1,25 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { cache } from "react";
 import { A11yControls } from "@/components/a11y-controls";
 import { LanguageSwitch } from "@/components/language-switch";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
 import { TimersProvider } from "@/components/timers";
 import { TranslationNote } from "@/components/translation-note";
-import { db, recipes, users } from "@/db";
+import { db, recipeColumns, recipes, users } from "@/db";
 import { dirFor } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
-import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { asWritten, ensureTranslations, localizeRecipe } from "@/lib/translations";
 
 // Public, read-only page for a friend. Unguessable token, no login. Shown in the
 // visitor's language (browser setting or the switch at the top).
 
-async function load(token: string) {
-  return db().query.recipes.findFirst({ where: eq(recipes.shareToken, token) });
-}
+// Cached per request: the page and its metadata share one query.
+const load = cache(async (token: string) =>
+  db().query.recipes.findFirst({ where: eq(recipes.shareToken, token), columns: recipeColumns }),
+);
 
 export async function generateMetadata({ params }: PageProps<"/r/[token]">) {
   const [r, t] = await Promise.all([load((await params).token), getT()]);
@@ -36,10 +38,8 @@ export default async function SharedRecipe({ params, searchParams }: PageProps<"
   if (!r) notFound();
   const t = await getT();
   const showOriginal = (await searchParams).original === "1";
-  const localized = showOriginal
-    ? { recipe: r, status: "original" as const, language: r.language }
-    : localizeRecipe(r, t.locale);
-  if (localized.status === "pending" || enrichmentOutdated(r)) after(() => ensureTranslations(r.id, [t.locale]));
+  const localized = showOriginal ? asWritten(r) : localizeRecipe(r, t.locale);
+  if (localized.refresh) after(() => ensureTranslations(r.id, [t.locale]));
   const shown = localized.recipe;
   const uploader = r.createdBy
     ? await db().query.users.findFirst({

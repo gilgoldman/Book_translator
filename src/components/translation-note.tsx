@@ -26,7 +26,8 @@ export async function TranslationNote({
       </p>
     );
   }
-  if (localized === "translated") {
+  // An outdated translation is still of these same words; its successor arrives quietly.
+  if (localized === "translated" || localized === "outdated") {
     return (
       <p className="translation-note">
         {t("recipe.translatedFrom", { language: languageName(original, locale) })}{" "}

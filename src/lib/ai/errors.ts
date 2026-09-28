@@ -12,3 +12,17 @@ export function isAiBusy(err: unknown): boolean {
   if (APICallError.isInstance(err)) return err.statusCode !== undefined && BUSY_STATUS.has(err.statusCode);
   return false;
 }
+
+/**
+ * Runs an AI call; if it (and the backup model) are busy, waits a moment and tries once
+ * more. For background work, where a short wait costs nobody anything.
+ */
+export async function retryIfBusy<T>(call: () => Promise<T>, pauseMs = 20_000): Promise<T> {
+  try {
+    return await call();
+  } catch (err) {
+    if (!isAiBusy(err)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, pauseMs));
+    return call();
+  }
+}

@@ -234,7 +234,7 @@ export async function importRecipe(_: FormState, form: FormData): Promise<FormSt
 
   let id: string;
   try {
-    ({ recipeId: id } = await ingest(req, session.userId));
+    ({ recipeId: id } = await ingest(req, session.userId, t.locale));
   } catch (err) {
     console.error("import failed", err);
     if (err instanceof NotARecipeError) return { error: t("err.notRecipe") };
@@ -311,7 +311,10 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
   const { allowed } = await editableRecipe(id);
   const t = await getT();
   if (!allowed) return { error: t("err.onlyOwnerEdits") };
-  const current = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
+  const current = await db().query.recipes.findFirst({
+    where: eq(recipes.id, id),
+    columns: { cuisine: true, course: true, season: true, ingredients: true, steps: true },
+  });
   if (!current) return { error: t("err.recipeNotFound") };
 
   const title = String(form.get("title") ?? "").trim().slice(0, 200);
@@ -376,7 +379,10 @@ export async function substituteInRecipe(recipeId: string, index: number): Promi
   const session = await requireSession();
   if (await isRateLimited(`swap:${session.userId}`, 60, 60 * 60)) throw new Error("Too many requests, try later.");
   const locale = await getLocale();
-  const r = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId) });
+  const r = await db().query.recipes.findFirst({
+    where: eq(recipes.id, recipeId),
+    columns: { titleEnglish: true, ingredients: true, steps: true },
+  });
   const ing = r?.ingredients[index];
   if (!r || !ing) throw new Error("Ingredient not found");
   const word = ing.name.toLowerCase();

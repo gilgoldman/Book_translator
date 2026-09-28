@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { EditRecipeForm } from "@/components/edit-recipe-form";
-import { db, recipes } from "@/db";
+import { db, recipeColumns, recipes } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
 import { dirFor, languageName } from "@/lib/i18n/config";
@@ -18,7 +18,7 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
   const t = await getT();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const r = await db().query.recipes.findFirst({ where: eq(recipes.id, id) });
+  const r = await db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
   if (!r) notFound();
   if (!canEdit(r, session)) redirect(`/recipes/${id}`);
 

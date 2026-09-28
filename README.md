@@ -65,10 +65,15 @@ Recommended in the Vercel dashboard (free on Hobby):
 
 1. Create a bot with [@BotFather](https://t.me/BotFather), copy its token.
 2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (any random string) and `TELEGRAM_BOT_USERNAME` in Vercel, redeploy.
-3. Locally, with the same vars in `.env`: `npm run telegram:webhook`.
-4. In Telegram send the bot `/login username password` (the message is deleted right away).
+   Every production deploy points the bot at the app and sets its `/` menu and profile in
+   English and Hebrew (the build log says "Telegram bot synced"). No terminal needed.
+3. In Telegram send the bot `/login username password` (the message is deleted right away).
 
-Then send photos (an album = one recipe), links, voice notes, pasted text, or questions:
+**Changing the bot**: everything it says (in both languages), its menu, reactions, look and
+limits live in one file, `src/lib/telegram-bot.ts`. Edit it and deploy.
+
+It answers in the language you write to it in. Send photos (an album = one recipe), links,
+voice notes, pasted text, or questions:
 `leeks, eggs, feta`, `I have a lot of leeks` (or `/lots leeks`), `no buttermilk` (or `/swap buttermilk`).
 Duplicate imports come back with Keep original / Replace / Keep both buttons.
 
@@ -84,6 +89,11 @@ npm run dev
 Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 
 Schema changes: edit `src/db/schema.ts`, then `npm run db:generate`.
+
+Prompt or format changes: bumping `PROMPT_VERSION` (`src/lib/translations.ts`) or
+`ENRICHMENT_VERSION` (`src/lib/recipe-types.ts`) marks every translation or effective view as
+out of date. Readers keep seeing the older translation while a new one is made on their next
+view; to redo them all at once, deploy and then run `npm run translate`.
 
 ### Adding a language
 

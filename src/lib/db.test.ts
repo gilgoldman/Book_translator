@@ -22,8 +22,13 @@ vi.mock("@/lib/ai/extract", () => ({
 }));
 
 // Stand-in "translations": prefix the title, name ingredients he-<name>.
+const translateCalls = vi.hoisted(() => ({ n: 0 }));
 vi.mock("@/lib/ai/translate", () => ({
-  translateRecipeText: async (text: { title: string }) => ({ ...text, title: `HE:${text.title}` }),
+  translateRecipeText: async (text: { title: string }) => {
+    translateCalls.n++;
+    await new Promise((r) => setTimeout(r, 20));
+    return { ...text, title: `HE:${text.title}` };
+  },
   translateIngredientNames: async (list: string[]) =>
     list.map((c) => ({ canonical: c, singular: `he-${c}`, plural: `he-${c}s` })),
   canonicalIngredient: async () => "leek",
@@ -192,6 +197,32 @@ describe.skipIf(!url)("languages (database)", () => {
     expect(localizeRecipe(await load(tart), "he").status).toBe("pending");
     await ensureTranslations(tart);
     expect(localizeRecipe(await load(tart), "he").recipe.title).toBe("HE:Leek & feta tart");
+  });
+
+  it("keeps showing an older translation of the same words while a new one is made", async () => {
+    // As after a prompt or format change: the words are the same, the hash isn't.
+    await pool!.query(`update recipes set translations = jsonb_set(translations, '{he,hash}', '"old"') where id = $1`, [tart]);
+    const outdated = localizeRecipe(await load(tart), "he");
+    expect(outdated.status).toBe("outdated");
+    expect(outdated.refresh).toBe(true);
+    expect(outdated.recipe.title).toBe("HE:Leek & feta tart");
+
+    // Two views at once make one translation.
+    const before = translateCalls.n;
+    await Promise.all([ensureTranslations(tart, ["he"]), ensureTranslations(tart, ["he"])]);
+    expect(translateCalls.n - before).toBe(1);
+    const fresh = localizeRecipe(await load(tart), "he");
+    expect(fresh.status).toBe("translated");
+    expect(fresh.refresh).toBe(false);
+  });
+
+  it("adds the words' hash to translations made before it existed, without the AI", async () => {
+    await pool!.query(`update recipes set translations = translations #- '{he,source}' where id = $1`, [tart]);
+    expect(localizeRecipe(await load(tart), "he")).toMatchObject({ status: "translated", refresh: true });
+    const before = translateCalls.n;
+    await ensureTranslations(tart, ["he"]);
+    expect(translateCalls.n).toBe(before);
+    expect(localizeRecipe(await load(tart), "he")).toMatchObject({ status: "translated", refresh: false });
   });
 
   it("names ingredients in every language", async () => {

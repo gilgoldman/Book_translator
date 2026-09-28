@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsx scripts/migrate.ts && next build",
+    "build": "tsx scripts/migrate.ts && next build && tsx scripts/telegram-sync.ts",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "telegram:webhook": "tsx scripts/telegram-webhook.ts",
+    "telegram:sync": "tsx scripts/telegram-sync.ts",
     "reembed": "tsx scripts/reembed.ts",
     "translate": "NODE_OPTIONS=--conditions=react-server tsx scripts/translate.ts"
   },

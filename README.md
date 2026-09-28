@@ -75,6 +75,8 @@ limits live in one file, `src/lib/telegram-bot.ts`. Edit it and deploy.
 It answers in the language you write to it in. Send photos (an album = one recipe), links,
 voice notes, pasted text, or questions:
 `leeks, eggs, feta`, `I have a lot of leeks` (or `/lots leeks`), `no buttermilk` (or `/swap buttermilk`).
+Questions can be voice notes too: a quick listen tells a question from a dictated recipe. A question
+is answered under "I heard: …", with a button to save it as a recipe if it was one after all.
 Duplicate imports come back with Keep original / Replace / Keep both buttons.
 
 ## Development

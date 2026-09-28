@@ -11,6 +11,8 @@ import {
   renderRecipe,
   renderResults,
   renderSubstitution,
+  parseSaveVoiceCallback,
+  saveVoiceKeyboard,
   variant,
   viewKeyboard,
   type TgRecipe,
@@ -167,6 +169,18 @@ describe("duplicate prompt", () => {
     expect(rows.every((b) => parseDuplicateCallback(b.callback_data)?.locale === "he")).toBe(true);
     expect(parseDuplicateCallback(`d:${id}:o`)).toEqual({ id, choice: "keep-original", locale: null });
     expect(parseDuplicateCallback(`d:${id}:x`)).toBeNull();
+  });
+});
+
+describe("voice note taken as a question", () => {
+  it("round-trips the save-it-as-a-recipe button, and no other button parses as it", () => {
+    const [button] = saveVoiceKeyboard(he).inline_keyboard.flat();
+    expect(parseSaveVoiceCallback(button.callback_data)).toEqual({ locale: "he" });
+    expect(parseSaveVoiceCallback("s")).toEqual({ locale: null });
+    expect(parseSaveVoiceCallback(`d:${id}:o:he`)).toBeNull();
+    expect(parseSaveVoiceCallback(`o:${id}:he`)).toBeNull();
+    expect(parseCallback(button.callback_data)).toBeNull();
+    expect(parseDuplicateCallback(button.callback_data)).toBeNull();
   });
 });
 

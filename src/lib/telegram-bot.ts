@@ -30,7 +30,7 @@ export const BOT = {
    * Reactions on the person's message, instead of more words. Telegram allows only its own
    * set: https://core.telegram.org/bots/api#reactiontypeemoji
    */
-  reactions: { reading: "👀", saved: "🔥", notRecipe: "🤔", failed: "😢" },
+  reactions: { reading: "👀", saved: "🔥", answered: "👌", notRecipe: "🤔", failed: "😢" },
 
   /** How many recipes a search lists; how many a "lots of…" answer lists, and pairings with it. */
   searchResults: 6,
@@ -63,7 +63,7 @@ export const BOT = {
 const en = {
   // Shown on /start and /help.
   "tg.help":
-    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk</i> or /swap buttermilk\n\n/find searches · /add imports text as is",
+    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>, in writing or out loud 🎙\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk</i> or /swap buttermilk\n\n/find searches · /add imports text as is",
   // For a sticker, a PDF, anything it can't read.
   "tg.nudge": "🙂 Send me a photo, link, voice note or recipe text, or ask me something.",
 
@@ -85,6 +85,9 @@ const en = {
   "tg.dupWhat": "What should I do?",
 
   // Answers
+  // A voice note taken as a question: what we understood, and a way out if it was a recipe.
+  "tg.heard": "🎙 I heard: <i>{query}</i>",
+  "tg.saveVoice": "📖 It's a recipe, save it",
   "tg.nothingFor": "🤷 Nothing for “{query}” yet.",
   "tg.needsMore": "🛒 needs {n} more",
   "tg.haveAll": "✅ you have it all",
@@ -119,7 +122,7 @@ export type BotKey = keyof typeof en;
 
 const he: Record<BotKey, string> = {
   "tg.help":
-    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון</i> או /swap רוויון\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
+    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>, בכתב או בהקלטה 🎙\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון</i> או /swap רוויון\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
   "tg.nudge": "🙂 שלחו לי תמונה, קישור, הקלטה או טקסט של מתכון, או תשאלו אותי משהו.",
 
   "tg.private": "👋 היי! זה ספר מתכונים משפחתי ופרטי 📖\nאפשר להתחבר עם:\n<code>/login username password</code>",
@@ -137,6 +140,8 @@ const he: Record<BotKey, string> = {
   "tg.dupOriginalHas": "➖ במקורי יש: {list}",
   "tg.dupWhat": "מה לעשות?",
 
+  "tg.heard": "🎙 שמעתי: <i>{query}</i>",
+  "tg.saveVoice": "📖 זה מתכון, לשמור אותו",
   "tg.nothingFor": "🤷 עדיין אין כלום עבור „{query}”.",
   "tg.needsMore": "🛒 חסרים עוד {n}",
   "tg.haveAll": "✅ יש לך הכול",

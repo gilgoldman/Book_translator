@@ -1,8 +1,10 @@
 import { put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { db, recipes, sources, type SourceKind } from "@/db";
 import { embedText, embeddingText, enrichRecipe, extractRecipe, type ExtractInput } from "@/lib/ai/extract";
 import { findDuplicate, type DuplicateMatch } from "@/lib/dedupe";
+import type { Locale } from "@/lib/i18n/config";
 import { linkIngredients } from "@/lib/ingredient-links";
 import { randomToken } from "@/lib/tokens";
 import { ensureTranslations } from "@/lib/translations";
@@ -27,20 +29,24 @@ export type IngestResult = { recipeId: string; duplicate: DuplicateMatch | null 
  * Store the raw input, then extract, enrich, embed, translate and save. If the result looks like a
  * recipe already in the book, it is saved but parked (hidden from search) until someone
  * picks keep original / replace / keep both.
+ *
+ * `reader` is the language the importer reads in: when the recipe came in another one,
+ * that translation is made before returning; every other language follows in the background.
  */
-export async function ingest(req: IngestRequest, userId: string | null): Promise<IngestResult> {
+export async function ingest(req: IngestRequest, userId: string | null, reader?: Locale): Promise<IngestResult> {
   const sourceId = await saveSource(req, userId);
   try {
-    const recipeId = await processSource(sourceId, req, userId);
+    const { id: recipeId, language } = await processSource(sourceId, req, userId);
     await db().update(sources).set({ status: "done" }).where(eq(sources.id, sourceId));
-    // Every app language gets its version now, so no one waits for it later.
     const [duplicate] = await Promise.all([
       findDuplicate(recipeId).catch((err) => {
         console.error("duplicate check failed", err);
         return null;
       }),
-      ensureTranslations(recipeId),
+      reader && reader !== language ? ensureTranslations(recipeId, [reader]) : null,
     ]);
+    // Every app language gets its version now, so no one waits for it later.
+    after(() => ensureTranslations(recipeId));
     if (duplicate) {
       await db().update(recipes).set({ duplicateOf: duplicate.id }).where(eq(recipes.id, recipeId));
     }
@@ -82,7 +88,11 @@ async function saveSource(req: IngestRequest, userId: string | null): Promise<st
   return row.id;
 }
 
-async function processSource(sourceId: string, req: IngestRequest, userId: string | null): Promise<string> {
+async function processSource(
+  sourceId: string,
+  req: IngestRequest,
+  userId: string | null,
+): Promise<{ id: string; language: string }> {
   let input: ExtractInput;
   let heroImage: string | null = null;
 
@@ -111,7 +121,7 @@ async function processSource(sourceId: string, req: IngestRequest, userId: strin
     .returning({ id: recipes.id });
 
   await linkIngredients(recipe.id, content.ingredients);
-  return recipe.id;
+  return { id: recipe.id, language: content.language };
 }
 
 /** Extract + enrich + embed: everything about a recipe that the LLM derives. */

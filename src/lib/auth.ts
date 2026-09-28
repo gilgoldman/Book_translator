@@ -103,7 +103,19 @@ export async function endSession() {
 export const getSession = cache(async (): Promise<Session | null> => {
   const payload = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (!payload) return null;
-  const user = await db().query.users.findFirst({ where: eq(users.id, payload.userId) });
+  const user = await db().query.users.findFirst({
+    where: eq(users.id, payload.userId),
+    columns: {
+      id: true,
+      username: true,
+      isAdmin: true,
+      displayName: true,
+      avatarUrl: true,
+      locale: true,
+      status: true,
+      sessionVersion: true,
+    },
+  });
   if (!user || user.status !== "approved" || user.sessionVersion !== payload.v) return null;
   return {
     userId: user.id,

@@ -85,6 +85,11 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 
 Schema changes: edit `src/db/schema.ts`, then `npm run db:generate`.
 
+Prompt or format changes: bumping `PROMPT_VERSION` (`src/lib/translations.ts`) or
+`ENRICHMENT_VERSION` (`src/lib/recipe-types.ts`) marks every translation or effective view as
+out of date. Readers keep seeing the older translation while a new one is made on their next
+view; to redo them all at once, deploy and then run `npm run translate`.
+
 ### Adding a language
 
 1. Add it to `LOCALES` in `src/lib/i18n/config.ts`.

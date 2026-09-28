@@ -1,6 +1,7 @@
-// Translates every recipe into every app language it's missing, and names every
-// ingredient. Run after adding a language. (Recipes also translate themselves the
-// first time someone opens them in a new language, so this is only a head start.)
+// Translates every recipe into every app language it's missing or has out of date, and
+// names every ingredient. Run after adding a language, and after bumping PROMPT_VERSION
+// (src/lib/translations.ts) or ENRICHMENT_VERSION (src/lib/recipe-types.ts). Recipes also
+// redo themselves the first time someone opens them, so this is only a head start.
 import "dotenv/config";
 import { db, ingredients, recipes } from "../src/db";
 import { ensureIngredientNames } from "../src/lib/ingredient-names";

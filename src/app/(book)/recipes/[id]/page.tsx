@@ -3,24 +3,26 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { cache } from "react";
 import { DuplicatePrompt } from "@/components/duplicate-prompt";
 import { Icon } from "@/components/icons";
 import { RecipeExtras } from "@/components/recipe-extras";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
 import { TranslationNote } from "@/components/translation-note";
-import { db, recipes, sources, users } from "@/db";
+import { db, recipeColumns, recipes, sources, users } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
 import { dirFor } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 import { localNames } from "@/lib/ingredient-names";
-import { enrichmentOutdated, ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { asWritten, ensureTranslations, localizeRecipe } from "@/lib/translations";
 
-async function load(id: string) {
+// Cached per request: the page and its metadata share one query.
+const load = cache(async (id: string) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  return db().query.recipes.findFirst({ where: eq(recipes.id, id) });
-}
+  return db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
+});
 
 export async function generateMetadata({ params }: PageProps<"/recipes/[id]">) {
   const [r, t] = await Promise.all([load((await params).id), getT()]);
@@ -33,17 +35,20 @@ export default async function RecipePage({ params, searchParams }: PageProps<"/r
   const r = await load((await params).id);
   if (!r) notFound();
   const showOriginal = (await searchParams).original === "1";
-  const localized = showOriginal
-    ? { recipe: r, status: "original" as const, language: r.language }
-    : localizeRecipe(r, t.locale);
+  const localized = showOriginal ? asWritten(r) : localizeRecipe(r, t.locale);
   // Missing or out of date (an older recipe, or a failed call): make it now for next time.
-  if (localized.status === "pending" || enrichmentOutdated(r)) after(() => ensureTranslations(r.id, [t.locale]));
+  if (localized.refresh) after(() => ensureTranslations(r.id, [t.locale]));
   const shown = localized.recipe;
 
   const [original, source, uploader, names] = await Promise.all([
     r.duplicateOf ? load(r.duplicateOf) : null,
     r.sourceId ? db().query.sources.findFirst({ where: eq(sources.id, r.sourceId) }) : null,
-    r.createdBy ? db().query.users.findFirst({ where: eq(users.id, r.createdBy) }) : null,
+    r.createdBy
+      ? db().query.users.findFirst({
+          where: eq(users.id, r.createdBy),
+          columns: { username: true, displayName: true, avatarUrl: true },
+        })
+      : null,
     localNames(r.ingredients.map((i) => i.canonical), t.locale),
   ]);
   if (original) {

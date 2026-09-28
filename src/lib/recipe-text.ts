@@ -44,8 +44,11 @@ export const recipeTextSchema = z.object({
 });
 export type RecipeText = z.infer<typeof recipeTextSchema>;
 
-/** What's stored per language: the translated words plus the hash of the words they came from. */
-export type RecipeTranslation = RecipeText & { hash: string };
+/**
+ * What's stored per language: the translated words, the hash of the words they came from,
+ * and the hash of just the recipe's own words (missing on translations made before it).
+ */
+export type RecipeTranslation = RecipeText & { hash: string; source?: string };
 
 export type RecipeContent = {
   title: string;
@@ -94,21 +97,35 @@ const sameLength = (a: readonly unknown[], b: readonly unknown[] | undefined) =>
 
 /**
  * The recipe with translated words swapped in. Anything whose shape doesn't line up with
- * the original (a missing step, a bad ingredient index) keeps the original words, so a
- * sloppy translation can never break a view.
+ * the original (a missing step, a bad ingredient index, a part saved in an older format)
+ * keeps the original words, so a sloppy or outdated translation can never break a view.
  */
-export function applyText<R extends RecipeContent>(r: R, text: RecipeText): R {
+export function applyText<R extends RecipeContent>(r: R, stored: RecipeText): R {
+  // A translation saved before the app changed this shape: each part must still fit it.
+  const part = <K extends keyof RecipeText>(key: K) => {
+    const parsed = recipeTextSchema.shape[key].safeParse(stored[key]);
+    return parsed.success ? (parsed.data as RecipeText[K]) : undefined;
+  };
+  const text = {
+    ingredients: part("ingredients"),
+    steps: part("steps"),
+    recap: part("recap"),
+    effectiveSteps: part("effectiveSteps"),
+    ratio: part("ratio"),
+  };
+
   const ingredients = sameLength(r.ingredients, text.ingredients)
-    ? r.ingredients.map((i, k) => ({ ...i, ...text.ingredients[k] }))
+    ? r.ingredients.map((i, k) => ({ ...i, ...text.ingredients![k] }))
     : r.ingredients;
 
   const steps = sameLength(r.steps, text.steps)
-    ? r.steps.map((s, k) => ({
-        text: text.steps[k].text,
-        timers: sameLength(s.timers, text.steps[k].timers)
-          ? s.timers.map((t, j) => ({ ...t, label: text.steps[k].timers[j] }))
-          : s.timers,
-      }))
+    ? r.steps.map((s, k) => {
+        const t = text.steps![k];
+        return {
+          text: t.text,
+          timers: sameLength(s.timers, t.timers) ? s.timers.map((x, j) => ({ ...x, label: t.timers[j] })) : s.timers,
+        };
+      })
     : r.steps;
 
   let enrichment = r.enrichment;
@@ -128,10 +145,10 @@ export function applyText<R extends RecipeContent>(r: R, text: RecipeText): R {
     const tr = text.ratio;
     enrichment = {
       ...e,
-      recap: sameLength(e.recap, text.recap) ? text.recap : e.recap,
+      recap: sameLength(e.recap, text.recap) ? text.recap! : e.recap,
       effectiveSteps: sameLength(e.effectiveSteps, text.effectiveSteps)
         ? e.effectiveSteps.map((s, k) => {
-            const t = text.effectiveSteps[k];
+            const t = text.effectiveSteps![k];
             return {
               segments: translatedSegments(s.segments, t),
               timers: sameLength(s.timers, t.timers) ? s.timers.map((x, j) => ({ ...x, label: t.timers[j] })) : s.timers,
@@ -154,9 +171,9 @@ export function applyText<R extends RecipeContent>(r: R, text: RecipeText): R {
 
   return {
     ...r,
-    title: text.title || r.title,
-    description: text.description,
-    servings: text.servings,
+    title: stored.title || r.title,
+    description: stored.description,
+    servings: stored.servings,
     ingredients,
     steps,
     enrichment,

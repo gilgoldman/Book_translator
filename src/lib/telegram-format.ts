@@ -172,6 +172,19 @@ export function parseDuplicateCallback(data: string): DuplicateCallback | null {
   return m ? { id: m[1], choice: DUP_CODES[m[2] as keyof typeof DUP_CODES], locale: localeOf(m[3]) } : null;
 }
 
+/**
+ * Under "I heard: …" for a voice note taken as a question: save it as a recipe after all.
+ * The voice note itself is the message this one replies to, so the button carries only the language.
+ */
+export function saveVoiceKeyboard(t: BotTranslator) {
+  return { inline_keyboard: [[{ text: t("tg.saveVoice"), callback_data: `s:${t.locale}` }]] };
+}
+
+export function parseSaveVoiceCallback(data: string): { locale: Locale | null } | null {
+  const m = data.match(/^s(?::(\w+))?$/);
+  return m ? { locale: localeOf(m[1]) } : null;
+}
+
 export function renderDuplicatePrompt(
   newTitle: string,
   originalTitle: string,

@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { db, pendingMedia, recipeColumns, recipes, sources, users } from "@/db";
 import { isAiBusy } from "@/lib/ai/errors";
 import { suggestSubstitutes } from "@/lib/ai/substitute";
+import { hearVoiceNote } from "@/lib/ai/voice";
 import { checkCredentials } from "@/lib/auth";
 import { resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
@@ -24,11 +25,13 @@ import {
   openKeyboard,
   parseCallback,
   parseDuplicateCallback,
+  parseSaveVoiceCallback,
   renderAbundance,
   renderDuplicatePrompt,
   renderRecipe,
   renderResults,
   renderSubstitution,
+  saveVoiceKeyboard,
   variant,
   viewKeyboard,
   type BotTranslator,
@@ -124,6 +127,7 @@ async function handle(update: TgUpdate) {
   const media = pickMedia(msg);
   if (media) {
     if (msg.media_group_id) return collectAlbum(msg, media);
+    if (media.kind === "audio") return voiceNote(msg, media, user, language);
     return importAndReply(chatId, user.id, t, msg.message_id, async () => ({
       kind: media.kind,
       caption: msg.caption,
@@ -139,12 +143,56 @@ async function handle(update: TgUpdate) {
   if (intent.kind === "import") {
     return importAndReply(chatId, user.id, t, msg.message_id, async () => ({ kind: "text", text: intent.text }));
   }
-  if (intent.kind === "search") {
-    const ingredientIntent = parseIngredientIntent(intent.query);
-    if (ingredientIntent?.kind === "abundance") return abundanceReply(chatId, ingredientIntent.ingredient, t);
-    if (ingredientIntent?.kind === "substitute") return substituteReply(chatId, ingredientIntent.ingredient, t);
-    return searchAndReply(chatId, intent.query, t);
+  if (intent.kind === "search") return answer(chatId, intent.query, t);
+}
+
+/** A question, typed or spoken: "I have a lot of…", "no…", or a search. */
+async function answer(chatId: number, query: string, t: BotTranslator) {
+  const ingredientIntent = parseIngredientIntent(query);
+  if (ingredientIntent?.kind === "abundance") return abundanceReply(chatId, ingredientIntent.ingredient, t);
+  if (ingredientIntent?.kind === "substitute") return substituteReply(chatId, ingredientIntent.ingredient, t);
+  return searchAndReply(chatId, query, t);
+}
+
+/**
+ * A voice note is either a question for the cookbook or a recipe to save. A quick listen decides;
+ * a question is answered under "I heard: …" with a button to save it as a recipe after all.
+ * If the listen fails, it's imported as a recipe, as before.
+ */
+async function voiceNote(
+  msg: TgMessage,
+  media: { kind: "image" | "audio"; fileId: string; mediaType: string },
+  user: { id: string; locale: string | null },
+  language?: string,
+) {
+  const chatId = msg.chat.id;
+  react(chatId, msg.message_id, BOT.reactions.reading);
+  typing(chatId);
+  const file = await fetchFile(media.fileId, media.mediaType).catch(() => null);
+  const heard = file
+    ? await hearVoiceNote(file, msg.caption).catch((err) => {
+        console.error("voice note: couldn't tell question from recipe", err);
+        return null;
+      })
+    : null;
+
+  if (heard?.kind === "question" && heard.query) {
+    const t = translatorForChat(user, language, heard.query);
+    await send(chatId, t("tg.heard", { query: esc(heard.query) }), {
+      reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true },
+      reply_markup: saveVoiceKeyboard(t),
+    });
+    await answer(chatId, heard.query, t);
+    react(chatId, msg.message_id, BOT.reactions.answered);
+    return;
   }
+  const t = translatorForChat(user, language, msg.caption);
+  return importAndReply(chatId, user.id, t, msg.message_id, async () => ({
+    kind: "audio",
+    caption: msg.caption,
+    // A failed download is tried once more here, where a failure gets its "couldn't read that".
+    files: [file ?? (await fetchFile(media.fileId, media.mediaType))],
+  }));
 }
 
 async function abundanceReply(chatId: number, text: string, t: BotTranslator) {
@@ -309,9 +357,27 @@ async function handleCallback(cb: NonNullable<TgUpdate["callback_query"]>) {
   const user = await linkedUser(chatId);
   if (!user) return;
   const dup = parseDuplicateCallback(cb.data);
-  const parsed = dup ? null : parseCallback(cb.data);
+  const saveVoice = dup ? null : parseSaveVoiceCallback(cb.data);
+  const parsed = dup || saveVoice ? null : parseCallback(cb.data);
   // Answer in the language the buttons were written in.
-  const t = botTranslator(dup?.locale ?? parsed?.locale ?? chatLocale(user, cb.from?.language_code));
+  const t = botTranslator(dup?.locale ?? saveVoice?.locale ?? parsed?.locale ?? chatLocale(user, cb.from?.language_code));
+
+  if (saveVoice) {
+    // "I heard: …" replies to the voice note, so that's where the recipe is.
+    const voice = cb.message?.reply_to_message;
+    const media = voice && pickMedia(voice);
+    if (!voice || media?.kind !== "audio") return send(chatId, esc(t("tg.couldnt")));
+    await tg("editMessageReplyMarkup", {
+      chat_id: chatId,
+      message_id: cb.message!.message_id,
+      reply_markup: { inline_keyboard: [] },
+    }).catch(() => {});
+    return importAndReply(chatId, user.id, t, voice.message_id, async () => ({
+      kind: "audio",
+      caption: voice.caption,
+      files: [await fetchFile(media.fileId, media.mediaType)],
+    }));
+  }
 
   if (dup) {
     try {

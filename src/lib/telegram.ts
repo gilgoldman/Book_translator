@@ -76,7 +76,7 @@ export type TgUpdate = {
     id: string;
     from?: { language_code?: string };
     data?: string;
-    message?: { message_id: number; chat: { id: number } };
+    message?: { message_id: number; chat: { id: number }; reply_to_message?: TgMessage };
   };
 };
 

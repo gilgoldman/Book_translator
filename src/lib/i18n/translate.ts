@@ -9,7 +9,7 @@ type Plural = { zero?: string; one?: string; two?: string; few?: string; many?: 
 export type Message = string | Plural;
 export type Messages = Record<MessageKey, Message>;
 export type Vars = Record<string, string | number>;
-/** Looks up words by key; the app's by default, or another set such as the Telegram bot's. */
+/** Looks up words by key; the app's by default, or another set such as the chat assistant's. */
 export type Translator<K extends string = MessageKey> = ((key: K, vars?: Vars) => string) & { locale: Locale };
 
 const fill = (template: string, vars?: Vars) =>

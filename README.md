@@ -69,8 +69,9 @@ Recommended in the Vercel dashboard (free on Hobby):
    English and Hebrew (the build log says "Telegram bot synced"). No terminal needed.
 3. In Telegram send the bot `/login username password` (the message is deleted right away).
 
-**Changing the bot**: everything it says (in both languages), its menu, reactions, look and
-limits live in one file, `src/lib/telegram-bot.ts`. Edit it and deploy.
+**Changing the bot**: its personality is one file, `src/lib/assistant/persona.ts`: everything
+it says (in both languages), its reactions, look and limits. Edit it and deploy. Only Telegram's
+`/` menu, profile and sign-in words are in `src/lib/channels/telegram/settings.ts`.
 
 It answers in the language you write to it in. Send photos (an album = one recipe), links,
 voice notes, pasted text, or questions:
@@ -105,6 +106,19 @@ view; to redo them all at once, deploy and then run `npm run translate`.
 3. Deploy, then `npm run translate` to give existing recipes and ingredients the new language
    (recipes also translate themselves the first time someone opens them in it).
 4. Optional: phrasing for "I have a lot of…" in `src/lib/ingredient-intent.ts`.
+
+### Adding a chat channel
+
+The assistant (`src/lib/assistant`) knows nothing about Telegram; Telegram is one channel
+(`src/lib/channels/telegram`). Another one, say WhatsApp, is a folder next to it that:
+
+1. Receives messages (a webhook in `src/app/api/<channel>/route.ts`) and knows who is writing
+   (Telegram links a chat to an account with `/login`).
+2. Hands each message to `onMessage` and each button tap to `onTap`, with a `Chat` that sends
+   the replies. `src/lib/assistant/chat.ts` lists what a channel gives and gets.
+3. Turns the replies' rich text (`<b>`, `<i>`, `<code>`) and buttons into its own format.
+
+`src/lib/assistant/index.test.ts` drives the assistant through a pretend channel.
 
 ### Switching LLM vendor
 

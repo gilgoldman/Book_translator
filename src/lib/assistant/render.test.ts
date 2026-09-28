@@ -1,29 +1,29 @@
 import { describe, expect, it } from "vitest";
+import type { Action, Button } from "./chat";
+import { speaker } from "./language";
 import {
-  botTranslator,
-  classifyText,
-  duplicateKeyboard,
+  duplicateButtons,
   num,
-  openKeyboard,
-  parseCallback,
-  parseDuplicateCallback,
+  openButtons,
   renderAbundance,
   renderRecipe,
   renderResults,
   renderSubstitution,
-  parseSaveVoiceCallback,
-  recipeIdOf,
-  saveVoiceKeyboard,
+  saveVoiceButtons,
   variant,
-  viewKeyboard,
-  type TgRecipe,
-} from "./telegram-format";
-const en = botTranslator("en");
-const he = botTranslator("he");
+  viewButtons,
+  type ShownRecipe,
+} from "./render";
+
+const en = speaker("en");
+const he = speaker("he");
+
+/** What a set of buttons does, in order. */
+const actions = (rows: Button[][]): Action[] => rows.flat().flatMap((b) => ("action" in b ? [b.action] : []));
 
 const id = "0b6c2f7e-1d7e-4a57-9e36-0a5e3f2b8c11";
 
-const recipe: TgRecipe = {
+const recipe: ShownRecipe = {
   id,
   title: "Pâte brisée",
   subtitle: "Shortcrust pastry",
@@ -83,7 +83,7 @@ describe("renderRecipe", () => {
     expect(out).toContain("💡 <i>Less water, more tender.</i>");
   });
 
-  it("stays under Telegram's limit", () => {
+  it("stays under chat apps' message limit", () => {
     const long = { ...recipe, steps: Array.from({ length: 400 }, () => ({ text: "Stir well and wait.", timers: [] })) };
     expect(renderRecipe(long, "classic", en).length).toBeLessThanOrEqual(4000);
   });
@@ -92,7 +92,7 @@ describe("renderRecipe", () => {
     const out = renderRecipe({ ...recipe, addedBy: "גיל" }, "effective", he);
     expect(out).toContain("צרפתי · אפייה · 🗓 כל השנה · ⏱ 1 שע׳ 15 דק׳ · כמות: 1 tart");
     expect(out).toContain("נוסף על ידי גיל");
-    expect(viewKeyboard(id, "classic", he).inline_keyboard.flat().map((b) => b.text)).toEqual([
+    expect(viewButtons(id, "classic", he).flat().map((b) => b.label)).toEqual([
       "🔥 בישול",
       "· 📜 קלאסי ·",
       "⚖️ יחסים",
@@ -101,28 +101,29 @@ describe("renderRecipe", () => {
   });
 });
 
-describe("callbacks", () => {
-  it("round-trips view buttons within 64 bytes, in the language they were written in", () => {
-    const kb = viewKeyboard(id, "effective", he, "https://book.test");
-    const views = kb.inline_keyboard.flat().filter((b) => b.callback_data);
-    expect(views).toHaveLength(4);
-    for (const b of views) {
-      expect(Buffer.byteLength(b.callback_data!)).toBeLessThanOrEqual(64);
-      expect(parseCallback(b.callback_data!)).toMatchObject({ id, locale: "he" });
-    }
-    expect(kb.inline_keyboard.at(-1)).toEqual([{ text: "📖 לפתוח בספר", url: `https://book.test/recipes/${id}` }]);
-    expect(parseCallback("v:nope:effective")).toBeNull();
-    // Buttons sent before they carried a language still work.
-    expect(parseCallback(`o:${id}`)).toEqual({ id, view: "effective", open: true, locale: null });
-    expect(parseCallback(`v:${id}:ratios`)).toEqual({ id, view: "ratios", open: false, locale: null });
+describe("buttons", () => {
+  it("switch between the four views, in the language they were written in, then link to the app", () => {
+    const rows = viewButtons(id, "effective", he, "https://book.test");
+    expect(actions(rows)).toEqual(
+      (["effective", "classic", "ratios", "source"] as const).map((view) => ({ kind: "view", recipeId: id, view, locale: "he" })),
+    );
+    expect(rows.at(-1)).toEqual([{ label: "📖 לפתוח בספר", url: `https://book.test/recipes/${id}` }]);
+    expect(viewButtons(id, "effective", he)).toHaveLength(2);
   });
 
-  it("numbers recipe lists and opens them in the same language", () => {
-    const kb = openKeyboard([{ id, title: "Leek & feta tart" }], en);
-    expect(kb.inline_keyboard[0][0].text).toBe("1️⃣ Leek & feta tart");
-    expect(parseCallback(kb.inline_keyboard[0][0].callback_data)).toEqual({ id, view: "effective", open: true, locale: "en" });
-    const long = openKeyboard([{ id, title: "🥧".repeat(80) }], en).inline_keyboard[0][0].text;
-    expect([...long]).toHaveLength(60);
+  it("number recipe lists and open them in the same language", () => {
+    const rows = openButtons([{ id, title: "Leek & feta tart" }], en);
+    expect(rows).toEqual([[{ label: "1️⃣ Leek & feta tart", action: { kind: "open", recipeId: id, locale: "en" } }]]);
+  });
+
+  it("offer the three duplicate choices", () => {
+    expect(actions(duplicateButtons(id, he))).toEqual(
+      (["keep-original", "replace", "keep-both"] as const).map((choice) => ({ kind: "duplicate", recipeId: id, choice, locale: "he" })),
+    );
+  });
+
+  it("save a voice note taken as a question", () => {
+    expect(actions(saveVoiceButtons(he))).toEqual([{ kind: "saveVoice", locale: "he" }]);
   });
 });
 
@@ -135,53 +136,13 @@ describe("little touches", () => {
     expect(variant("a|b|c", 4)).toBe("b");
     expect(variant("a|b|c", 4)).toBe(variant("a|b|c", 4));
     expect(variant("only", 7)).toBe("only");
+    // Channels whose message ids are strings.
+    expect(variant("a|b|c", "wamid.123")).toBe(variant("a|b|c", "wamid.123"));
   });
 
   it("lists search results with what they need", () => {
     const out = renderResults([{ title: "Tart", match: { missing: 2 } }, { title: "Soup", match: { missing: 0 } }, { title: "Pie" }], en);
     expect(out).toBe("1️⃣ Tart — <i>🛒 needs 2 more</i>\n2️⃣ Soup — <i>✅ you have it all</i>\n3️⃣ Pie");
-  });
-});
-
-describe("classifyText", () => {
-  it("understands commands", () => {
-    expect(classifyText("/login gil secret pass")).toEqual({ kind: "login", username: "gil", password: "secret pass" });
-    expect(classifyText("/find leeks")).toEqual({ kind: "search", query: "leeks" });
-  });
-
-  it("treats a bare link as an import", () => {
-    expect(classifyText("https://example.test/tatin")).toEqual({ kind: "url", url: "https://example.test/tatin" });
-  });
-
-  it("treats short text as a search and long text as a pasted recipe", () => {
-    expect(classifyText("leeks, eggs, feta")).toEqual({ kind: "search", query: "leeks, eggs, feta" });
-    expect(classifyText("Soup\n2 leeks\n1 l stock\nSweat leeks\nAdd stock").kind).toBe("import");
-  });
-});
-
-describe("duplicate prompt", () => {
-  it("round-trips the three choices", () => {
-    const rows = duplicateKeyboard(id, he).inline_keyboard.flat();
-    expect(rows.map((b) => parseDuplicateCallback(b.callback_data)?.choice)).toEqual([
-      "keep-original",
-      "replace",
-      "keep-both",
-    ]);
-    expect(rows.every((b) => parseDuplicateCallback(b.callback_data)?.locale === "he")).toBe(true);
-    expect(parseDuplicateCallback(`d:${id}:o`)).toEqual({ id, choice: "keep-original", locale: null });
-    expect(parseDuplicateCallback(`d:${id}:x`)).toBeNull();
-  });
-});
-
-describe("voice note taken as a question", () => {
-  it("round-trips the save-it-as-a-recipe button, and no other button parses as it", () => {
-    const [button] = saveVoiceKeyboard(he).inline_keyboard.flat();
-    expect(parseSaveVoiceCallback(button.callback_data)).toEqual({ locale: "he" });
-    expect(parseSaveVoiceCallback("s")).toEqual({ locale: null });
-    expect(parseSaveVoiceCallback(`d:${id}:o:he`)).toBeNull();
-    expect(parseSaveVoiceCallback(`o:${id}:he`)).toBeNull();
-    expect(parseCallback(button.callback_data)).toBeNull();
-    expect(parseDuplicateCallback(button.callback_data)).toBeNull();
   });
 });
 
@@ -210,12 +171,6 @@ describe("ingredient-first replies", () => {
     expect(swap).toContain("<b>🔄 yogurt instead of buttermilk in Pancakes?</b>");
     expect(swap).toContain("<b>⚠️ Works, with changes</b> — 200 g + 50 ml water");
     expect(swap).toContain("<b>Other options:</b>\n1️⃣ <b>Milk + lemon</b>");
-  });
-
-  it("reads the recipe id off a recipe message's buttons", () => {
-    expect(recipeIdOf(viewKeyboard(id, "effective", en, "https://app"))).toBe(id);
-    expect(recipeIdOf(openKeyboard([{ id, title: "Pancakes" }], en))).toBeNull();
-    expect(recipeIdOf(undefined)).toBeNull();
   });
 
   it("keeps old cached answers without a verdict working", () => {

@@ -1,10 +1,10 @@
 // Brings the Telegram bot in line with this deployment: its webhook, / menu and profile texts
-// in every app language (all set in src/lib/telegram-bot.ts). Runs by itself after every
-// production build on Vercel; `npm run telegram:sync` does the same by hand. Never fails
-// the build: at worst the bot keeps its previous menu and profile.
+// in every app language (all set in src/lib/channels/telegram/settings.ts). Runs by itself
+// after every production build on Vercel; `npm run telegram:sync` does the same by hand.
+// Never fails the build: at worst the bot keeps its previous menu and profile.
 import "dotenv/config";
 import { DEFAULT_LOCALE, LOCALE_CODES } from "../src/lib/i18n/config";
-import { BOT, BOT_WORDS } from "../src/lib/telegram-bot";
+import { TELEGRAM, TELEGRAM_WORDS } from "../src/lib/channels/telegram/settings";
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, APP_URL, VERCEL, VERCEL_ENV } = process.env;
 
@@ -44,9 +44,9 @@ await call("setWebhook", {
 
 // The default language is what everyone else sees; the others follow each person's Telegram language.
 for (const locale of LOCALE_CODES) {
-  const words = BOT_WORDS[locale];
+  const words = TELEGRAM_WORDS[locale];
   const language = locale === DEFAULT_LOCALE ? {} : { language_code: locale };
-  const commands = BOT.commands.map((command) => ({ command, description: words[`tg.cmd.${command}`] }));
+  const commands = TELEGRAM.commands.map((command) => ({ command, description: words[`tg.cmd.${command}`] }));
   await call("setMyCommands", { commands, ...language }, `${locale} menu`);
   await call("setMyShortDescription", { short_description: words["tg.about"], ...language }, `${locale} about`);
   await call("setMyDescription", { description: words["tg.intro"], ...language }, `${locale} intro`);

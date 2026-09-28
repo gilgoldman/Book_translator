@@ -32,7 +32,7 @@ import { ingest, NotARecipeError, restructureRecipe, type IngestRequest } from "
 import { findUrl } from "@/lib/ingest/url";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
 import { COURSES, CUISINES, DIETS, SEASONS, type Substitution } from "@/lib/recipe-types";
-import { notifyOwner } from "@/lib/telegram";
+import { notifyOwner } from "@/lib/channels/telegram/api";
 import { ensureTranslations } from "@/lib/translations";
 
 // `values` echoes non-secret fields so a failed submit doesn't make people retype them.

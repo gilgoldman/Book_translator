@@ -88,7 +88,7 @@ async function saveSource(req: IngestRequest, userId: string | null): Promise<st
   return row.id;
 }
 
-async function processSource(
+export async function processSource(
   sourceId: string,
   req: IngestRequest,
   userId: string | null,

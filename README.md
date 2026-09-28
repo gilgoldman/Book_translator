@@ -95,6 +95,13 @@ Prompt or format changes: bumping `PROMPT_VERSION` (`src/lib/translations.ts`) o
 out of date. Readers keep seeing the older translation while a new one is made on their next
 view; to redo them all at once, deploy and then run `npm run translate`.
 
+### Seed recipes
+
+`scripts/seed/*.json` holds recipes to load in bulk (`mom-cookbook.json`: 264 recipes from
+Mom's Word cookbook, one entry per recipe, text as written). `npm run seed` imports them through
+the normal pipeline under the owner's account; it needs `DATABASE_URL` and
+`GOOGLE_GENERATIVE_AI_API_KEY`, and a re-run skips what's already in.
+
 ### Adding a language
 
 1. Add it to `LOCALES` in `src/lib/i18n/config.ts`.

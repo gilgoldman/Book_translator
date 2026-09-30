@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { A11yControls } from "@/components/a11y-controls";
+import { AppMenu } from "@/components/app-menu";
 import { Avatar } from "@/components/avatar";
+import { ChatWidget } from "@/components/chat-widget";
 import { Icon } from "@/components/icons";
 import { LanguageSwitch } from "@/components/language-switch";
 import { TimersProvider } from "@/components/timers";
@@ -22,23 +24,26 @@ export default async function BookLayout({ children }: LayoutProps<"/">) {
             <Link href="/add" className="btn btn-primary">
               <Icon name="plus" /> {t("nav.add")}
             </Link>
-            <LanguageSwitch />
-            <A11yControls />
-            {me.isAdmin && (
-              <Link href="/settings" className="btn">
-                {t("nav.people")}
+            <AppMenu>
+              <LanguageSwitch />
+              <A11yControls />
+              {me.isAdmin && (
+                <Link href="/settings" className="btn">
+                  {t("nav.people")}
+                </Link>
+              )}
+              <Link href="/profile" className="me" aria-label={t("nav.profile", { name: me.displayName })}>
+                <Avatar name={me.displayName} src={me.avatarUrl} />
+                {me.displayName}
               </Link>
-            )}
-            <Link href="/profile" className="me" aria-label={t("nav.profile", { name: me.displayName })}>
-              <Avatar name={me.displayName} src={me.avatarUrl} />
-              {me.displayName}
-            </Link>
+            </AppMenu>
           </nav>
         </div>
       </header>
       <main id="main" className="page">
         {children}
       </main>
+      <ChatWidget userId={me.userId} />
     </TimersProvider>
   );
 }

@@ -177,12 +177,25 @@ function TimerTray({
   setTimers: React.Dispatch<React.SetStateAction<Timer[]>>;
 }) {
   const t = useT();
-  if (timers.length === 0) return null;
+  const tray = useRef<HTMLElement>(null);
+  const shown = timers.length > 0;
+  // Its height, so things pinned to the bottom (the chat button) sit above it.
+  useEffect(() => {
+    const root = document.documentElement.style;
+    if (!shown || !tray.current) return;
+    const observer = new ResizeObserver(([entry]) => root.setProperty("--tray-h", `${entry.borderBoxSize[0].blockSize}px`));
+    observer.observe(tray.current);
+    return () => {
+      observer.disconnect();
+      root.removeProperty("--tray-h");
+    };
+  }, [shown]);
+  if (!shown) return null;
   const update = (id: string, f: (t: Timer) => Timer | null) =>
     setTimers((list) => list.flatMap((t) => (t.id === id ? (f(t) ?? []) : [t])));
 
   return (
-    <aside className="timer-tray" aria-label={t("timers.title")}>
+    <aside ref={tray} className="timer-tray" aria-label={t("timers.title")}>
       <p className="tray-head">
         <Icon name="clock" /> {t("timers.title")}
       </p>

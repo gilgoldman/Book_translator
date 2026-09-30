@@ -38,7 +38,7 @@ import {
 
 export type * from "./chat";
 
-const appUrl = () => process.env.APP_URL?.replace(/\/$/, "");
+const appUrl = () => process.env.APP_URL?.replace(/\/$/, "") || undefined;
 
 /** A recipe to file, a question, or a call for help. */
 export async function onMessage(chat: Chat, person: Person, msg: Incoming) {
@@ -345,7 +345,7 @@ async function showRecipe(chat: Chat, person: Person, id: string, view: RecipeVi
       t,
       source ?? null,
     ),
-    buttons: viewButtons(r.id, view, t, appUrl()),
+    buttons: viewButtons(r.id, view, t, chat.appUrl ?? appUrl()),
   };
   await (replace === undefined ? chat.send(reply) : chat.edit(replace, reply));
   // What they're looking at now: a "no buttermilk?" next is about this recipe.

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
+import { SearchMic } from "@/components/search-mic";
 import { db, users } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { pendingDuplicates } from "@/lib/dedupe";
@@ -46,6 +47,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <div className="search">
           <Icon name="search" />
           <input
+            // A new search (a link, the microphone) shows its words, not the last ones typed.
+            key={query}
             id="q"
             name="q"
             type="search"
@@ -54,6 +57,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             autoComplete="off"
             enterKeyHint="search"
           />
+          <SearchMic />
           <button className="primary">{t("home.search")}</button>
         </div>
         <p className="hint">

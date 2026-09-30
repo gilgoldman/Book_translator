@@ -117,14 +117,14 @@ export function renderRecipe(r: ShownRecipe, view: RecipeView, t: Speaker, sourc
 
 // Buttons carry the language they were written in, so tapping one answers in it too.
 
-/** The four views as a 2×2 grid, then a link to the app. */
+/** The four views as a 2×2 grid, then a link to the app ("" for a relative one). */
 export function viewButtons(id: string, current: RecipeView, t: Speaker, appUrl?: string): Button[][] {
   const buttons: Button[] = RECIPE_VIEWS.map((view) => ({
     label: view === current ? `· ${t(`bot.view.${view}`)} ·` : t(`bot.view.${view}`),
     action: { kind: "view", recipeId: id, view, locale: t.locale },
   }));
   const rows = [buttons.slice(0, 2), buttons.slice(2)];
-  if (appUrl) rows.push([{ label: t("bot.openInApp"), url: `${appUrl}/recipes/${id}` }]);
+  if (appUrl !== undefined) rows.push([{ label: t("bot.openInApp"), url: `${appUrl}/recipes/${id}` }]);
   return rows;
 }
 

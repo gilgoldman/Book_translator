@@ -20,6 +20,8 @@ details. Where to look:
 - `src/lib/channels/telegram/`: the Telegram channel. Callback data formats in `codec.ts` are
   fixed: buttons already in people's chats use them. `settings.ts` is Telegram-only words,
   synced to Telegram on deploy by `scripts/telegram-sync.ts`.
+- `src/lib/channels/web/`: the website's chat panel (`src/components/chat-widget.tsx`), through
+  `/api/chat`. Same assistant; replies stream back as `WebEvent`s (`protocol.ts`).
 - `src/lib/ingest/`, `src/lib/ai/`: importing recipes, and every model choice (`models.ts`).
 - `src/lib/i18n/`: app words per language; recipes are translated in `src/lib/translations.ts`.
 

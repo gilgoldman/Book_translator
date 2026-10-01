@@ -115,7 +115,8 @@ view; to redo them all at once, deploy and then run `npm run translate`.
 ### Adding a chat channel
 
 The chat bot is two parts. The assistant (`src/lib/assistant`) decides what to do and say, and
-knows nothing about Telegram. Telegram is one channel (`src/lib/channels/telegram`):
+knows nothing about Telegram. Telegram is one channel (`src/lib/channels/telegram`); the
+website's chat panel (the "Ask" button on every page) is another (`src/lib/channels/web`):
 
 | In `src/` | What it does |
 | --- | --- |
@@ -127,6 +128,10 @@ knows nothing about Telegram. Telegram is one channel (`src/lib/channels/telegra
 | `lib/channels/telegram/codec.ts` | Buttons as callback data (fixed formats: old buttons use them) |
 | `lib/channels/telegram/api.ts` | The Bot API |
 | `app/api/telegram/route.ts` | The webhook: checks the secret, answers at once |
+| `lib/channels/web/index.ts` | The website's chat: the browser's form in, replies out as events |
+| `app/api/chat/route.ts` | The website's chat: streams the replies back as they're sent |
+| `components/chat-widget.tsx` | The chat panel; keeps the conversation in the browser |
+| `app/api/voice-search/route.ts` | The search bar's microphone: speech to a search |
 
 Another channel, say WhatsApp, is a folder next to `telegram/` that:
 

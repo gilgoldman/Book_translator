@@ -20,6 +20,12 @@ const PATHS = {
   edit: "M4 20h4L19 9l-4-4L4 16Zm10-14 4 4",
   bell: "M6 16V11a6 6 0 1 1 12 0v5l2 2H4Zm4 4h4",
   globe: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9Z",
+  mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3",
+  chat: "M4 5h16v11H9l-5 4Z",
+  camera: "M4 8h3l2-3h6l2 3h3v11H4Zm8 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+  send: "M4 12 20 4l-4 16-4-7Zm8 1 8-9",
+  menu: "M4 6h16M4 12h16M4 18h16",
+  close: "M6 6l12 12M18 6 6 18",
 } as const;
 
 export type IconName = keyof typeof PATHS;

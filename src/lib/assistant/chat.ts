@@ -66,6 +66,8 @@ export type Chat = {
   channel: string;
   /** The channel's guess at their language, e.g. the language their Telegram is set to. */
   languageHint?: string;
+  /** Where "open in the cookbook" links point: "" for relative links. Defaults to APP_URL. */
+  appUrl?: string;
   send(reply: Reply, options?: { replyTo?: MessageRef }): Promise<MessageRef>;
   /** Replace a reply sent earlier. A channel that can't edit sends it anew. */
   edit(ref: MessageRef, reply: Reply): Promise<void>;

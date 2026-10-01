@@ -167,6 +167,8 @@ describe("buttons", () => {
     );
     expect(rows.at(-1)).toEqual([{ label: "📖 לפתוח בספר", url: `https://book.test/recipes/${id}` }]);
     expect(viewButtons(id, "effective", he)).toHaveLength(2);
+    // The website's chat links within the site.
+    expect(viewButtons(id, "effective", en, "").at(-1)).toEqual([{ label: "📖 Open in the cookbook", url: `/recipes/${id}` }]);
   });
 
   it("number recipe lists and open them in the same language", () => {

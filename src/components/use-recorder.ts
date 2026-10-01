@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { micProblem, type MicProblem } from "@/lib/mic";
 
 /**
- * Record from the microphone; `onDone` gets the recording when it stops. `failed` is set when
- * the browser won't give us the microphone (no permission, no mic).
+ * Record from the microphone; `onDone` gets the recording when it stops. `problem` says why
+ * the browser wouldn't give us the microphone, if it didn't (see src/lib/mic.ts).
  */
 export function useRecorder(onDone: (file: File) => void) {
   const [recording, setRecording] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [problem, setProblem] = useState<MicProblem | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const done = useRef(onDone);
   useEffect(() => {
@@ -16,12 +17,18 @@ export function useRecorder(onDone: (file: File) => void) {
   });
 
   async function start() {
-    setFailed(false);
+    setProblem(null);
     let stream: MediaStream;
     try {
+      // Asked straight from the tap: browsers only show "Allow microphone?" for one.
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setFailed(true);
+      if (typeof MediaRecorder === "undefined") {
+        stream.getTracks().forEach((track) => track.stop());
+        throw new TypeError("MediaRecorder is not supported");
+      }
+    } catch (err) {
+      console.warn("microphone refused", err);
+      setProblem(micProblem(err, navigator.userAgent));
       return;
     }
     const rec = new MediaRecorder(stream);
@@ -44,5 +51,12 @@ export function useRecorder(onDone: (file: File) => void) {
     recorder.current?.stop();
   }
 
-  return { recording, failed, start, stop, toggle: () => (recording ? stop() : void start()) };
+  return {
+    recording,
+    problem,
+    clearProblem: () => setProblem(null),
+    start,
+    stop,
+    toggle: () => (recording ? stop() : void start()),
+  };
 }

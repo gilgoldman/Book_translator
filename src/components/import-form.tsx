@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState, startTransition } from "react";
+import { useActionState, useMemo, useState, startTransition } from "react";
 import { importRecipe, type FormState } from "@/app/actions";
 import { useT } from "@/lib/i18n/client";
 import { downscaleImage } from "@/lib/image";
+import { MicHelp } from "./mic-help";
+import { useRecorder } from "./use-recorder";
 
 export function ImportForm() {
   const t = useT();
@@ -11,30 +13,12 @@ export function ImportForm() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
-  const [recording, setRecording] = useState(false);
-  const recorder = useRef<MediaRecorder | null>(null);
   const voiceUrl = useMemo(() => (voice ? URL.createObjectURL(voice) : null), [voice]);
-
-  async function toggleRecording() {
-    if (recording) {
-      recorder.current?.stop();
-      return;
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const rec = new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      const type = rec.mimeType.split(";")[0] || "audio/webm";
-      setVoice(new File(chunks, `voice.${type.split("/")[1]}`, { type }));
-      setRecording(false);
-    };
-    rec.start();
-    recorder.current = rec;
-    setRecording(true);
+  const recorder = useRecorder((file) => {
+    setVoice(file);
     setPhotos([]);
-  }
+  });
+  const recording = recorder.recording;
 
   async function submit() {
     const form = new FormData();
@@ -93,7 +77,7 @@ export function ImportForm() {
         <button
           type="button"
           className={`btn${recording ? " danger" : ""}`}
-          onClick={toggleRecording}
+          onClick={recorder.toggle}
           disabled={pending}
           aria-pressed={recording}
         >
@@ -105,6 +89,16 @@ export function ImportForm() {
           </button>
         )}
       </div>
+      {recorder.problem && (
+        <MicHelp
+          problem={recorder.problem}
+          onFile={(file) => {
+            recorder.clearProblem();
+            setVoice(file);
+            setPhotos([]);
+          }}
+        />
+      )}
       {voiceUrl && <audio controls src={voiceUrl} />}
 
       <button className="primary" disabled={!ready || pending || recording}>

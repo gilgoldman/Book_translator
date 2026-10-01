@@ -8,6 +8,7 @@ import { recipeOnScreen, WEB_CHAT, type WebEvent } from "@/lib/channels/web/prot
 import { useT } from "@/lib/i18n/client";
 import { downscaleImage } from "@/lib/image";
 import { Icon } from "./icons";
+import { MicHelp } from "./mic-help";
 import { RichText } from "./rich-text";
 import { useRecorder } from "./use-recorder";
 
@@ -308,10 +309,15 @@ export function ChatWidget({ userId }: { userId: string }) {
               {t("chat.recording")}
             </p>
           )}
-          {recorder.failed && (
-            <p className="chat-context" role="alert">
-              {t("chat.noMic")}
-            </p>
+          {recorder.problem && (
+            <MicHelp
+              className="chat-context"
+              problem={recorder.problem}
+              onFile={(file) => {
+                recorder.clearProblem();
+                void sendMessage({ files: [file] });
+              }}
+            />
           )}
 
           <form

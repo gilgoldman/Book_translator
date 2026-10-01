@@ -84,7 +84,13 @@ export const en = {
   "chat.error": "😕 Something went wrong. Try again?",
   "chat.slowDown": "🫖 Let's take a breather. Try again soon.",
   "chat.tooBig": "📦 That's too big to send. Try fewer photos or a shorter voice note.",
-  "chat.noMic": "🎙 Couldn't use the microphone. Check the browser's permission for this site.",
+  "mic.blocked": "🎙 The microphone is blocked for this site, so the browser didn't ask. Tap the 🔒 or ⓘ next to the web address, allow the microphone, and try again.",
+  "mic.system": "🎙 This device isn't letting your browser use the microphone. Allow it for the browser in the phone's or computer's settings, then try again.",
+  "mic.inApp": "🎙 This app's built-in browser won't share the microphone. Open the cookbook in Chrome or Safari (⋮ or ⋯ → Open in browser), or use your phone's recorder.",
+  "mic.noMic": "🎙 No microphone found.",
+  "mic.busy": "🎙 Another app is using the microphone. Close it and try again.",
+  "mic.unsupported": "🎙 This browser can't record here. Use your phone's recorder instead.",
+  "mic.pick": "🎙 Record with your phone instead",
 
   // durations
   "time.s": "{n}s",

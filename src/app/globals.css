@@ -516,7 +516,7 @@ input[name="username"], input[type="password"] { direction: ltr; text-align: sta
 }
 
 /* ---------- search out loud ---------- */
-.search-status { flex: 1 1 100%; margin: 0; padding-inline: var(--sp-2); color: var(--ink-2); font-size: var(--fs-sm); }
+.search-status { order: 10; flex: 1 1 100%; margin: 0; padding-inline: var(--sp-2); color: var(--ink-2); font-size: var(--fs-sm); }
 
 /* ---------- chat: a button in the corner, a panel (full screen on phones) ---------- */
 .chat-fab { position: fixed; z-index: 30; inset-inline-end: var(--gutter); bottom: calc(var(--tray-h, 0px) + var(--sp-4) + env(safe-area-inset-bottom));
@@ -561,3 +561,7 @@ input[name="username"], input[type="password"] { direction: ltr; text-align: sta
 .chat-compose textarea { flex: 1 1 100%; min-height: var(--tap); max-height: 8em; resize: none; field-sizing: content; }
 .chat-tools { flex: 1 1 100%; display: flex; gap: var(--sp-2); }
 .chat-tools .primary { margin-inline-start: auto; }
+
+/* ---------- when the microphone is refused ---------- */
+.mic-help { display: grid; gap: var(--sp-2); justify-items: start; }
+.mic-help p { margin: 0; }

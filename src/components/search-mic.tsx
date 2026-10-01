@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useT } from "@/lib/i18n/client";
 import { CHAT_SEND_EVENT, type ChatSendDetail } from "./chat-widget";
 import { Icon } from "./icons";
+import { MicHelp } from "./mic-help";
 import { useRecorder } from "./use-recorder";
 
 /**
@@ -17,7 +18,7 @@ export function SearchMic() {
   const [hearing, setHearing] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const recorder = useRecorder(async (file) => {
+  async function hear(file: File) {
     setHearing(true);
     try {
       const form = new FormData();
@@ -36,7 +37,8 @@ export function SearchMic() {
     } finally {
       setHearing(false);
     }
-  });
+  }
+  const recorder = useRecorder((file) => void hear(file));
 
   const status = recorder.recording
     ? t("home.listening")
@@ -44,9 +46,7 @@ export function SearchMic() {
       ? t("home.hearing")
       : failed
         ? t("home.voiceFailed")
-        : recorder.failed
-          ? t("chat.noMic")
-          : null;
+        : null;
 
   return (
     <>
@@ -66,6 +66,16 @@ export function SearchMic() {
         <p className="search-status" role="status">
           {status}
         </p>
+      )}
+      {recorder.problem && !hearing && (
+        <MicHelp
+          className="search-status"
+          problem={recorder.problem}
+          onFile={(file) => {
+            recorder.clearProblem();
+            void hear(file);
+          }}
+        />
       )}
     </>
   );

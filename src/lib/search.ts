@@ -4,6 +4,7 @@ import { db, recipes, users } from "@/db";
 import { embedText } from "@/lib/ai/extract";
 import type { Locale } from "@/lib/i18n/config";
 import { localNames } from "@/lib/ingredient-names";
+import { STAPLES } from "@/lib/ingredients";
 
 // Hybrid search with no LLM call in the loop:
 //  1. ingredient overlap  -> "I have leeks, eggs and feta"
@@ -147,9 +148,11 @@ export async function searchRecipes(q: string, locale: Locale, limit = 24): Prom
       )
       select ri.recipe_id,
              array_agg(m.name order by m.name) as have,
-             (select count(*) from recipe_ingredients r2
+             -- Staples (salt, oil…) are taken as at hand.
+             (select count(*) from recipe_ingredients r2 join ingredients i2 on i2.id = r2.ingredient_id
                where r2.recipe_id = ri.recipe_id and not r2.optional
-                 and r2.ingredient_id not in (select id from matched))::int as missing
+                 and r2.ingredient_id not in (select id from matched)
+                 and i2.name not in ${STAPLES})::int as missing
       from recipe_ingredients ri
       join matched m on m.id = ri.ingredient_id
       group by ri.recipe_id

@@ -299,13 +299,36 @@ describe("a menu", () => {
     expect(said).toMatchObject([
       {
         send:
-          "<b>🍽 A dinner menu</b> · <i>italian eggplant</i>\n\n" +
+          "<b>🍽 A dinner menu</b> · <i>Italian · eggplant</i>\n\n" +
           "1️⃣ 🍲 <i>Soup</i>: Minestrone\n2️⃣ 🍽 <i>Main</i>: Eggplant pasta\n3️⃣ 🍰 <i>Dessert</i>: Tiramisu",
         buttons: [
           [{ label: "1️⃣ Minestrone" }],
           [{ label: "2️⃣ Eggplant pasta" }],
           [{ label: "3️⃣ Tiramisu" }],
+          [
+            {
+              label: "🔀 Another menu",
+              action: { kind: "menu", meal: "dinner", cuisines: ["italian"], rest: "eggplant", round: 1, locale: "en" },
+            },
+          ],
         ],
+      },
+    ]);
+  });
+
+  it("\"another menu\" puts the next best dishes in place of the last", async () => {
+    book.cuisine = [dish("Minestrone", "soup"), dish("Lasagne", "main"), dish("Bruschetta", "starter"), dish("Risotto", "main")];
+    const { chat, said } = pretendChat();
+    await onTap(chat, person, {
+      action: { kind: "menu", meal: "dinner", cuisines: ["italian"], rest: "", round: 1, locale: "he" },
+      on: 7,
+    });
+    expect(searchRecipes).not.toHaveBeenCalled();
+    expect(said).toMatchObject([
+      {
+        edit: expect.stringContaining("<b>🍽 תפריט לארוחת ערב</b> · <i>איטלקי</i>"),
+        ref: 7,
+        buttons: [[{ label: "1️⃣ Bruschetta" }], [{ label: "2️⃣ Risotto" }], [{ action: { kind: "menu", round: 2 } }]],
       },
     ]);
   });

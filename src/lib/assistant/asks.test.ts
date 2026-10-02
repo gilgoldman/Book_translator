@@ -46,7 +46,6 @@ describe("parseMenuAsk", () => {
       meal: "dinner",
       cuisines: ["italian"],
       rest: "",
-      wants: "italian",
     });
     expect(parseMenuAsk("lunch menu with eggplant")).toMatchObject({ meal: "lunch", cuisines: [], rest: "eggplant" });
     expect(parseMenuAsk("plan a Levantine lunch with chickpeas")).toMatchObject({
@@ -75,6 +74,12 @@ describe("planMenu", () => {
   it("takes the best fit for each course, in course order, skipping courses nothing fits", () => {
     const picked = planMenu("dinner", [dish("cake", "dessert"), dish("stew", "main"), dish("soup", "soup"), dish("roast", "main")]);
     expect(picked.map((d) => d.id)).toEqual(["soup", "stew", "cake"]);
+  });
+
+  it("takes the next best each round, starting over when a course runs out", () => {
+    const list = [dish("soup", "soup"), dish("stew", "main"), dish("salad", "salad"), dish("roast", "main")];
+    expect(planMenu("dinner", list, 1).map((d) => d.id)).toEqual(["salad", "roast"]);
+    expect(planMenu("dinner", list, 2).map((d) => d.id)).toEqual(["soup", "stew"]);
   });
 
   it("uses a dish once", () => {

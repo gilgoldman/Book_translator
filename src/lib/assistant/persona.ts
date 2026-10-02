@@ -37,6 +37,9 @@ export const PERSONA = {
   /** How many of one person's recipes "recipes from Dana" lists; the rest are a link away. */
   personResults: 12,
 
+  /** "Another menu" buttons go round this many times before starting over. */
+  menuRounds: 20,
+
   /**
    * "Let's build a dinner menu": one dish per course, in this order. Each course takes the
    * first fitting recipe of these kinds; a course nothing fits is left out.
@@ -118,6 +121,7 @@ const en = {
   "bot.menu.dinner": "🍽 A dinner menu",
   "bot.menu.brunch": "🥐 A brunch menu",
   "bot.menuNone": "🤷 Not enough in the book for a menu with “{query}” yet.",
+  "bot.anotherMenu": "🔀 Another menu",
   "bot.slowDown": "🫖 Let's take a breather. Try again soon.",
   "bot.couldnt": "😕 Couldn't do that.",
   "bot.gone": "🫥 That recipe is gone.",
@@ -171,6 +175,7 @@ const he: Record<WordKey, string> = {
   "bot.menu.dinner": "🍽 תפריט לארוחת ערב",
   "bot.menu.brunch": "🥐 תפריט לבראנץ׳",
   "bot.menuNone": "🤷 עדיין אין בספר מספיק לתפריט עם „{query}”.",
+  "bot.anotherMenu": "🔀 תפריט אחר",
   "bot.slowDown": "🫖 בואו ניקח הפסקה קטנה. אפשר לנסות שוב בקרוב.",
   "bot.couldnt": "😕 לא הצלחתי.",
   "bot.gone": "🫥 המתכון הזה כבר לא קיים.",

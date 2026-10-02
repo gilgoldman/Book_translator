@@ -11,7 +11,8 @@ import { PERSONA } from "./persona";
 export type Meal = keyof typeof PERSONA.menus;
 
 export type PersonAsk = { kind: "person"; who: string };
-export type MenuAsk = { kind: "menu"; meal: Meal; wants: string; cuisines: string[]; rest: string };
+/** A menu to build: the meal, cuisines it should come from, and words to search for ("eggplant"). */
+export type MenuAsk = { meal: Meal; cuisines: string[]; rest: string };
 
 const BY_PERSON = [
   /\b(?:recipes?|dishes|stuff|things)\s+(?:(?:that\s+)?(?:were\s+)?(?:added|uploaded|shared|saved|posted)\s+)?(?:from|by|of)\s+(.+)$/i,
@@ -142,23 +143,22 @@ export function parseMenuAsk(query: string): MenuAsk | null {
   if (!MENU.test(q) && !(meal && PLAN.test(q))) return null;
   const { cuisines, rest } = cuisinesIn(q);
   const left = rest.filter((w) => w && !FILLER.has(w) && !FILLER.has(unprefixed(w)) && !/^\d+$/.test(w));
-  const wants = (q.toLowerCase().match(/[\p{L}\p{N}'’-]+/gu) ?? [])
-    .filter((w) => !FILLER.has(w) && !FILLER.has(unprefixed(w)))
-    .join(" ");
-  return { kind: "menu", meal: meal ?? "dinner", wants, cuisines, rest: left.join(" ") };
+  return { meal: meal ?? "dinner", cuisines, rest: left.join(" ") };
 }
 
 export type MenuDish = { id: string; title: string; course: string };
 
 /**
  * One dish per course of the meal, from candidates best first. A course nothing fits is left
- * out rather than filled with something off-theme.
+ * out rather than filled with something off-theme. Round 0 takes the best fit for each course,
+ * round 1 the next best ("another menu"), and so on, starting over when a course runs out.
  */
-export function planMenu<T extends MenuDish>(meal: Meal, candidates: T[]): T[] {
+export function planMenu<T extends MenuDish>(meal: Meal, candidates: T[], round = 0): T[] {
   const used = new Set<string>();
   const picked: T[] = [];
   for (const courses of PERSONA.menus[meal]) {
-    const dish = candidates.find((c) => !used.has(c.id) && (courses as readonly string[]).includes(c.course));
+    const fits = candidates.filter((c) => !used.has(c.id) && (courses as readonly string[]).includes(c.course));
+    const dish = fits[round % (fits.length || 1)];
     if (!dish) continue;
     used.add(dish.id);
     picked.push(dish);

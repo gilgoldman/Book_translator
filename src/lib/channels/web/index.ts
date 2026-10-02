@@ -7,6 +7,7 @@ import { PERSONA } from "@/lib/assistant/persona";
 import type { DuplicateChoice } from "@/lib/dedupe";
 import { LOCALE_CODES } from "@/lib/i18n/config";
 import type { IncomingFile } from "@/lib/ingest";
+import { CUISINES } from "@/lib/recipe-types";
 import { WEB_CHAT, type WebEvent } from "./protocol";
 
 // The website's chat: the same assistant as on Telegram, in a panel on every page. The browser
@@ -24,6 +25,14 @@ const actionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("open"), recipeId: uuid, locale }),
   z.object({ kind: z.literal("duplicate"), recipeId: uuid, choice: z.enum(choices), locale }),
   z.object({ kind: z.literal("saveVoice"), locale }),
+  z.object({
+    kind: z.literal("menu"),
+    meal: z.enum(["dinner", "lunch", "brunch"]),
+    round: z.number().int().min(0).max(999),
+    cuisines: z.array(z.enum(CUISINES)).max(CUISINES.length),
+    rest: z.string().max(200),
+    locale,
+  }),
 ]);
 
 export type WebInput = { kind: "message"; msg: Incoming } | { kind: "tap"; tap: Tap };

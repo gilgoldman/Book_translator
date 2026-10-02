@@ -1,7 +1,7 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
-import type { Meal } from "./asks";
+import type { MenuAsk } from "./asks";
 import { RECIPE_VIEWS, type Button, type MessageRef, type RecipeView } from "./chat";
 import type { Speaker } from "./language";
 import { PERSONA } from "./persona";
@@ -227,11 +227,26 @@ export function renderByPerson(name: string, recipes: { title: string }[], total
   return clip(lines.join("\n"));
 }
 
+/** What a menu was asked to be: "Italian · eggplant". */
+export function menuTheme({ cuisines, rest }: MenuAsk, t: Speaker) {
+  return [...cuisines.map((c) => category(t, "cuisine", c)), rest].filter(Boolean).join(" · ");
+}
+
 /** A menu: one dish per course, each under its course. */
-export function renderMenu(meal: Meal, wants: string, dishes: { title: string; course: string }[], t: Speaker) {
-  const head = `<b>${esc(t(`bot.menu.${meal}`))}</b>${wants ? ` · <i>${esc(wants)}</i>` : ""}`;
+export function renderMenu(ask: MenuAsk, dishes: { title: string; course: string }[], t: Speaker) {
+  const theme = menuTheme(ask, t);
+  const head = `<b>${esc(t(`bot.menu.${ask.meal}`))}</b>${theme ? ` · <i>${esc(theme)}</i>` : ""}`;
   const lines = dishes.map(
     (d, i) => `${num(i + 1)} ${PERSONA.look.course[d.course] ?? "🍴"} <i>${esc(category(t, "course", d.course))}</i>: ${esc(d.title)}`,
   );
   return clip([head, "", ...lines].join("\n"));
+}
+
+/** The dishes of a menu, one button each, then "another menu" for the next round. */
+export function menuButtons(ask: MenuAsk, dishes: { id: string; title: string }[], round: number, t: Speaker): Button[][] {
+  const next = (round + 1) % PERSONA.menuRounds;
+  return [
+    ...openButtons(dishes, t),
+    [{ label: t("bot.anotherMenu"), action: { kind: "menu", ...ask, round: next, locale: t.locale } }],
+  ];
 }

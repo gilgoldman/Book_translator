@@ -25,6 +25,8 @@ import {
   renderAbundance,
   renderByPerson,
   renderDuplicatePrompt,
+  menuButtons,
+  menuTheme,
   renderMenu,
   renderRecipe,
   renderResults,
@@ -106,6 +108,10 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
     }
   }
 
+  if (action.kind === "menu") {
+    const { kind: _, round, locale: __, ...ask } = action;
+    return menuReply(chat, ask, t, round, on);
+  }
   if (action.kind === "open") return showRecipe(chat, person, action.recipeId, "effective", t);
   return showRecipe(chat, person, action.recipeId, action.view, t, on);
 }
@@ -113,7 +119,7 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
 /** A question, typed or spoken: a menu, someone's recipes, "I have a lot of…", "no…", or a search. */
 async function answer(chat: Chat, person: Person, query: string, t: Speaker, repliedToRecipe?: string | null) {
   const menu = parseMenuAsk(query);
-  if (menu) return menuReply(chat, menu, query, t);
+  if (menu) return menuReply(chat, menu, t);
   const byPerson = parsePersonAsk(query);
   // "Recipes from Italy" names nobody: then it's a search.
   if (byPerson && (await byPersonReply(chat, byPerson.who, t))) return;
@@ -325,9 +331,9 @@ async function byPersonReply(chat: Chat, who: string, t: Speaker) {
 /**
  * "Let's build an Italian dinner menu with eggplant": recipes of that cuisine that match the rest
  * best, then the rest of that cuisine; without a cuisine, what a search finds; with nothing at all,
- * the book in a new order each time.
+ * the book in a new order each time. "Another menu" sends the next round in place of the last.
  */
-async function menuReply(chat: Chat, ask: MenuAsk, query: string, t: Speaker) {
+async function menuReply(chat: Chat, ask: MenuAsk, t: Speaker, round = 0, replace?: MessageRef) {
   chat.typing();
   let candidates: RecipeCard[];
   if (ask.cuisines.length) {
@@ -341,12 +347,13 @@ async function menuReply(chat: Chat, ask: MenuAsk, query: string, t: Speaker) {
   } else {
     candidates = shuffle(await recentRecipes(t.locale, 300));
   }
-  const dishes = planMenu(ask.meal, candidates);
+  const dishes = planMenu(ask.meal, candidates, round);
   if (dishes.length === 0) {
-    await chat.send({ text: esc(t("bot.menuNone", { query: ask.wants || query })) });
+    await chat.send({ text: esc(t("bot.menuNone", { query: menuTheme(ask, t) })) });
     return;
   }
-  await chat.send({ text: renderMenu(ask.meal, ask.wants, dishes, t), buttons: openButtons(dishes, t) });
+  const reply = { text: renderMenu(ask, dishes, t), buttons: menuButtons(ask, dishes, round, t) };
+  await (replace === undefined ? chat.send(reply) : chat.edit(replace, reply));
 }
 
 function shuffle<T>(list: T[]): T[] {

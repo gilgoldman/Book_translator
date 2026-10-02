@@ -8,12 +8,34 @@ const id = "0b6c2f7e-1d7e-4a57-9e36-0a5e3f2b8c11";
 const en = speaker("en");
 const he = speaker("he");
 
+describe("another menu", () => {
+  it("cuts long words to whole words that fit in 64 bytes", () => {
+    const data = encodeAction({
+      kind: "menu",
+      meal: "lunch",
+      round: 19,
+      cuisines: ["middle-eastern", "levantine", "persian"],
+      rest: "חצילים טחינה לימון שום פטרוזיליה עגבניות מלפפונים",
+      locale: "he",
+    });
+    expect(Buffer.byteLength(data)).toBeLessThanOrEqual(64);
+    expect(decodeAction(data)).toMatchObject({ meal: "lunch", round: 19, cuisines: ["middle-eastern", "levantine", "persian"] });
+    expect((decodeAction(data) as { rest: string }).rest).toMatch(/^חצילים טחינה( \S+)*$/);
+  });
+
+  it("refuses cuisines it doesn't know", () => {
+    expect(decodeAction("m:d:0:99:en:")).toBeNull();
+  });
+});
+
 describe("buttons", () => {
   const every: Action[] = [
     ...(["effective", "classic", "ratios", "source"] as const).map((view) => ({ kind: "view", recipeId: id, view, locale: "he" }) as const),
     { kind: "open", recipeId: id, locale: "he" },
     ...(["keep-original", "replace", "keep-both"] as const).map((choice) => ({ kind: "duplicate", recipeId: id, choice, locale: "he" }) as const),
     { kind: "saveVoice", locale: "he" },
+    { kind: "menu", meal: "dinner", round: 3, cuisines: ["italian", "levantine"], rest: "eggplant", locale: "he" },
+    { kind: "menu", meal: "brunch", round: 0, cuisines: [], rest: "", locale: "en" },
   ];
 
   it("round-trip every action within 64 bytes, and no action reads as another", () => {
@@ -35,6 +57,8 @@ describe("buttons", () => {
       `d:${id}:r:he`,
       `d:${id}:b:he`,
       "s:he",
+      "m:d:3:0.6:he:eggplant",
+      "m:b:0::en:",
     ]);
     // Buttons sent before they carried a language still work.
     expect(decodeAction(`o:${id}`)).toEqual({ kind: "open", recipeId: id, locale: null });

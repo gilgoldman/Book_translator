@@ -1,6 +1,7 @@
 import type { DuplicateChoice } from "@/lib/dedupe";
 import type { Locale } from "@/lib/i18n/config";
 import type { IncomingFile } from "@/lib/ingest";
+import type { MenuAsk } from "./asks";
 import type { PERSONA } from "./persona";
 
 // What a channel (Telegram today; WhatsApp or a web chat one day) and the assistant say to each
@@ -25,7 +26,9 @@ export type Action =
   /** Keep original / replace / keep both, for a new recipe that looks like one in the book. */
   | { kind: "duplicate"; recipeId: string; choice: DuplicateChoice; locale: Locale | null }
   /** A voice note was taken as a question; save it as a recipe after all. */
-  | { kind: "saveVoice"; locale: Locale | null };
+  | { kind: "saveVoice"; locale: Locale | null }
+  /** Another menu like the one on this message: the next best dish for each course. */
+  | ({ kind: "menu"; round: number; locale: Locale | null } & MenuAsk);
 
 export type Button = { label: string; action: Action } | { label: string; url: string };
 

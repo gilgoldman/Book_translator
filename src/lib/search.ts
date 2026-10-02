@@ -4,6 +4,7 @@ import { db, recipes, users } from "@/db";
 import { embedText } from "@/lib/ai/extract";
 import type { Locale } from "@/lib/i18n/config";
 import { localNames } from "@/lib/ingredient-names";
+import { STAPLES } from "@/lib/ingredients";
 
 // Hybrid search with no LLM call in the loop:
 //  1. ingredient overlap  -> "I have leeks, eggs and feta"
@@ -69,6 +70,34 @@ export async function recentRecipes(locale: Locale, limit = 60, byUsername?: str
   return rows.map(toCard);
 }
 
+/** Newest first, in any of these cuisines: the pool for a menu ("an Italian dinner"). */
+export async function recipesInCuisines(cuisines: string[], locale: Locale, limit = 120): Promise<RecipeCard[]> {
+  if (cuisines.length === 0) return [];
+  const rows = await cards(locale)
+    .where(and(isNull(recipes.duplicateOf), inArray(recipes.cuisine, cuisines)))
+    .orderBy(desc(recipes.createdAt))
+    .limit(limit);
+  return rows.map(toCard);
+}
+
+/**
+ * The member someone means by "Dana" or "dana_g": an exact username or display name first,
+ * else the first name of a display name, else a username starting with it.
+ */
+export async function findCook(said: string): Promise<{ username: string; name: string } | null> {
+  const who = said.trim().toLowerCase().replace(/^@/, "");
+  if (!who) return null;
+  const like = who.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { rows } = await db().execute<{ username: string; name: string }>(sql`
+    select username, coalesce(nullif(display_name, ''), username) as name from users
+    where status = 'approved'
+      and (lower(username) = ${who} or lower(display_name) = ${who}
+           or lower(display_name) like ${like} || ' %' or lower(username) like ${like} || '%')
+    order by (lower(username) = ${who} or lower(display_name) = ${who}) desc, length(username)
+    limit 1`);
+  return rows[0] ?? null;
+}
+
 /** Words of the query plus naive singular forms, for matching canonical ingredient names. */
 export function queryVariants(q: string): string {
   const words = q.toLowerCase().match(/[\p{L}\p{N}'-]+/gu) ?? [];
@@ -119,9 +148,11 @@ export async function searchRecipes(q: string, locale: Locale, limit = 24): Prom
       )
       select ri.recipe_id,
              array_agg(m.name order by m.name) as have,
-             (select count(*) from recipe_ingredients r2
+             -- Staples (salt, oil…) are taken as at hand.
+             (select count(*) from recipe_ingredients r2 join ingredients i2 on i2.id = r2.ingredient_id
                where r2.recipe_id = ri.recipe_id and not r2.optional
-                 and r2.ingredient_id not in (select id from matched))::int as missing
+                 and r2.ingredient_id not in (select id from matched)
+                 and i2.name not in ${STAPLES})::int as missing
       from recipe_ingredients ri
       join matched m on m.id = ri.ingredient_id
       group by ri.recipe_id

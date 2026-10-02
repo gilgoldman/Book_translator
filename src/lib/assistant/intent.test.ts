@@ -9,6 +9,7 @@ describe("classifyText", () => {
     expect(classifyText("/search lemony chicken")).toEqual({ kind: "search", query: "lemony chicken" });
     expect(classifyText("/find leeks")).toEqual({ kind: "search", query: "leeks" });
     expect(classifyText("/find@CookbookBot leeks")).toEqual({ kind: "search", query: "leeks" });
+    expect(classifyText("/fix it's 180, not 200")).toEqual({ kind: "fix", text: "it's 180, not 200" });
   });
 
   it("treats a link with a few words around it as an import", () => {

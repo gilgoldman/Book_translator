@@ -1,18 +1,21 @@
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
-import { db, recipeColumns, recipes, sources, users } from "@/db";
+import { db, recipeColumns, recipeEdits, recipes, sources, users } from "@/db";
+import { proposeCorrection } from "@/lib/ai/correct";
 import { isAiBusy } from "@/lib/ai/errors";
 import { substituteContext, suggestSubstitutes } from "@/lib/ai/substitute";
 import { hearVoiceNote } from "@/lib/ai/voice";
-import { resolveDuplicate } from "@/lib/dedupe";
+import { canEdit, resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
-import { ingest, NotARecipeError, type IngestRequest } from "@/lib/ingest";
+import { ingest, NotARecipeError, saveCorrection, type IngestRequest } from "@/lib/ingest";
 import { findIngredientLine, parseIngredientIntent } from "@/lib/ingredient-intent";
 import { localName, localNames } from "@/lib/ingredient-names";
 import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
 import { isRateLimited } from "@/lib/rate-limit";
-import { searchRecipes } from "@/lib/search";
+import { diffRecipe, isUnchanged, recipeText } from "@/lib/recipe-changes";
+import { findCook, recentRecipes, recipesInCuisines, searchRecipes, type RecipeCard } from "@/lib/search";
 import { ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { looksLikeCorrection, parseMenuAsk, parsePersonAsk, planMenu, type MenuAsk } from "./asks";
 import type { Attachment, Chat, Incoming, MessageRef, Person, RecipeView, Tap } from "./chat";
 import { classifyText } from "./intent";
 import { replyLocale, speaker, usualLocale, type Speaker } from "./language";
@@ -20,9 +23,15 @@ import { PERSONA } from "./persona";
 import {
   duplicateButtons,
   esc,
+  fixButtons,
   openButtons,
   renderAbundance,
+  renderByPerson,
+  renderCorrection,
   renderDuplicatePrompt,
+  menuButtons,
+  menuTheme,
+  renderMenu,
   renderRecipe,
   renderResults,
   renderSubstitution,
@@ -71,6 +80,7 @@ export async function onMessage(chat: Chat, person: Person, msg: Incoming) {
   if (intent.kind === "import") {
     return importAndReply(chat, person, t, msg.ref, async () => ({ kind: "text", text: intent.text }));
   }
+  if (intent.kind === "fix") return fixReply(chat, person, intent.text, t, msg.repliedToRecipe, true);
   return answer(chat, person, intent.query, t, msg.repliedToRecipe);
 }
 
@@ -103,12 +113,24 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
     }
   }
 
+  if (action.kind === "fix") return onFixTap(chat, person, action.editId, action.choice, t, on);
+  if (action.kind === "menu") {
+    const { meal, cuisines, rest, round } = action;
+    return menuReply(chat, { meal, cuisines, rest }, t, round, on);
+  }
   if (action.kind === "open") return showRecipe(chat, person, action.recipeId, "effective", t);
   return showRecipe(chat, person, action.recipeId, action.view, t, on);
 }
 
-/** A question, typed or spoken: "I have a lot of…", "no…", or a search. */
+/** A question, typed or spoken: a menu, someone's recipes, "I have a lot of…", "no…", or a search. */
 async function answer(chat: Chat, person: Person, query: string, t: Speaker, repliedToRecipe?: string | null) {
+  const menu = parseMenuAsk(query);
+  if (menu) return menuReply(chat, menu, t);
+  // "It's 180°, not 200" about the recipe in question; the AI may say it's not a fix after all.
+  if (looksLikeCorrection(query) && (await fixReply(chat, person, query, t, repliedToRecipe, false))) return;
+  const byPerson = parsePersonAsk(query);
+  // "Recipes from Italy" names nobody: then it's a search.
+  if (byPerson && (await byPersonReply(chat, byPerson.who, t))) return;
   const ingredientIntent = parseIngredientIntent(query);
   if (ingredientIntent?.kind === "abundance") return abundanceReply(chat, ingredientIntent.ingredient, t);
   if (ingredientIntent?.kind === "substitute") return substituteReply(chat, person, ingredientIntent, t, repliedToRecipe);
@@ -299,6 +321,163 @@ async function importAndReply(
   }
 }
 
+/**
+ * A correction to the recipe they replied to or were just shown: what would change, with Apply
+ * and Cancel. Only whoever may edit the recipe gets that far. False when it turns out not to be a
+ * correction (and they didn't ask with /fix), so it's answered as a question instead.
+ */
+async function fixReply(
+  chat: Chat,
+  person: Person,
+  text: string,
+  t: Speaker,
+  repliedToRecipe: string | null | undefined,
+  asked: boolean,
+): Promise<boolean> {
+  const id = repliedToRecipe || (await lastRecipeShown(person));
+  const recipe = id ? await db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns }) : null;
+  if (!recipe) {
+    if (asked) await chat.send({ text: esc(t("bot.fixWhich")) });
+    return asked;
+  }
+  if (!canEdit(recipe, { userId: person.id, isAdmin: person.isAdmin })) {
+    await chat.send({ text: esc(t("bot.fixNotYours")) });
+    return true;
+  }
+  if (await isRateLimited(`bot-fix:${person.id}`, PERSONA.fixesPerHour, 60 * 60)) {
+    await chat.send({ text: t("bot.slowDown") });
+    return true;
+  }
+  chat.typing();
+  const before = recipeText(recipe);
+  let fix;
+  try {
+    fix = await proposeCorrection(before, text, t.locale);
+  } catch (err) {
+    console.error("correction failed", err);
+    await chat.send({ text: esc(t(isAiBusy(err) ? "bot.stillBusy" : "bot.couldnt")) });
+    return true;
+  }
+  if (!fix.isCorrection && !asked) return false;
+  const diff = diffRecipe(before, fix.recipe);
+  if (!fix.isCorrection || isUnchanged(diff)) {
+    await chat.send({ text: t("bot.fixNothing") });
+    return true;
+  }
+  // Proposals nobody tapped are dropped once they're too old to apply.
+  await db()
+    .delete(recipeEdits)
+    .where(lt(recipeEdits.createdAt, new Date(Date.now() - PERSONA.fixValidHours * 3_600_000)))
+    .catch((err) => console.error("couldn't clear old corrections", err));
+  const [edit] = await db()
+    .insert(recipeEdits)
+    .values({ recipeId: recipe.id, userId: person.id, proposal: fix.recipe, baseUpdatedAt: recipe.updatedAt })
+    .returning({ id: recipeEdits.id });
+  await chat.send({
+    text: renderCorrection(recipe.title, fix.summary, diff, t),
+    buttons: fixButtons(edit.id, t),
+  });
+  return true;
+}
+
+/** Apply or Cancel on a proposed correction. Applied, the recipe takes the proposal's place. */
+async function onFixTap(chat: Chat, person: Person, editId: string, choice: "apply" | "cancel", t: Speaker, on: MessageRef) {
+  const mine = and(eq(recipeEdits.id, editId), eq(recipeEdits.userId, person.id));
+  const edit = await db().query.recipeEdits.findFirst({ where: mine });
+  const fresh = edit && Date.now() - edit.createdAt.getTime() < PERSONA.fixValidHours * 3_600_000;
+  if (!edit || !fresh) {
+    await chat.edit(on, { text: esc(t("bot.fixGone")) });
+    return;
+  }
+  // Taken once: a double tap finds nothing left to apply.
+  await db().delete(recipeEdits).where(mine);
+  if (choice === "cancel") {
+    await chat.edit(on, { text: esc(t("bot.fixCancelled")) });
+    return;
+  }
+  const recipe = await db().query.recipes.findFirst({
+    where: eq(recipes.id, edit.recipeId),
+    columns: { createdBy: true, updatedAt: true },
+  });
+  if (!recipe) {
+    await chat.edit(on, { text: esc(t("bot.gone")) });
+    return;
+  }
+  if (!canEdit(recipe, { userId: person.id, isAdmin: person.isAdmin })) {
+    await chat.edit(on, { text: esc(t("bot.fixNotYours")) });
+    return;
+  }
+  if (recipe.updatedAt.getTime() !== edit.baseUpdatedAt.getTime()) {
+    await chat.edit(on, { text: esc(t("bot.fixStale")) });
+    return;
+  }
+  await chat.edit(on, { text: esc(t("bot.fixApplying")) });
+  chat.typing();
+  try {
+    if (!(await saveCorrection(edit.recipeId, edit.proposal))) {
+      await chat.edit(on, { text: esc(t("bot.gone")) });
+      return;
+    }
+  } catch (err) {
+    console.error("saving a correction failed", err);
+    await chat.edit(on, { text: esc(t(isAiBusy(err) ? "bot.stillBusy" : "bot.couldnt")) });
+    return;
+  }
+  return showRecipe(chat, person, edit.recipeId, "effective", t, on);
+}
+
+/** "Dana's recipes": false when nobody in the book goes by that name. */
+async function byPersonReply(chat: Chat, who: string, t: Speaker) {
+  const cook = await findCook(who);
+  if (!cook) return false;
+  const all = await recentRecipes(t.locale, 500, cook.username);
+  const shown = all.slice(0, PERSONA.personResults);
+  const base = chat.appUrl ?? appUrl();
+  const buttons = openButtons(shown, t);
+  if (all.length > shown.length && base !== undefined) {
+    buttons.push([{ label: t("bot.openInApp"), url: `${base}/?by=${encodeURIComponent(cook.username)}` }]);
+  }
+  await chat.send({ text: renderByPerson(cook.name, shown, all.length, t), buttons: buttons.length ? buttons : undefined });
+  return true;
+}
+
+/**
+ * "Let's build an Italian dinner menu with eggplant": recipes of that cuisine that match the rest
+ * best, then the rest of that cuisine; without a cuisine, what a search finds; with nothing at all,
+ * the book in a new order each time. "Another menu" sends the next round in place of the last.
+ */
+async function menuReply(chat: Chat, ask: MenuAsk, t: Speaker, round = 0, replace?: MessageRef) {
+  chat.typing();
+  let candidates: RecipeCard[];
+  if (ask.cuisines.length) {
+    const [matching, cuisine] = await Promise.all([
+      ask.rest ? searchRecipes(ask.rest, t.locale, 60) : Promise.resolve([]),
+      recipesInCuisines(ask.cuisines, t.locale),
+    ]);
+    candidates = [...matching.filter((r) => ask.cuisines.includes(r.cuisine)), ...cuisine];
+  } else if (ask.rest) {
+    candidates = await searchRecipes(ask.rest, t.locale, 60);
+  } else {
+    candidates = shuffle(await recentRecipes(t.locale, 300));
+  }
+  const dishes = planMenu(ask.meal, candidates, round);
+  if (dishes.length === 0) {
+    await chat.send({ text: esc(t("bot.menuNone", { query: menuTheme(ask, t) })) });
+    return;
+  }
+  const reply = { text: renderMenu(ask, dishes, t), buttons: menuButtons(ask, dishes, round, t) };
+  await (replace === undefined ? chat.send(reply) : chat.edit(replace, reply));
+}
+
+function shuffle<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 async function searchAndReply(chat: Chat, query: string, t: Speaker) {
   const results = await searchRecipes(query, t.locale, PERSONA.searchResults);
   if (results.length === 0) {
@@ -338,6 +517,7 @@ async function showRecipe(chat: Chat, person: Person, id: string, view: RecipeVi
     text: renderRecipe(
       {
         ...localized.recipe,
+        language: localized.language,
         subtitle: r.title,
         addedBy: uploader ? uploader.displayName || uploader.username : null,
       },

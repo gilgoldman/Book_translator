@@ -1,5 +1,6 @@
 import { RECIPE_VIEWS, type Action, type Button, type RecipeView } from "@/lib/assistant/chat";
 import { isLocale } from "@/lib/i18n/config";
+import { CUISINES } from "@/lib/recipe-types";
 import type { TgMessage } from "./api";
 
 // Between Telegram's shapes and the assistant's: buttons, sign-ins and attachments.
@@ -9,6 +10,19 @@ const lang = (locale: string | null) => (locale ? `:${locale}` : "");
 
 const DUP_CODES = { o: "keep-original", r: "replace", b: "keep-both" } as const;
 const DUP_LETTERS = { "keep-original": "o", replace: "r", "keep-both": "b" } as const;
+const MEAL_CODES = { d: "dinner", l: "lunch", b: "brunch" } as const;
+const MEAL_LETTERS = { dinner: "d", lunch: "l", brunch: "b" } as const;
+
+/** Whole words of `text` that fit in `bytes`. */
+function fit(text: string, bytes: number) {
+  let out = "";
+  for (const word of text.split(" ").filter(Boolean)) {
+    const next = out ? `${out} ${word}` : word;
+    if (Buffer.byteLength(next) > bytes) break;
+    out = next;
+  }
+  return out;
+}
 
 /**
  * A button's action as callback data (64 bytes at most). The formats are fixed: buttons already
@@ -17,6 +31,10 @@ const DUP_LETTERS = { "keep-original": "o", replace: "r", "keep-both": "b" } as 
  *   o:<id>[:<lang>]             open a recipe from a list as a new message
  *   d:<id>:<o|r|b>[:<lang>]     keep original / replace / keep both
  *   s[:<lang>]                  save the voice note this message answered as a recipe
+ *   f:<edit id>:<a|c>[:<lang>]  apply / cancel a correction proposed in chat
+ *   m:<d|l|b>:<round>:<cuisines>:<lang>:<words>
+ *                               another menu: dinner/lunch/brunch, cuisines as indexes into
+ *                               CUISINES joined by ".", and the words to search for, cut to fit
  */
 export function encodeAction(a: Action): string {
   switch (a.kind) {
@@ -28,6 +46,13 @@ export function encodeAction(a: Action): string {
       return `d:${a.recipeId}:${DUP_LETTERS[a.choice]}${lang(a.locale)}`;
     case "saveVoice":
       return `s${lang(a.locale)}`;
+    case "fix":
+      return `f:${a.editId}:${a.choice === "apply" ? "a" : "c"}${lang(a.locale)}`;
+    case "menu": {
+      const cuisines = a.cuisines.map((c) => CUISINES.indexOf(c as (typeof CUISINES)[number])).filter((i) => i >= 0);
+      const head = `m:${MEAL_LETTERS[a.meal]}:${a.round}:${cuisines.join(".")}:${a.locale ?? "-"}:`;
+      return head + fit(a.rest, 64 - Buffer.byteLength(head));
+    }
   }
 }
 
@@ -42,6 +67,21 @@ export function decodeAction(data: string): Action | null {
   const dup = data.match(/^d:([0-9a-f-]{36}):([orb])(?::(\w+))?$/);
   if (dup) {
     return { kind: "duplicate", recipeId: dup[1], choice: DUP_CODES[dup[2] as keyof typeof DUP_CODES], locale: localeOf(dup[3]) };
+  }
+  const fix = data.match(/^f:([0-9a-f-]{36}):([ac])(?::(\w+))?$/);
+  if (fix) return { kind: "fix", editId: fix[1], choice: fix[2] === "a" ? "apply" : "cancel", locale: localeOf(fix[3]) };
+  const menu = data.match(/^m:([dlb]):(\d{1,3}):([\d.]*):([\w-]+):(.*)$/s);
+  if (menu) {
+    const cuisines = menu[3] ? menu[3].split(".").map((i) => CUISINES[Number(i)]) : [];
+    if (cuisines.some((c) => !c)) return null;
+    return {
+      kind: "menu",
+      meal: MEAL_CODES[menu[1] as keyof typeof MEAL_CODES],
+      round: Number(menu[2]),
+      cuisines,
+      rest: menu[5],
+      locale: localeOf(menu[4]),
+    };
   }
   const save = data.match(/^s(?::(\w+))?$/);
   if (save) return { kind: "saveVoice", locale: localeOf(save[1]) };

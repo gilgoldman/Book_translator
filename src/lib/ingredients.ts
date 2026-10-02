@@ -7,8 +7,14 @@ import { canonicalFor } from "./ingredient-names";
 
 // Ingredient-first queries over the canonical ingredient graph.
 
-// Too common to be interesting as a pairing.
-const STAPLES = ["salt", "water", "black pepper", "pepper", "olive oil", "oil", "sugar", "vegetable oil"];
+/**
+ * Pantry staples: too common to be interesting as a pairing, and assumed at hand, so a search
+ * for "leeks, eggs" doesn't count salt and oil among what's missing.
+ */
+export const STAPLES = [
+  "salt", "sea salt", "kosher salt", "water", "ice", "black pepper", "pepper",
+  "olive oil", "oil", "vegetable oil", "neutral oil", "sugar",
+];
 
 /** Map free text in any app language ("Leeks", "כרישות") to the canonical name we store ("leek"). */
 export async function resolveIngredient(text: string): Promise<string> {

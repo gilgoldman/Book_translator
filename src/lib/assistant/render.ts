@@ -1,6 +1,9 @@
+import { localAmount } from "@/lib/amounts";
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
+import type { RecipeDiff } from "@/lib/recipe-changes";
+import type { MenuAsk } from "./asks";
 import { RECIPE_VIEWS, type Button, type MessageRef, type RecipeView } from "./chat";
 import type { Speaker } from "./language";
 import { PERSONA } from "./persona";
@@ -22,6 +25,8 @@ export type ShownRecipe = {
   steps: Step[];
   enrichment: Enrichment | null;
   addedBy?: string | null;
+  /** The language its words are shown in; amounts follow it. Defaults to the reader's. */
+  language?: string;
 };
 
 export type ShownSource = { kind: string; url: string | null; files: { url: string; mediaType: string }[]; text: string | null } | null;
@@ -82,13 +87,15 @@ const bar = (parts: number, k: number) =>
 
 export function renderRecipe(r: ShownRecipe, view: RecipeView, t: Speaker, source: ShownSource = null): string {
   const parts = [header(r, t), ""];
+  // Amounts written for the language the recipe is shown in.
+  const amt = (s: string | null) => (s ? localAmount(s, r.language ?? t.locale) : s);
 
   if (view === "effective" && r.enrichment) {
     const e = r.enrichment;
-    parts.push(e.recap.map((x) => `• ${x.metric ? `${esc(x.metric)} ` : ""}${esc(x.name)}`).join("\n"), "");
+    parts.push(e.recap.map((x) => `• ${x.metric ? `${esc(amt(x.metric)!)} ` : ""}${esc(x.name)}`).join("\n"), "");
     e.effectiveSteps.forEach((s, i) => {
       const text = s.segments
-        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(seg.metric) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
+        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(amt(seg.metric)!) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
         .join("");
       parts.push(`${num(i + 1)} ${text}${timerNote(s.timers, t)}`);
     });
@@ -109,7 +116,7 @@ export function renderRecipe(r: ShownRecipe, view: RecipeView, t: Speaker, sourc
       if (source.text) parts.push("", esc(source.text.slice(0, 2500)));
     }
   } else {
-    parts.push(r.ingredients.map((i) => `• ${esc(i.metric ?? i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
+    parts.push(r.ingredients.map((i) => `• ${esc(i.metric ? amt(i.metric)! : i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
     r.steps.forEach((s, i) => parts.push(`${num(i + 1)} ${esc(s.text)}${timerNote(s.timers, t)}`));
   }
   return clip(parts.join("\n"));
@@ -215,4 +222,70 @@ export function renderAbundance(
   uses.forEach((u, i) => lines.push(`${num(i + 1)} ${esc(u.title)}${u.amount ? ` — <i>${esc(u.amount)}</i>` : ""}`));
   if (pairs.length) lines.push("", esc(t("bot.pairs", { list: pairs.map((p) => p.name).join(", ") })));
   return clip(lines.join("\n"));
+}
+
+/** "Dana's recipes": how many they added, the newest few, and how many more there are. */
+export function renderByPerson(name: string, recipes: { title: string }[], total: number, t: Speaker) {
+  if (total === 0) return esc(t("bot.byPersonNone", { name }));
+  const lines = [`<b>${esc(t("bot.byPerson", { name, n: total }))}</b>`, ""];
+  recipes.forEach((r, i) => lines.push(`${num(i + 1)} ${esc(r.title)}`));
+  if (total > recipes.length) lines.push("", `<i>${esc(t("bot.byPersonMore", { n: total - recipes.length }))}</i>`);
+  return clip(lines.join("\n"));
+}
+
+/** What a menu was asked to be: "Italian · eggplant". */
+export function menuTheme({ cuisines, rest }: MenuAsk, t: Speaker) {
+  return [...cuisines.map((c) => category(t, "cuisine", c)), rest].filter(Boolean).join(" · ");
+}
+
+/** A menu: one dish per course, each under its course. */
+export function renderMenu(ask: MenuAsk, dishes: { title: string; course: string }[], t: Speaker) {
+  const theme = menuTheme(ask, t);
+  const head = `<b>${esc(t(`bot.menu.${ask.meal}`))}</b>${theme ? ` · <i>${esc(theme)}</i>` : ""}`;
+  const lines = dishes.map(
+    (d, i) => `${num(i + 1)} ${PERSONA.look.course[d.course] ?? "🍴"} <i>${esc(category(t, "course", d.course))}</i>: ${esc(d.title)}`,
+  );
+  return clip([head, "", ...lines].join("\n"));
+}
+
+/** The dishes of a menu, one button each, then "another menu" for the next round. */
+export function menuButtons(ask: MenuAsk, dishes: { id: string; title: string }[], round: number, t: Speaker): Button[][] {
+  const next = (round + 1) % PERSONA.menuRounds;
+  return [
+    ...openButtons(dishes, t),
+    [{ label: t("bot.anotherMenu"), action: { kind: "menu", ...ask, round: next, locale: t.locale } }],
+  ];
+}
+
+const DETAIL_LABELS = {
+  title: "edit.title",
+  servings: "edit.makes",
+  prepMinutes: "edit.prep",
+  cookMinutes: "edit.cook",
+  totalMinutes: "edit.total",
+} as const;
+
+/** A proposed correction: what it does, then each line that goes (➖) and comes (➕). */
+export function renderCorrection(title: string, summary: string, diff: RecipeDiff, t: Speaker) {
+  const lines = [`<b>${esc(t("bot.fixAsk", { title }))}</b>`];
+  if (summary) lines.push(`<i>${esc(summary)}</i>`);
+  for (const d of diff.details) {
+    lines.push("", `<b>${esc(t(DETAIL_LABELS[d.field]))}</b>`, `➖ ${esc(String(d.before ?? "—"))}`, `➕ ${esc(String(d.after ?? "—"))}`);
+  }
+  const section = (key: "edit.ingredients" | "edit.method", { removed, added }: { removed: string[]; added: string[] }) => {
+    if (!removed.length && !added.length) return;
+    lines.push("", `<b>${esc(t(key))}</b>`, ...removed.map((l) => `➖ ${esc(l)}`), ...added.map((l) => `➕ ${esc(l)}`));
+  };
+  section("edit.ingredients", diff.ingredients);
+  section("edit.method", diff.steps);
+  return clip(lines.join("\n"));
+}
+
+export function fixButtons(editId: string, t: Speaker): Button[][] {
+  return [
+    [
+      { label: t("bot.fixApply"), action: { kind: "fix", editId, choice: "apply", locale: t.locale } },
+      { label: t("bot.fixCancel"), action: { kind: "fix", editId, choice: "cancel", locale: t.locale } },
+    ],
+  ];
 }

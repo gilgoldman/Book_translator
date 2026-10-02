@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { substituteInRecipe } from "@/app/actions";
+import { localAmount } from "@/lib/amounts";
 import { useT } from "@/lib/i18n/client";
 import { dirFor } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/translate";
@@ -167,8 +168,9 @@ export function RecipeView({
   );
 }
 
-const amount = (i: { metric: string | null; volume: string | null }, units: Units) =>
-  (units === "metric" ? (i.metric ?? i.volume) : (i.volume ?? i.metric)) ?? "";
+/** In the units they chose, written for the language the recipe is shown in. */
+const amount = (i: { metric: string | null; volume: string | null }, units: Units, language: string) =>
+  localAmount((units === "metric" ? (i.metric ?? i.volume) : (i.volume ?? i.metric)) ?? "", language);
 
 /** Steps as cards; tap one to make it the current step, "Done · next step" moves on. */
 function StepList({
@@ -221,7 +223,7 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
           {e.recap.map((r, i) => (
             <li key={i}>
               <span>{r.name}</span>
-              <span className="q">{amount(r, units)}</span>
+              <span className="q">{amount(r, units, recipe.language)}</span>
             </li>
           ))}
         </ul>
@@ -236,7 +238,7 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
               <span key={j}>{seg.text}</span>
             ) : (
               <strong key={j} className="ing">
-                {amount(seg, units) && `${amount(seg, units)} `}
+                {amount(seg, units, recipe.language) && `${amount(seg, units, recipe.language)} `}
                 {segmentText(seg, recipe.ingredients)}
               </strong>
             ),
@@ -283,11 +285,12 @@ function ClassicView({
                       index={index}
                       recipeId={recipeId}
                       units={units}
+                      language={recipe.language}
                       label={ingredientNames[i.canonical] ?? i.canonical}
                     />
                   ) : (
                     <p style={{ margin: ".5em 0" }}>
-                      <IngredientText ing={i} units={units} />
+                      <IngredientText ing={i} units={units} language={recipe.language} />
                     </p>
                   )}
                 </li>
@@ -308,11 +311,11 @@ function ClassicView({
   );
 }
 
-function IngredientText({ ing, units }: { ing: Ingredient; units: Units }) {
+function IngredientText({ ing, units, language }: { ing: Ingredient; units: Units; language: string }) {
   const t = useT();
   return (
     <>
-      <span className="qty">{amount(ing, units)}</span> {ing.name}
+      <span className="qty">{amount(ing, units, language)}</span> {ing.name}
       {ing.note && <span className="note">, {ing.note}</span>}
       {ing.optional && <span className="note"> {t("ingredient.optional")}</span>}
     </>
@@ -325,12 +328,14 @@ function IngredientRow({
   index,
   recipeId,
   units,
+  language,
   label,
 }: {
   ing: Ingredient;
   index: number;
   recipeId: string;
   units: Units;
+  language: string;
   label: string;
 }) {
   const t = useT();
@@ -341,7 +346,7 @@ function IngredientRow({
   return (
     <>
       <button className="ingredient-button" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <IngredientText ing={ing} units={units} />
+        <IngredientText ing={ing} units={units} language={language} />
       </button>
       {open && (
         <div className="ingredient-panel">

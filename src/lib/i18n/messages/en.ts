@@ -138,6 +138,7 @@ export const en = {
   "err.recipeNotFound": "Recipe not found.",
   "err.titleEmpty": "The recipe needs a title.",
   "err.contentEmpty": "Ingredients and method can't be empty.",
+  "err.rereadSourceFailed": "Couldn't read the original again. Try again?",
   "err.rereadFailed": "Details saved, but re-reading the ingredients and method failed. Try again?",
   "password.changed": "Password changed. Other devices have been signed out.",
 
@@ -275,6 +276,16 @@ export const en = {
   "edit.originalNote": "You're editing the original, in {language}. The other languages update by themselves.",
   "edit.save": "Save changes",
   "edit.savingStatus": "Saving. If the ingredients changed this takes a little while.",
+  "edit.rereadTitle": "Read the original again",
+  "edit.rereadHelp":
+    "Imported wrong? Read the original photos, voice note, page or text again and compare before choosing. Notes, photos and the share link stay.",
+  "edit.rereadButton": "Read the original again",
+  "edit.rereadReading": "Reading the original again. This takes about half a minute.",
+  "edit.rereadSame": "The new reading matches what's in the book.",
+  "edit.rereadChanges": "What would change:",
+  "edit.rereadUse": "Use the new reading",
+  "edit.rereadKeep": "Keep what's here",
+  "edit.rereadSaving": "Saving the new reading…",
 
   // profile
   "profile.title": "Your profile",

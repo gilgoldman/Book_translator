@@ -1,3 +1,4 @@
+import { localAmount } from "@/lib/amounts";
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
@@ -24,6 +25,8 @@ export type ShownRecipe = {
   steps: Step[];
   enrichment: Enrichment | null;
   addedBy?: string | null;
+  /** The language its words are shown in; amounts follow it. Defaults to the reader's. */
+  language?: string;
 };
 
 export type ShownSource = { kind: string; url: string | null; files: { url: string; mediaType: string }[]; text: string | null } | null;
@@ -84,13 +87,15 @@ const bar = (parts: number, k: number) =>
 
 export function renderRecipe(r: ShownRecipe, view: RecipeView, t: Speaker, source: ShownSource = null): string {
   const parts = [header(r, t), ""];
+  // Amounts written for the language the recipe is shown in.
+  const amt = (s: string | null) => (s ? localAmount(s, r.language ?? t.locale) : s);
 
   if (view === "effective" && r.enrichment) {
     const e = r.enrichment;
-    parts.push(e.recap.map((x) => `• ${x.metric ? `${esc(x.metric)} ` : ""}${esc(x.name)}`).join("\n"), "");
+    parts.push(e.recap.map((x) => `• ${x.metric ? `${esc(amt(x.metric)!)} ` : ""}${esc(x.name)}`).join("\n"), "");
     e.effectiveSteps.forEach((s, i) => {
       const text = s.segments
-        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(seg.metric) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
+        .map((seg) => (seg.ingredient === null ? esc(seg.text) : `<b>${seg.metric ? esc(amt(seg.metric)!) + " " : ""}${esc(segmentText(seg, r.ingredients))}</b>`))
         .join("");
       parts.push(`${num(i + 1)} ${text}${timerNote(s.timers, t)}`);
     });
@@ -111,7 +116,7 @@ export function renderRecipe(r: ShownRecipe, view: RecipeView, t: Speaker, sourc
       if (source.text) parts.push("", esc(source.text.slice(0, 2500)));
     }
   } else {
-    parts.push(r.ingredients.map((i) => `• ${esc(i.metric ?? i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
+    parts.push(r.ingredients.map((i) => `• ${esc(i.metric ? amt(i.metric)! : i.original)}${i.metric ? ` ${esc(i.name)}` : ""}`).join("\n"), "");
     r.steps.forEach((s, i) => parts.push(`${num(i + 1)} ${esc(s.text)}${timerNote(s.timers, t)}`));
   }
   return clip(parts.join("\n"));

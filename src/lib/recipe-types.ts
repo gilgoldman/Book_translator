@@ -127,7 +127,8 @@ export type Ratio = z.infer<typeof ratioSchema>;
  * Bump when stored effective steps should be rewritten; older ones redo themselves when
  * opened. Then run `npm run translate` so every recipe is redone at once.
  */
-export const ENRICHMENT_VERSION = 2;
+// 3: amounts in the recipe's language and measurable; the recap keeps specific names.
+export const ENRICHMENT_VERSION = 3;
 
 export type Enrichment = {
   recap: { name: string; metric: string | null; volume: string | null }[];

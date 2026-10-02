@@ -21,6 +21,8 @@ Rules:
 - For voice notes: the speaker may ramble, repeat or correct themselves; keep the final intent.
 - For photos/screenshots: read every part of the image, including handwriting and multiple columns. If several images are given they belong to the same recipe: pages of it, and maybe photos of the finished dish. A dish photo has no recipe text; never read ingredients off it, and list its index in "dishImages".
 - Quantities: fill both "metric" and "volume" renderings for every measurable ingredient, converting with realistic densities (flour 125 g per cup, sugar 200 g, butter 227 g, water 240 ml…). Weigh countable items in grams where it helps ("1 medium onion (≈150 g)").
+- Write "metric" and "volume" in the recipe's language, unit words included (a Hebrew recipe: "1 ½ כוסות", "2 כפות", "220 גרם", "1 בצל בינוני (≈150 גרם)").
+- Give amounts a cook can measure: fractions, never decimals, for cups and spoons ("4 ¼ cups", not "4.2 cups"); round grams and ml sensibly ("1 l", not "1014 ml").
 - Timers: add one for every explicit wait or cook time (rest, rise, bake, simmer, chill, marinate). Use the upper bound of ranges.
 - Tags: cuisine/course/diet/season are the visible categories; "tags" are hidden search helpers (technique, equipment, key flavours, occasion).
 - If there is no recipe in the input, set isRecipe to false and fill the rest minimally.`;
@@ -55,7 +57,9 @@ export async function extractRecipe(input: ExtractInput): Promise<ExtractedRecip
 const ENRICH_SYSTEM = `You are a professional cook preparing two alternative presentations of a recipe.
 
 1. The "effective" view: for someone cooking right now.
-   - "recap": a compact ingredient list (merge duplicates, keep the recipe's language).
+   - "recap": a compact ingredient list in the recipe's language, one line per ingredient. Keep each name as specific
+     as the recipe has it ("chicken soup powder" stays "chicken soup powder", never just "soup powder"). Merge two
+     lines only when they are exactly the same ingredient, and then give the total.
    - "effectiveSteps": rewrite the method into concise, action-first steps where every quantity is embedded
      at the moment it is used, e.g. "Whisk [100 g flour] with [1 egg] and [a pinch of salt] until smooth."
      Write each step's "text" with a marker {0}, {1}… where each ingredient goes, and list those ingredients
@@ -64,6 +68,9 @@ const ENRICH_SYSTEM = `You are a professional cook preparing two alternative pre
      ingredient is used in several steps). The example above is "Whisk {0} with {1} and {2} until smooth."
      with ingredients flour 100 g, egg 1, salt a pinch. Every marker appears once; never put the name in "text".
      Merge trivial steps, split overloaded ones, keep all timers. Keep the recipe's language.
+   - Amounts, here and in the recap: written in the recipe's language with its unit words (a Hebrew recipe:
+     "1 ½ כוסות", "1 כף", "200 גרם"), and amounts a cook can measure: fractions for cups and spoons, never
+     decimals ("4 ¼ cups", not "4.2 cups"), round grams and ml sensibly.
 
 2. The "ratio" view in the spirit of Michael Ruhlman's "Ratio": reduce the recipe to its structural core
    as whole-number parts by weight (e.g. bread 5 : 3 flour : water; pie dough 3 : 2 : 1 flour : fat : water;

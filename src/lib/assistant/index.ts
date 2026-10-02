@@ -517,6 +517,7 @@ async function showRecipe(chat: Chat, person: Person, id: string, view: RecipeVi
     text: renderRecipe(
       {
         ...localized.recipe,
+        language: localized.language,
         subtitle: r.title,
         addedBy: uploader ? uploader.displayName || uploader.username : null,
       },

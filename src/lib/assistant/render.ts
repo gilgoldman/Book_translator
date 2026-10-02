@@ -1,6 +1,7 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
+import type { Meal } from "./asks";
 import { RECIPE_VIEWS, type Button, type MessageRef, type RecipeView } from "./chat";
 import type { Speaker } from "./language";
 import { PERSONA } from "./persona";
@@ -215,4 +216,22 @@ export function renderAbundance(
   uses.forEach((u, i) => lines.push(`${num(i + 1)} ${esc(u.title)}${u.amount ? ` — <i>${esc(u.amount)}</i>` : ""}`));
   if (pairs.length) lines.push("", esc(t("bot.pairs", { list: pairs.map((p) => p.name).join(", ") })));
   return clip(lines.join("\n"));
+}
+
+/** "Dana's recipes": how many they added, the newest few, and how many more there are. */
+export function renderByPerson(name: string, recipes: { title: string }[], total: number, t: Speaker) {
+  if (total === 0) return esc(t("bot.byPersonNone", { name }));
+  const lines = [`<b>${esc(t("bot.byPerson", { name, n: total }))}</b>`, ""];
+  recipes.forEach((r, i) => lines.push(`${num(i + 1)} ${esc(r.title)}`));
+  if (total > recipes.length) lines.push("", `<i>${esc(t("bot.byPersonMore", { n: total - recipes.length }))}</i>`);
+  return clip(lines.join("\n"));
+}
+
+/** A menu: one dish per course, each under its course. */
+export function renderMenu(meal: Meal, wants: string, dishes: { title: string; course: string }[], t: Speaker) {
+  const head = `<b>${esc(t(`bot.menu.${meal}`))}</b>${wants ? ` · <i>${esc(wants)}</i>` : ""}`;
+  const lines = dishes.map(
+    (d, i) => `${num(i + 1)} ${PERSONA.look.course[d.course] ?? "🍴"} <i>${esc(category(t, "course", d.course))}</i>: ${esc(d.title)}`,
+  );
+  return clip([head, "", ...lines].join("\n"));
 }

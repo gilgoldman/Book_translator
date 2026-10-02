@@ -34,6 +34,18 @@ export const PERSONA = {
   searchResults: 6,
   lotsResults: 8,
   pairings: 8,
+  /** How many of one person's recipes "recipes from Dana" lists; the rest are a link away. */
+  personResults: 12,
+
+  /**
+   * "Let's build a dinner menu": one dish per course, in this order. Each course takes the
+   * first fitting recipe of these kinds; a course nothing fits is left out.
+   */
+  menus: {
+    lunch: [["salad", "soup", "starter"], ["main"], ["side", "bread"]],
+    dinner: [["starter", "soup", "salad"], ["main"], ["side"], ["dessert"]],
+    brunch: [["breakfast"], ["baking", "bread"], ["salad", "starter"], ["drink"]],
+  },
 
   /** "No buttermilk?" answers per person per hour (each one asks the AI). */
   swapsPerHour: 30,
@@ -64,7 +76,7 @@ export const PERSONA = {
 const en = {
   // Shown on /start and /help, and after signing in.
   "bot.help":
-    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>, in writing or out loud 🎙\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk, would yogurt work?</i> or /swap buttermilk\n(right after a recipe, or as a reply to one, it's about that recipe)\n\n/find searches · /add imports text as is",
+    "👋 <b>Send me a recipe</b>, any way you like:\n📸 photos or screenshots (an album = one recipe)\n🔗 a link · 🎙 a voice note · 📝 pasted text\n\n<b>Or ask me</b>, in writing or out loud 🎙\n🔎 <i>leeks, eggs, feta</i> · <i>that lemony chicken</i>\n🧺 <i>I have a lot of leeks</i> or /lots leeks\n🔄 <i>no buttermilk, would yogurt work?</i> or /swap buttermilk\n🧑‍🍳 <i>Dana's recipes</i> · 🍽 <i>build an Italian dinner menu</i>\n(right after a recipe, or as a reply to one, it's about that recipe)\n\n/find searches · /add imports text as is",
   // For a sticker, a PDF, anything it can't read.
   "bot.nudge": "🙂 Send me a photo, link, voice note or recipe text, or ask me something.",
 
@@ -97,6 +109,15 @@ const en = {
   "bot.swapOthers": "Other options:",
   "bot.lots": "🧺 Lots of {name}? These use the most:",
   "bot.pairs": "💞 Goes well with: {list}",
+  // "Dana's recipes": who, how many, then the newest few.
+  "bot.byPerson": "🧑‍🍳 {name} added {n}:",
+  "bot.byPersonMore": "…and {n} more in the cookbook.",
+  "bot.byPersonNone": "🤷 {name} hasn't added any recipes yet.",
+  // "Let's build an Italian dinner menu"
+  "bot.menu.lunch": "🥪 A lunch menu",
+  "bot.menu.dinner": "🍽 A dinner menu",
+  "bot.menu.brunch": "🥐 A brunch menu",
+  "bot.menuNone": "🤷 Not enough in the book for a menu with “{query}” yet.",
   "bot.slowDown": "🫖 Let's take a breather. Try again soon.",
   "bot.couldnt": "😕 Couldn't do that.",
   "bot.gone": "🫥 That recipe is gone.",
@@ -115,7 +136,7 @@ export type WordKey = keyof typeof en;
 
 const he: Record<WordKey, string> = {
   "bot.help":
-    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>, בכתב או בהקלטה 🎙\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון, אפשר יוגורט?</i> או /swap רוויון\n(מיד אחרי מתכון, או בתגובה אליו, זה לגבי המתכון הזה)\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
+    "👋 <b>שלחו לי מתכון</b>, איך שנוח:\n📸 תמונות או צילומי מסך (אלבום = מתכון אחד)\n🔗 קישור · 🎙 הקלטה קולית · 📝 טקסט\n\n<b>או תשאלו אותי</b>, בכתב או בהקלטה 🎙\n🔎 <i>כרישה, ביצים, פטה</i> · <i>העוף הלימוני ההוא</i>\n🧺 <i>יש לי הרבה כרישות</i> או /lots כרישה\n🔄 <i>אין לי רוויון, אפשר יוגורט?</i> או /swap רוויון\n🧑‍🍳 <i>המתכונים של דנה</i> · 🍽 <i>בוא נבנה תפריט לארוחת ערב איטלקית</i>\n(מיד אחרי מתכון, או בתגובה אליו, זה לגבי המתכון הזה)\n\n/find לחיפוש · /add לייבוא טקסט כמו שהוא",
   "bot.nudge": "🙂 שלחו לי תמונה, קישור, הקלטה או טקסט של מתכון, או תשאלו אותי משהו.",
 
   "bot.reading": "👩‍🍳 קורא…|🍳 על זה…|📖 מתייק בספר…",
@@ -143,6 +164,13 @@ const he: Record<WordKey, string> = {
   "bot.swapOthers": "אפשרויות נוספות:",
   "bot.lots": "🧺 הרבה {name}? אלה משתמשים בהכי הרבה:",
   "bot.pairs": "💞 הולך טוב עם: {list}",
+  "bot.byPerson": "🧑‍🍳 {name} הוסיפו {n}:",
+  "bot.byPersonMore": "…ועוד {n} בספר.",
+  "bot.byPersonNone": "🤷 {name} עוד לא הוסיפו מתכונים.",
+  "bot.menu.lunch": "🥪 תפריט לארוחת צהריים",
+  "bot.menu.dinner": "🍽 תפריט לארוחת ערב",
+  "bot.menu.brunch": "🥐 תפריט לבראנץ׳",
+  "bot.menuNone": "🤷 עדיין אין בספר מספיק לתפריט עם „{query}”.",
   "bot.slowDown": "🫖 בואו ניקח הפסקה קטנה. אפשר לנסות שוב בקרוב.",
   "bot.couldnt": "😕 לא הצלחתי.",
   "bot.gone": "🫥 המתכון הזה כבר לא קיים.",

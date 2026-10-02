@@ -40,6 +40,10 @@ const book = vi.hoisted(() => ({
   /** What the next `localizeRecipe` calls report, in order. */
   localized: [] as { status: string; refresh: boolean }[],
   search: [] as { id: string; title: string; match?: { missing: number } }[],
+  /** Members by what someone calls them; their recipes; recipes per cuisine. */
+  cooks: {} as Record<string, { username: string; name: string }>,
+  byCook: [] as { id: string; title: string; course: string; cuisine: string }[],
+  cuisine: [] as { id: string; title: string; course: string; cuisine: string }[],
   uses: [] as { id: string; title: string; amount: string | null }[],
   pairs: [] as { name: string; count: number }[],
 }));
@@ -99,7 +103,12 @@ vi.mock("@/lib/ingredients", () => ({
   goesWellWith: vi.fn(async () => book.pairs),
 }));
 vi.mock("@/lib/rate-limit", () => ({ isRateLimited: vi.fn(async () => false) }));
-vi.mock("@/lib/search", () => ({ searchRecipes: vi.fn(async () => book.search) }));
+vi.mock("@/lib/search", () => ({
+  searchRecipes: vi.fn(async () => book.search),
+  findCook: vi.fn(async (who: string) => book.cooks[who.toLowerCase()] ?? null),
+  recentRecipes: vi.fn(async () => book.byCook),
+  recipesInCuisines: vi.fn(async () => book.cuisine),
+}));
 vi.mock("@/lib/translations", () => ({
   localizeRecipe: (r: { language: string }) => ({
     recipe: r,
@@ -121,7 +130,7 @@ const { resolveDuplicate } = await import("@/lib/dedupe");
 const { ingest, NotARecipeError } = await import("@/lib/ingest");
 const { goesWellWith, recipesUsingMost } = await import("@/lib/ingredients");
 const { isRateLimited } = await import("@/lib/rate-limit");
-const { searchRecipes } = await import("@/lib/search");
+const { findCook, recentRecipes, recipesInCuisines, searchRecipes } = await import("@/lib/search");
 const { ensureTranslations } = await import("@/lib/translations");
 
 type Said =
@@ -172,6 +181,9 @@ beforeEach(() => {
     memoryBroken: false,
     localized: [],
     search: [{ id, title: "Pancakes", match: { missing: 1 } }],
+    cooks: {},
+    byCook: [],
+    cuisine: [],
     uses: [],
     pairs: [],
   });
@@ -237,6 +249,88 @@ describe("what they send", () => {
     const { chat, said } = pretendChat();
     await onMessage(chat, person, { ref: 1, text: "/lots saffron" });
     expect(said).toMatchObject([{ send: expect.stringMatching(/^🤷/), buttons: undefined }]);
+  });
+});
+
+describe("someone's recipes", () => {
+  const dana = { username: "dana", name: "Dana Levi" };
+  const recipe = (n: number) => ({ id: `r${n}`, title: `Dish ${n}`, course: "main", cuisine: "italian" });
+
+  it("lists the newest, with a link to the rest", async () => {
+    book.cooks = { dana };
+    book.byCook = Array.from({ length: 14 }, (_, i) => recipe(i + 1));
+    process.env.APP_URL = "https://book.test/";
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "show me all recipes from user Dana" });
+    expect(findCook).toHaveBeenCalledWith("Dana");
+    expect(recentRecipes).toHaveBeenCalledWith("en", 500, "dana");
+    const [reply] = said as { send: string; buttons: Reply["buttons"] }[];
+    expect(reply.send).toMatch(/^<b>🧑‍🍳 Dana Levi added 14:<\/b>\n\n1️⃣ Dish 1\n/);
+    expect(reply.send).toContain("12. Dish 12\n\n<i>…and 2 more in the cookbook.</i>");
+    expect(reply.buttons).toHaveLength(13);
+    expect(reply.buttons?.[12]).toEqual([{ label: "📖 Open in the cookbook", url: "https://book.test/?by=dana" }]);
+  });
+
+  it("says so when they've added nothing", async () => {
+    book.cooks = { "דנה": dana };
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "המתכונים של דנה" });
+    expect(said).toMatchObject([{ send: "🤷 Dana Levi עוד לא הוסיפו מתכונים.", buttons: undefined }]);
+  });
+
+  it("is a search when nobody goes by that name", async () => {
+    const { chat } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "recipes from Italy" });
+    expect(recentRecipes).not.toHaveBeenCalled();
+    expect(searchRecipes).toHaveBeenCalledWith("recipes from Italy", "en", 6);
+  });
+});
+
+describe("a menu", () => {
+  const dish = (id: string, course: string, cuisine = "italian") => ({ id, title: id, course, cuisine });
+
+  it("of a cuisine takes what matches the rest first, one dish per course", async () => {
+    book.search = [dish("Eggplant pasta", "main"), dish("Baba ganoush", "starter", "levantine")];
+    book.cuisine = [dish("Tiramisu", "dessert"), dish("Lasagne", "main"), dish("Minestrone", "soup")];
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "Let's build an Italian dinner menu with eggplant" });
+    expect(searchRecipes).toHaveBeenCalledWith("eggplant", "en", 60);
+    expect(recipesInCuisines).toHaveBeenCalledWith(["italian"], "en");
+    expect(said).toMatchObject([
+      {
+        send:
+          "<b>🍽 A dinner menu</b> · <i>italian eggplant</i>\n\n" +
+          "1️⃣ 🍲 <i>Soup</i>: Minestrone\n2️⃣ 🍽 <i>Main</i>: Eggplant pasta\n3️⃣ 🍰 <i>Dessert</i>: Tiramisu",
+        buttons: [
+          [{ label: "1️⃣ Minestrone" }],
+          [{ label: "2️⃣ Eggplant pasta" }],
+          [{ label: "3️⃣ Tiramisu" }],
+        ],
+      },
+    ]);
+  });
+
+  it("with an ingredient searches for it", async () => {
+    book.search = [dish("Pancakes", "main")];
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "lunch menu with buttermilk" });
+    expect(searchRecipes).toHaveBeenCalledWith("buttermilk", "en", 60);
+    expect(said).toMatchObject([{ send: expect.stringContaining("🥪 A lunch menu") }]);
+  });
+
+  it("with nothing asked picks from the whole book", async () => {
+    book.byCook = [dish("Lasagne", "main")];
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "plan a dinner" });
+    expect(recentRecipes).toHaveBeenCalledWith("en", 300);
+    expect(said).toMatchObject([{ send: expect.stringContaining("Lasagne") }]);
+  });
+
+  it("says so when nothing fits", async () => {
+    book.search = [dish("Lemonade", "drink")];
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "תפריט עם לימון" });
+    expect(said).toMatchObject([{ send: "🤷 עדיין אין בספר מספיק לתפריט עם „לימון”.", buttons: undefined }]);
   });
 });
 

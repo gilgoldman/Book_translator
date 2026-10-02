@@ -77,7 +77,9 @@ used, and the menu and profile fit Telegram's limits.
 
 It answers in the language you write to it in. Send photos (an album = one recipe), links,
 voice notes, pasted text, or questions:
-`leeks, eggs, feta`, `I have a lot of leeks` (or `/lots leeks`), `no buttermilk` (or `/swap buttermilk`).
+`leeks, eggs, feta`, `I have a lot of leeks` (or `/lots leeks`), `no buttermilk` (or `/swap buttermilk`),
+`Dana's recipes` (everything one person added), `build an Italian dinner menu with eggplant`
+(one dish per course; the courses per meal are in `persona.ts`).
 Questions can be voice notes too: a quick listen tells a question from a dictated recipe. A question
 is answered under "I heard: …", with a button to save it as a recipe if it was one after all.
 Duplicate imports come back with Keep original / Replace / Keep both buttons.

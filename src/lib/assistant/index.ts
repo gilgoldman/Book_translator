@@ -11,8 +11,9 @@ import { findIngredientLine, parseIngredientIntent } from "@/lib/ingredient-inte
 import { localName, localNames } from "@/lib/ingredient-names";
 import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
 import { isRateLimited } from "@/lib/rate-limit";
-import { searchRecipes } from "@/lib/search";
+import { findCook, recentRecipes, recipesInCuisines, searchRecipes, type RecipeCard } from "@/lib/search";
 import { ensureTranslations, localizeRecipe } from "@/lib/translations";
+import { parseMenuAsk, parsePersonAsk, planMenu, type MenuAsk } from "./asks";
 import type { Attachment, Chat, Incoming, MessageRef, Person, RecipeView, Tap } from "./chat";
 import { classifyText } from "./intent";
 import { replyLocale, speaker, usualLocale, type Speaker } from "./language";
@@ -22,7 +23,9 @@ import {
   esc,
   openButtons,
   renderAbundance,
+  renderByPerson,
   renderDuplicatePrompt,
+  renderMenu,
   renderRecipe,
   renderResults,
   renderSubstitution,
@@ -107,8 +110,13 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
   return showRecipe(chat, person, action.recipeId, action.view, t, on);
 }
 
-/** A question, typed or spoken: "I have a lot of…", "no…", or a search. */
+/** A question, typed or spoken: a menu, someone's recipes, "I have a lot of…", "no…", or a search. */
 async function answer(chat: Chat, person: Person, query: string, t: Speaker, repliedToRecipe?: string | null) {
+  const menu = parseMenuAsk(query);
+  if (menu) return menuReply(chat, menu, query, t);
+  const byPerson = parsePersonAsk(query);
+  // "Recipes from Italy" names nobody: then it's a search.
+  if (byPerson && (await byPersonReply(chat, byPerson.who, t))) return;
   const ingredientIntent = parseIngredientIntent(query);
   if (ingredientIntent?.kind === "abundance") return abundanceReply(chat, ingredientIntent.ingredient, t);
   if (ingredientIntent?.kind === "substitute") return substituteReply(chat, person, ingredientIntent, t, repliedToRecipe);
@@ -297,6 +305,57 @@ async function importAndReply(
     const key = notRecipe ? "err.notRecipe" : isAiBusy(err) ? "bot.stillBusy" : "bot.failed";
     await chat.edit(status, { text: esc(t(key)) });
   }
+}
+
+/** "Dana's recipes": false when nobody in the book goes by that name. */
+async function byPersonReply(chat: Chat, who: string, t: Speaker) {
+  const cook = await findCook(who);
+  if (!cook) return false;
+  const all = await recentRecipes(t.locale, 500, cook.username);
+  const shown = all.slice(0, PERSONA.personResults);
+  const base = chat.appUrl ?? appUrl();
+  const buttons = openButtons(shown, t);
+  if (all.length > shown.length && base !== undefined) {
+    buttons.push([{ label: t("bot.openInApp"), url: `${base}/?by=${encodeURIComponent(cook.username)}` }]);
+  }
+  await chat.send({ text: renderByPerson(cook.name, shown, all.length, t), buttons: buttons.length ? buttons : undefined });
+  return true;
+}
+
+/**
+ * "Let's build an Italian dinner menu with eggplant": recipes of that cuisine that match the rest
+ * best, then the rest of that cuisine; without a cuisine, what a search finds; with nothing at all,
+ * the book in a new order each time.
+ */
+async function menuReply(chat: Chat, ask: MenuAsk, query: string, t: Speaker) {
+  chat.typing();
+  let candidates: RecipeCard[];
+  if (ask.cuisines.length) {
+    const [matching, cuisine] = await Promise.all([
+      ask.rest ? searchRecipes(ask.rest, t.locale, 60) : Promise.resolve([]),
+      recipesInCuisines(ask.cuisines, t.locale),
+    ]);
+    candidates = [...matching.filter((r) => ask.cuisines.includes(r.cuisine)), ...cuisine];
+  } else if (ask.rest) {
+    candidates = await searchRecipes(ask.rest, t.locale, 60);
+  } else {
+    candidates = shuffle(await recentRecipes(t.locale, 300));
+  }
+  const dishes = planMenu(ask.meal, candidates);
+  if (dishes.length === 0) {
+    await chat.send({ text: esc(t("bot.menuNone", { query: ask.wants || query })) });
+    return;
+  }
+  await chat.send({ text: renderMenu(ask.meal, ask.wants, dishes, t), buttons: openButtons(dishes, t) });
+}
+
+function shuffle<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 async function searchAndReply(chat: Chat, query: string, t: Speaker) {

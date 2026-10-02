@@ -109,8 +109,8 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
   }
 
   if (action.kind === "menu") {
-    const { kind: _, round, locale: __, ...ask } = action;
-    return menuReply(chat, ask, t, round, on);
+    const { meal, cuisines, rest, round } = action;
+    return menuReply(chat, { meal, cuisines, rest }, t, round, on);
   }
   if (action.kind === "open") return showRecipe(chat, person, action.recipeId, "effective", t);
   return showRecipe(chat, person, action.recipeId, action.view, t, on);

@@ -1,12 +1,14 @@
 import { put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
-import { db, recipes, sources, type SourceKind } from "@/db";
+import { db, recipeColumns, recipes, sources, type Source, type SourceKind } from "@/db";
 import { embedText, embeddingText, enrichRecipe, extractRecipe, type ExtractInput } from "@/lib/ai/extract";
 import { findDuplicate, type DuplicateMatch } from "@/lib/dedupe";
 import type { Locale } from "@/lib/i18n/config";
 import { linkIngredients } from "@/lib/ingredient-links";
+import { contentChanged, recipeText, type RecipeText } from "@/lib/recipe-changes";
 import { randomToken } from "@/lib/tokens";
+import type { ExtractedRecipe } from "@/lib/recipe-types";
 import { ensureTranslations } from "@/lib/translations";
 import { dishPhotos } from "./photos";
 import { fetchPage, pageToPrompt } from "./url";
@@ -134,8 +136,17 @@ async function processSource(
 
 /** Extract + enrich + embed: everything about a recipe that the LLM derives. */
 async function structure(input: ExtractInput) {
+  return finish(await extract(input));
+}
+
+async function extract(input: ExtractInput) {
   const extracted = await extractRecipe(input);
   if (!extracted.isRecipe || extracted.ingredients.length === 0) throw new NotARecipeError();
+  return extracted;
+}
+
+/** Enrich + embed what was extracted. */
+async function finish(extracted: ExtractedRecipe) {
   const [enrichment, embedding] = await Promise.all([
     enrichRecipe(extracted),
     embedText(embeddingText(extracted)),
@@ -166,15 +177,101 @@ async function structure(input: ExtractInput) {
 /**
  * Rebuild a recipe after someone edited its ingredients or method by hand, so the
  * effective and ratio views, units and search stay consistent. Keeps id, share link,
- * notes, photos, source and uploader.
+ * notes, photos, source and uploader, and what they set by hand: title, description, servings,
+ * times and categories.
  */
 export async function restructureRecipe(recipeId: string, edited: { title: string; ingredients: string; method: string }) {
   const text = `${edited.title}\n\nIngredients:\n${edited.ingredients}\n\nMethod:\n${edited.method}`;
   const { content } = await structure({ kind: "text", text });
-  // The person's own title wins over the model's rewording.
   await db()
     .update(recipes)
-    .set({ ...content, title: edited.title.trim() || content.title, updatedAt: new Date() })
+    .set({
+      titleEnglish: content.titleEnglish,
+      language: content.language,
+      ingredients: content.ingredients,
+      steps: content.steps,
+      enrichment: content.enrichment,
+      tags: content.tags,
+      embedding: content.embedding,
+      updatedAt: new Date(),
+    })
     .where(eq(recipes.id, recipeId));
   await linkIngredients(recipeId, content.ingredients);
+}
+
+/** What a saved source says, ready to read again. The live page for a link, else the text kept from it. */
+async function sourceInput(source: Source): Promise<ExtractInput> {
+  if (source.kind === "url" && source.url) {
+    try {
+      const page = await fetchPage(source.url);
+      return { kind: "text", text: pageToPrompt(page), url: page.url };
+    } catch (err) {
+      if (!source.text) throw err;
+      console.warn("re-read: the page is gone, using the text kept from it", err);
+      return { kind: "text", text: source.text, url: source.url };
+    }
+  }
+  if (source.kind === "text") {
+    if (!source.text) throw new NotARecipeError();
+    return { kind: "text", text: source.text };
+  }
+  const files = await Promise.all(
+    source.files.map(async (f) => {
+      const res = await fetch(f.url);
+      if (!res.ok) throw new Error(`couldn't download ${f.url}: ${res.status}`);
+      return { data: new Uint8Array(await res.arrayBuffer()), mediaType: f.mediaType };
+    }),
+  );
+  return { kind: "files", files, caption: source.text ?? undefined };
+}
+
+/**
+ * Read a recipe's original again (photos, voice note, page or text), for someone to compare
+ * with what's in the book before choosing to use it. Nothing is saved.
+ */
+export async function rereadSource(recipeId: string): Promise<ExtractedRecipe> {
+  const recipe = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId), columns: { sourceId: true } });
+  if (!recipe?.sourceId) throw new Error("This recipe has no original");
+  const source = await db().query.sources.findFirst({ where: eq(sources.id, recipe.sourceId) });
+  if (!source) throw new Error("This recipe has no original");
+  return extract(await sourceInput(source));
+}
+
+/** Use a re-read in place of what's in the book. Keeps id, share link, notes, photos, source and uploader. */
+export async function applyReread(recipeId: string, extracted: ExtractedRecipe) {
+  const { content } = await finish(extracted);
+  await db()
+    .update(recipes)
+    .set({ ...content, updatedAt: new Date() })
+    .where(eq(recipes.id, recipeId));
+  await linkIngredients(recipeId, content.ingredients);
+}
+
+/**
+ * Save a corrected recipe: title, servings and times as given; the ingredients and method, if they
+ * changed, re-read so every view stays right. False when the recipe is gone.
+ */
+export async function saveCorrection(recipeId: string, text: RecipeText): Promise<boolean> {
+  const current = await db().query.recipes.findFirst({ where: eq(recipes.id, recipeId), columns: recipeColumns });
+  if (!current) return false;
+  await db()
+    .update(recipes)
+    .set({
+      title: text.title.trim() || current.title,
+      servings: text.servings?.trim() || null,
+      prepMinutes: text.prepMinutes,
+      cookMinutes: text.cookMinutes,
+      totalMinutes: text.totalMinutes,
+      updatedAt: new Date(),
+    })
+    .where(eq(recipes.id, recipeId));
+  if (contentChanged(recipeText(current), text)) {
+    await restructureRecipe(recipeId, {
+      title: text.title,
+      ingredients: text.ingredients.join("\n"),
+      method: text.steps.join("\n\n"),
+    });
+  }
+  after(() => ensureTranslations(recipeId));
+  return true;
 }

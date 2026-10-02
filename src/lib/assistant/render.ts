@@ -1,6 +1,7 @@
 import { formatDuration, formatMinutes } from "@/lib/format";
 import type { MessageKey } from "@/lib/i18n/translate";
 import { segmentText, type Enrichment, type Ingredient, type Step, type Substitution } from "@/lib/recipe-types";
+import type { RecipeDiff } from "@/lib/recipe-changes";
 import type { MenuAsk } from "./asks";
 import { RECIPE_VIEWS, type Button, type MessageRef, type RecipeView } from "./chat";
 import type { Speaker } from "./language";
@@ -248,5 +249,38 @@ export function menuButtons(ask: MenuAsk, dishes: { id: string; title: string }[
   return [
     ...openButtons(dishes, t),
     [{ label: t("bot.anotherMenu"), action: { kind: "menu", ...ask, round: next, locale: t.locale } }],
+  ];
+}
+
+const DETAIL_LABELS = {
+  title: "edit.title",
+  servings: "edit.makes",
+  prepMinutes: "edit.prep",
+  cookMinutes: "edit.cook",
+  totalMinutes: "edit.total",
+} as const;
+
+/** A proposed correction: what it does, then each line that goes (➖) and comes (➕). */
+export function renderCorrection(title: string, summary: string, diff: RecipeDiff, t: Speaker) {
+  const lines = [`<b>${esc(t("bot.fixAsk", { title }))}</b>`];
+  if (summary) lines.push(`<i>${esc(summary)}</i>`);
+  for (const d of diff.details) {
+    lines.push("", `<b>${esc(t(DETAIL_LABELS[d.field]))}</b>`, `➖ ${esc(String(d.before ?? "—"))}`, `➕ ${esc(String(d.after ?? "—"))}`);
+  }
+  const section = (key: "edit.ingredients" | "edit.method", { removed, added }: { removed: string[]; added: string[] }) => {
+    if (!removed.length && !added.length) return;
+    lines.push("", `<b>${esc(t(key))}</b>`, ...removed.map((l) => `➖ ${esc(l)}`), ...added.map((l) => `➕ ${esc(l)}`));
+  };
+  section("edit.ingredients", diff.ingredients);
+  section("edit.method", diff.steps);
+  return clip(lines.join("\n"));
+}
+
+export function fixButtons(editId: string, t: Speaker): Button[][] {
+  return [
+    [
+      { label: t("bot.fixApply"), action: { kind: "fix", editId, choice: "apply", locale: t.locale } },
+      { label: t("bot.fixCancel"), action: { kind: "fix", editId, choice: "cancel", locale: t.locale } },
+    ],
   ];
 }

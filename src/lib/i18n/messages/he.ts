@@ -136,6 +136,7 @@ export const he: Messages = {
   "err.recipeNotFound": "המתכון לא נמצא.",
   "err.titleEmpty": "למתכון צריך שם.",
   "err.contentEmpty": "המצרכים ואופן ההכנה לא יכולים להיות ריקים.",
+  "err.rereadSourceFailed": "לא הצלחתי לקרוא שוב את המקור. לנסות שוב?",
   "err.rereadFailed": "הפרטים נשמרו, אבל קריאה מחדש של המצרכים ואופן ההכנה נכשלה. לנסות שוב?",
   "password.changed": "הסיסמה הוחלפה. יצאת מכל המכשירים האחרים.",
 
@@ -273,6 +274,16 @@ export const he: Messages = {
   "edit.originalNote": "כאן עורכים את המקור, ב{language}. השפות האחרות מתעדכנות מעצמן.",
   "edit.save": "שמירת השינויים",
   "edit.savingStatus": "שומר. אם המצרכים השתנו, זה לוקח קצת זמן.",
+  "edit.rereadTitle": "לקרוא שוב את המקור",
+  "edit.rereadHelp":
+    "יובא לא נכון? אפשר לקרוא שוב את התמונות, ההקלטה, הדף או הטקסט המקורי ולהשוות לפני שבוחרים. ההערות, התמונות וקישור השיתוף נשארים.",
+  "edit.rereadButton": "לקרוא שוב את המקור",
+  "edit.rereadReading": "קורא שוב את המקור. זה לוקח בערך חצי דקה.",
+  "edit.rereadSame": "הקריאה החדשה זהה למה שיש בספר.",
+  "edit.rereadChanges": "מה ישתנה:",
+  "edit.rereadUse": "להשתמש בקריאה החדשה",
+  "edit.rereadKeep": "להשאיר כמו שזה",
+  "edit.rereadSaving": "שומר את הקריאה החדשה…",
 
   // profile
   "profile.title": "הפרופיל שלך",

@@ -1,19 +1,21 @@
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { after } from "next/server";
-import { db, recipeColumns, recipes, sources, users } from "@/db";
+import { db, recipeColumns, recipeEdits, recipes, sources, users } from "@/db";
+import { proposeCorrection } from "@/lib/ai/correct";
 import { isAiBusy } from "@/lib/ai/errors";
 import { substituteContext, suggestSubstitutes } from "@/lib/ai/substitute";
 import { hearVoiceNote } from "@/lib/ai/voice";
-import { resolveDuplicate } from "@/lib/dedupe";
+import { canEdit, resolveDuplicate } from "@/lib/dedupe";
 import { ingredientDiff } from "@/lib/dedupe-rules";
-import { ingest, NotARecipeError, type IngestRequest } from "@/lib/ingest";
+import { ingest, NotARecipeError, saveCorrection, type IngestRequest } from "@/lib/ingest";
 import { findIngredientLine, parseIngredientIntent } from "@/lib/ingredient-intent";
 import { localName, localNames } from "@/lib/ingredient-names";
 import { goesWellWith, recipesUsingMost, resolveIngredient } from "@/lib/ingredients";
 import { isRateLimited } from "@/lib/rate-limit";
+import { diffRecipe, isUnchanged, recipeText } from "@/lib/recipe-changes";
 import { findCook, recentRecipes, recipesInCuisines, searchRecipes, type RecipeCard } from "@/lib/search";
 import { ensureTranslations, localizeRecipe } from "@/lib/translations";
-import { parseMenuAsk, parsePersonAsk, planMenu, type MenuAsk } from "./asks";
+import { looksLikeCorrection, parseMenuAsk, parsePersonAsk, planMenu, type MenuAsk } from "./asks";
 import type { Attachment, Chat, Incoming, MessageRef, Person, RecipeView, Tap } from "./chat";
 import { classifyText } from "./intent";
 import { replyLocale, speaker, usualLocale, type Speaker } from "./language";
@@ -21,9 +23,11 @@ import { PERSONA } from "./persona";
 import {
   duplicateButtons,
   esc,
+  fixButtons,
   openButtons,
   renderAbundance,
   renderByPerson,
+  renderCorrection,
   renderDuplicatePrompt,
   menuButtons,
   menuTheme,
@@ -76,6 +80,7 @@ export async function onMessage(chat: Chat, person: Person, msg: Incoming) {
   if (intent.kind === "import") {
     return importAndReply(chat, person, t, msg.ref, async () => ({ kind: "text", text: intent.text }));
   }
+  if (intent.kind === "fix") return fixReply(chat, person, intent.text, t, msg.repliedToRecipe, true);
   return answer(chat, person, intent.query, t, msg.repliedToRecipe);
 }
 
@@ -108,6 +113,7 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
     }
   }
 
+  if (action.kind === "fix") return onFixTap(chat, person, action.editId, action.choice, t, on);
   if (action.kind === "menu") {
     const { meal, cuisines, rest, round } = action;
     return menuReply(chat, { meal, cuisines, rest }, t, round, on);
@@ -120,6 +126,8 @@ export async function onTap(chat: Chat, person: Person, { action, on, voiceNote 
 async function answer(chat: Chat, person: Person, query: string, t: Speaker, repliedToRecipe?: string | null) {
   const menu = parseMenuAsk(query);
   if (menu) return menuReply(chat, menu, t);
+  // "It's 180°, not 200" about the recipe in question; the AI may say it's not a fix after all.
+  if (looksLikeCorrection(query) && (await fixReply(chat, person, query, t, repliedToRecipe, false))) return;
   const byPerson = parsePersonAsk(query);
   // "Recipes from Italy" names nobody: then it's a search.
   if (byPerson && (await byPersonReply(chat, byPerson.who, t))) return;
@@ -311,6 +319,111 @@ async function importAndReply(
     const key = notRecipe ? "err.notRecipe" : isAiBusy(err) ? "bot.stillBusy" : "bot.failed";
     await chat.edit(status, { text: esc(t(key)) });
   }
+}
+
+/**
+ * A correction to the recipe they replied to or were just shown: what would change, with Apply
+ * and Cancel. Only whoever may edit the recipe gets that far. False when it turns out not to be a
+ * correction (and they didn't ask with /fix), so it's answered as a question instead.
+ */
+async function fixReply(
+  chat: Chat,
+  person: Person,
+  text: string,
+  t: Speaker,
+  repliedToRecipe: string | null | undefined,
+  asked: boolean,
+): Promise<boolean> {
+  const id = repliedToRecipe || (await lastRecipeShown(person));
+  const recipe = id ? await db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns }) : null;
+  if (!recipe) {
+    if (asked) await chat.send({ text: esc(t("bot.fixWhich")) });
+    return asked;
+  }
+  if (!canEdit(recipe, { userId: person.id, isAdmin: person.isAdmin })) {
+    await chat.send({ text: esc(t("bot.fixNotYours")) });
+    return true;
+  }
+  if (await isRateLimited(`bot-fix:${person.id}`, PERSONA.fixesPerHour, 60 * 60)) {
+    await chat.send({ text: t("bot.slowDown") });
+    return true;
+  }
+  chat.typing();
+  const before = recipeText(recipe);
+  let fix;
+  try {
+    fix = await proposeCorrection(before, text, t.locale);
+  } catch (err) {
+    console.error("correction failed", err);
+    await chat.send({ text: esc(t(isAiBusy(err) ? "bot.stillBusy" : "bot.couldnt")) });
+    return true;
+  }
+  if (!fix.isCorrection && !asked) return false;
+  const diff = diffRecipe(before, fix.recipe);
+  if (!fix.isCorrection || isUnchanged(diff)) {
+    await chat.send({ text: t("bot.fixNothing") });
+    return true;
+  }
+  // Proposals nobody tapped are dropped once they're too old to apply.
+  await db()
+    .delete(recipeEdits)
+    .where(lt(recipeEdits.createdAt, new Date(Date.now() - PERSONA.fixValidHours * 3_600_000)))
+    .catch((err) => console.error("couldn't clear old corrections", err));
+  const [edit] = await db()
+    .insert(recipeEdits)
+    .values({ recipeId: recipe.id, userId: person.id, proposal: fix.recipe, baseUpdatedAt: recipe.updatedAt })
+    .returning({ id: recipeEdits.id });
+  await chat.send({
+    text: renderCorrection(recipe.title, fix.summary, diff, t),
+    buttons: fixButtons(edit.id, t),
+  });
+  return true;
+}
+
+/** Apply or Cancel on a proposed correction. Applied, the recipe takes the proposal's place. */
+async function onFixTap(chat: Chat, person: Person, editId: string, choice: "apply" | "cancel", t: Speaker, on: MessageRef) {
+  const mine = and(eq(recipeEdits.id, editId), eq(recipeEdits.userId, person.id));
+  const edit = await db().query.recipeEdits.findFirst({ where: mine });
+  const fresh = edit && Date.now() - edit.createdAt.getTime() < PERSONA.fixValidHours * 3_600_000;
+  if (!edit || !fresh) {
+    await chat.edit(on, { text: esc(t("bot.fixGone")) });
+    return;
+  }
+  // Taken once: a double tap finds nothing left to apply.
+  await db().delete(recipeEdits).where(mine);
+  if (choice === "cancel") {
+    await chat.edit(on, { text: esc(t("bot.fixCancelled")) });
+    return;
+  }
+  const recipe = await db().query.recipes.findFirst({
+    where: eq(recipes.id, edit.recipeId),
+    columns: { createdBy: true, updatedAt: true },
+  });
+  if (!recipe) {
+    await chat.edit(on, { text: esc(t("bot.gone")) });
+    return;
+  }
+  if (!canEdit(recipe, { userId: person.id, isAdmin: person.isAdmin })) {
+    await chat.edit(on, { text: esc(t("bot.fixNotYours")) });
+    return;
+  }
+  if (recipe.updatedAt.getTime() !== edit.baseUpdatedAt.getTime()) {
+    await chat.edit(on, { text: esc(t("bot.fixStale")) });
+    return;
+  }
+  await chat.edit(on, { text: esc(t("bot.fixApplying")) });
+  chat.typing();
+  try {
+    if (!(await saveCorrection(edit.recipeId, edit.proposal))) {
+      await chat.edit(on, { text: esc(t("bot.gone")) });
+      return;
+    }
+  } catch (err) {
+    console.error("saving a correction failed", err);
+    await chat.edit(on, { text: esc(t(isAiBusy(err) ? "bot.stillBusy" : "bot.couldnt")) });
+    return;
+  }
+  return showRecipe(chat, person, edit.recipeId, "effective", t, on);
 }
 
 /** "Dana's recipes": false when nobody in the book goes by that name. */

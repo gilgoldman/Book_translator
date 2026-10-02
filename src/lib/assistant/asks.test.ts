@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cuisinesIn, parseMenuAsk, parsePersonAsk, planMenu } from "./asks";
+import { cuisinesIn, looksLikeCorrection, parseMenuAsk, parsePersonAsk, planMenu } from "./asks";
 
 describe("parsePersonAsk", () => {
   it("finds who, in English", () => {
@@ -84,5 +84,30 @@ describe("planMenu", () => {
 
   it("uses a dish once", () => {
     expect(planMenu("lunch", [dish("salad", "salad")]).map((d) => d.id)).toEqual(["salad"]);
+  });
+});
+
+describe("looksLikeCorrection", () => {
+  it("hears a fix, in either language", () => {
+    for (const text of [
+      "it's 180, not 200",
+      "2 eggs not 3",
+      "should be 2 eggs",
+      "typo: cumin, not cinnamon",
+      "fix: bake for 40 minutes",
+      "the oven temperature is wrong",
+      "צריך להיות 180 מעלות",
+      "2 ביצים ולא 3",
+      "תיקון: כמון ולא קינמון",
+      "יש טעות בכמות הקמח",
+    ]) {
+      expect(looksLikeCorrection(text), text).toBe(true);
+    }
+  });
+
+  it("leaves questions and searches alone", () => {
+    for (const text of ["no buttermilk", "something not too spicy", "leeks, eggs, feta", "I have a lot of leeks", "אין לי רוויון", "Dana's recipes"]) {
+      expect(looksLikeCorrection(text), text).toBe(false);
+    }
   });
 });

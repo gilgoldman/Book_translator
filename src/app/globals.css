@@ -561,3 +561,13 @@ input[name="username"], input[type="password"] { direction: ltr; text-align: sta
 .chat-compose textarea { flex: 1 1 100%; min-height: var(--tap); max-height: 8em; resize: none; field-sizing: content; }
 .chat-tools { flex: 1 1 100%; display: flex; gap: var(--sp-2); }
 .chat-tools .primary { margin-inline-start: auto; }
+
+/* "Read the original again": what would change. */
+.reread { margin-top: 1.5rem; }
+.reread h2 { margin-top: 0; }
+.reread-diff h3 { font-size: 1rem; margin: 1rem 0 0.25rem; }
+.reread-diff ul { list-style: none; padding: 0; margin: 0; }
+.reread-diff li { padding: 0.15rem 0.5rem; border-radius: 4px; overflow-wrap: anywhere; }
+.reread-diff del, .reread-diff ins { text-decoration: none; }
+.diff-removed { background: var(--accent-soft); color: var(--accent-ink); }
+.diff-added { background: var(--accent-2-soft); color: var(--accent-2-ink); }

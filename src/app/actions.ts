@@ -28,10 +28,11 @@ import {
 import { canEdit, resolveDuplicate, type DuplicateChoice } from "@/lib/dedupe";
 import { isLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 import { getLocale, getT } from "@/lib/i18n/server";
-import { ingest, NotARecipeError, restructureRecipe, type IngestRequest } from "@/lib/ingest";
+import { applyReread, ingest, NotARecipeError, rereadSource, restructureRecipe, type IngestRequest } from "@/lib/ingest";
 import { findUrl } from "@/lib/ingest/url";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
-import { COURSES, CUISINES, DIETS, SEASONS, type Substitution } from "@/lib/recipe-types";
+import { diffRecipe, recipeText, type RecipeDiff } from "@/lib/recipe-changes";
+import { COURSES, CUISINES, DIETS, SEASONS, extractedRecipeSchema, type Substitution } from "@/lib/recipe-types";
 import { notifyOwner } from "@/lib/channels/telegram/api";
 import { ensureTranslations } from "@/lib/translations";
 
@@ -355,6 +356,56 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
     }
   }
   // Changed words make the other languages stale; redo them after the page is back.
+  after(() => ensureTranslations(id));
+  revalidatePath(`/recipes/${id}`);
+  revalidatePath("/profile");
+  redirect(`/recipes/${id}`);
+}
+
+export type RereadPreview = { error: string } | { proposal: string; diff: RecipeDiff };
+
+/**
+ * Read a recipe's original again and say what would change. Nothing is saved: the reading comes
+ * back to the page, which sends it to `applyRereadAction` if they choose it.
+ */
+export async function previewReread(id: string): Promise<RereadPreview> {
+  const { session, allowed } = await editableRecipe(id);
+  const t = await getT();
+  if (!allowed) return { error: t("err.onlyOwnerEdits") };
+  if (await isRateLimited(`reread:${session.userId}`, 10, 60 * 60)) return { error: t("err.tryLater") };
+  const current = await db().query.recipes.findFirst({
+    where: eq(recipes.id, id),
+    columns: { title: true, servings: true, prepMinutes: true, cookMinutes: true, totalMinutes: true, ingredients: true, steps: true },
+  });
+  if (!current) return { error: t("err.recipeNotFound") };
+  try {
+    const extracted = await rereadSource(id);
+    return { proposal: JSON.stringify(extracted), diff: diffRecipe(recipeText(current), recipeText(extracted)) };
+  } catch (err) {
+    console.error("re-reading the original failed", err);
+    if (err instanceof NotARecipeError) return { error: t("err.notRecipe") };
+    return { error: t(isAiBusy(err) ? "err.aiBusy" : "err.rereadSourceFailed") };
+  }
+}
+
+/** Use a reading from `previewReread` in place of what's in the book. */
+export async function applyRereadAction(id: string, proposal: string): Promise<{ error: string } | undefined> {
+  const { allowed } = await editableRecipe(id);
+  const t = await getT();
+  if (!allowed) return { error: t("err.onlyOwnerEdits") };
+  let parsed;
+  try {
+    parsed = extractedRecipeSchema.safeParse(JSON.parse(proposal));
+  } catch {
+    parsed = null;
+  }
+  if (!parsed?.success) return { error: t("err.rereadSourceFailed") };
+  try {
+    await applyReread(id, parsed.data);
+  } catch (err) {
+    console.error("saving a re-read failed", err);
+    return { error: t(isAiBusy(err) ? "err.aiBusy" : "err.rereadSourceFailed") };
+  }
   after(() => ensureTranslations(id));
   revalidatePath(`/recipes/${id}`);
   revalidatePath("/profile");

@@ -25,6 +25,7 @@ const actionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("open"), recipeId: uuid, locale }),
   z.object({ kind: z.literal("duplicate"), recipeId: uuid, choice: z.enum(choices), locale }),
   z.object({ kind: z.literal("saveVoice"), locale }),
+  z.object({ kind: z.literal("fix"), editId: uuid, choice: z.enum(["apply", "cancel"]), locale }),
   z.object({
     kind: z.literal("menu"),
     meal: z.enum(["dinner", "lunch", "brunch"]),

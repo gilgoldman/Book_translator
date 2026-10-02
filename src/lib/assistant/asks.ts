@@ -165,3 +165,19 @@ export function planMenu<T extends MenuDish>(meal: Meal, candidates: T[], round 
   }
   return picked;
 }
+
+// "It's 180, not 200", "should be 2 eggs", "typo: cumin", "צריך להיות 180", "2 ביצים ולא 3".
+// Only said about a recipe in question, and the AI still decides; this keeps it from being asked
+// about every message.
+const CORRECTION = [
+  /^(?:fix|correction|correct|edit|change|typo)\s*[:\-–]/i,
+  /\b(?:should be|should say|should read|supposed to be|it'?s actually|actually it'?s|is wrong|are wrong|is a typo|typo|misread|mistake in)\b/i,
+  /[\p{N}\p{L}°%]\s*,?\s+not\s+\p{N}/iu,
+  /^(?:תיקון|תקן|תקני|תתקן|תתקני)(?:\s|:|$)/,
+  /(?:^|\s)(?:צריך להיות|אמור להיות|צריך לכתוב|טעות|לא נכון)(?:\s|$|[,.:])/,
+  /(?:^|\s)ולא\s+\p{N}/u,
+];
+
+export function looksLikeCorrection(text: string) {
+  return CORRECTION.some((re) => re.test(text.trim()));
+}

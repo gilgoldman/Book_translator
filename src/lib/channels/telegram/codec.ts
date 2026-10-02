@@ -31,6 +31,7 @@ function fit(text: string, bytes: number) {
  *   o:<id>[:<lang>]             open a recipe from a list as a new message
  *   d:<id>:<o|r|b>[:<lang>]     keep original / replace / keep both
  *   s[:<lang>]                  save the voice note this message answered as a recipe
+ *   f:<edit id>:<a|c>[:<lang>]  apply / cancel a correction proposed in chat
  *   m:<d|l|b>:<round>:<cuisines>:<lang>:<words>
  *                               another menu: dinner/lunch/brunch, cuisines as indexes into
  *                               CUISINES joined by ".", and the words to search for, cut to fit
@@ -45,6 +46,8 @@ export function encodeAction(a: Action): string {
       return `d:${a.recipeId}:${DUP_LETTERS[a.choice]}${lang(a.locale)}`;
     case "saveVoice":
       return `s${lang(a.locale)}`;
+    case "fix":
+      return `f:${a.editId}:${a.choice === "apply" ? "a" : "c"}${lang(a.locale)}`;
     case "menu": {
       const cuisines = a.cuisines.map((c) => CUISINES.indexOf(c as (typeof CUISINES)[number])).filter((i) => i >= 0);
       const head = `m:${MEAL_LETTERS[a.meal]}:${a.round}:${cuisines.join(".")}:${a.locale ?? "-"}:`;
@@ -65,6 +68,8 @@ export function decodeAction(data: string): Action | null {
   if (dup) {
     return { kind: "duplicate", recipeId: dup[1], choice: DUP_CODES[dup[2] as keyof typeof DUP_CODES], locale: localeOf(dup[3]) };
   }
+  const fix = data.match(/^f:([0-9a-f-]{36}):([ac])(?::(\w+))?$/);
+  if (fix) return { kind: "fix", editId: fix[1], choice: fix[2] === "a" ? "apply" : "cancel", locale: localeOf(fix[3]) };
   const menu = data.match(/^m:([dlb]):(\d{1,3}):([\d.]*):([\w-]+):(.*)$/s);
   if (menu) {
     const cuisines = menu[3] ? menu[3].split(".").map((i) => CUISINES[Number(i)]) : [];

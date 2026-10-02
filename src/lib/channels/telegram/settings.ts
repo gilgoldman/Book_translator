@@ -12,7 +12,7 @@ import type { Locale } from "@/lib/i18n/config";
 
 export const TELEGRAM = {
   /** The / menu, in this order. Each needs a "tg.cmd.<name>" line in the words below. */
-  commands: ["find", "lots", "swap", "add", "help"],
+  commands: ["find", "lots", "swap", "fix", "add", "help"],
 
   /** How long to wait for the rest of a photo album before reading it as one recipe. */
   albumWaitMs: 2500,
@@ -32,6 +32,7 @@ const en = {
   "tg.cmd.find": "Search the cookbook",
   "tg.cmd.lots": "Recipes that use a lot of something",
   "tg.cmd.swap": "What to use instead",
+  "tg.cmd.fix": "Correct a recipe you added",
   "tg.cmd.add": "Import pasted text as a recipe",
   "tg.cmd.help": "What I can do",
 };
@@ -50,6 +51,7 @@ const he: Record<TelegramKey, string> = {
   "tg.cmd.find": "חיפוש בספר",
   "tg.cmd.lots": "מתכונים שמשתמשים בהרבה ממשהו",
   "tg.cmd.swap": "מה לשים במקום",
+  "tg.cmd.fix": "תיקון מתכון שהוספת",
   "tg.cmd.add": "ייבוא טקסט כמתכון",
   "tg.cmd.help": "מה אני יודע לעשות",
 };

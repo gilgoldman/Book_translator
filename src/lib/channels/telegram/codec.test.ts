@@ -34,6 +34,8 @@ describe("buttons", () => {
     { kind: "open", recipeId: id, locale: "he" },
     ...(["keep-original", "replace", "keep-both"] as const).map((choice) => ({ kind: "duplicate", recipeId: id, choice, locale: "he" }) as const),
     { kind: "saveVoice", locale: "he" },
+    { kind: "fix", editId: id, choice: "apply", locale: "he" },
+    { kind: "fix", editId: id, choice: "cancel", locale: "he" },
     { kind: "menu", meal: "dinner", round: 3, cuisines: ["italian", "levantine"], rest: "eggplant", locale: "he" },
     { kind: "menu", meal: "brunch", round: 0, cuisines: [], rest: "", locale: "en" },
   ];
@@ -57,6 +59,8 @@ describe("buttons", () => {
       `d:${id}:r:he`,
       `d:${id}:b:he`,
       "s:he",
+      `f:${id}:a:he`,
+      `f:${id}:c:he`,
       "m:d:3:0.6:he:eggplant",
       "m:b:0::en:",
     ]);

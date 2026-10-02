@@ -50,6 +50,13 @@
       "when": 1790602623256,
       "tag": "0006_telegram_recipe",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790960465105,
+      "tag": "0007_recipe_edits",
+      "breakpoints": true
     }
   ]
 }

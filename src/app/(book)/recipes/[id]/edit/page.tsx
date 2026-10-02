@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { EditRecipeForm } from "@/components/edit-recipe-form";
+import { RereadPanel } from "@/components/reread-panel";
 import { db, recipeColumns, recipes } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
@@ -51,6 +52,7 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
           }}
         />
       </div>
+      {r.sourceId && <RereadPanel id={r.id} dir={dirFor(r.language)} />}
     </div>
   );
 }

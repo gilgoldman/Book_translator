@@ -27,6 +27,8 @@ export type Action =
   | { kind: "duplicate"; recipeId: string; choice: DuplicateChoice; locale: Locale | null }
   /** A voice note was taken as a question; save it as a recipe after all. */
   | { kind: "saveVoice"; locale: Locale | null }
+  /** Apply or cancel a change to a recipe proposed in chat. */
+  | { kind: "fix"; editId: string; choice: "apply" | "cancel"; locale: Locale | null }
   /** Another menu like the one on this message: the next best dish for each course. */
   | ({ kind: "menu"; round: number; locale: Locale | null } & MenuAsk);
 

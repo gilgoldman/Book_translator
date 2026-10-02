@@ -12,6 +12,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import type { Locale } from "@/lib/i18n/config";
+import type { RecipeText } from "@/lib/recipe-changes";
 import type { RecipeTranslation } from "@/lib/recipe-text";
 import type { Enrichment, Ingredient, Step } from "@/lib/recipe-types";
 
@@ -122,6 +123,22 @@ export const recipeIngredients = pgTable(
     index("recipe_ingredients_ingredient_idx").on(t.ingredientId),
   ],
 );
+
+// A change to a recipe the assistant proposed in chat ("it's 180°, not 200"), waiting for
+// Apply or Cancel. `baseUpdatedAt` is when the recipe last changed before the proposal: if it
+// changed since, the proposal is stale.
+export const recipeEdits = pgTable("recipe_edits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recipeId: uuid("recipe_id")
+    .notNull()
+    .references(() => recipes.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  proposal: jsonb("proposal").$type<RecipeText>().notNull(),
+  baseUpdatedAt: timestamp("base_updated_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export type User = typeof users.$inferSelect;
 export type Recipe = typeof recipes.$inferSelect;

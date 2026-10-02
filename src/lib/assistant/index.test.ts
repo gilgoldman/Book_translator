@@ -7,6 +7,7 @@ import type { Attachment, Chat, Person, Reply } from "./chat";
 
 const id = "0b6c2f7e-1d7e-4a57-9e36-0a5e3f2b8c11";
 const otherId = "5d0e9a1c-2b3f-4c5d-8e6f-7a8b9c0d1e2f";
+const editId = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 
 const line = (name: string, original: string) => ({
   group: null, name, canonical: name, original, quantity: null, unit: null, grams: null, ml: null, volume: null, metric: null, note: null, optional: false,
@@ -28,6 +29,9 @@ const pancakes = {
   enrichment: null,
   sourceId: null as string | null,
   createdBy: null as string | null,
+  prepMinutes: null,
+  cookMinutes: null,
+  updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
 
 const book = vi.hoisted(() => ({
@@ -37,6 +41,9 @@ const book = vi.hoisted(() => ({
   lastShown: null as { id: string; at: Date } | null,
   rememberedFor: null as string | null,
   memoryBroken: false,
+  /** A correction waiting for Apply / Cancel, and what's been done with corrections. */
+  edit: null as { id: string; recipeId: string; userId: string; proposal: unknown; baseUpdatedAt: Date; createdAt: Date } | null,
+  editsInserted: [] as unknown[],
   /** What the next `localizeRecipe` calls report, in order. */
   localized: [] as { status: string; refresh: boolean }[],
   search: [] as { id: string; title: string; match?: { missing: number } }[],
@@ -52,15 +59,24 @@ const Busy = vi.hoisted(() => class Busy extends Error {});
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 // Queries get the value they look for: `where: eq(recipes.id, id)` is just `id` here.
-vi.mock("drizzle-orm", () => ({ eq: (_column: unknown, value: unknown) => value }));
+vi.mock("drizzle-orm", () => ({
+  eq: (_column: unknown, value: unknown) => value,
+  and: (...values: unknown[]) => values,
+  lt: () => "old",
+}));
 vi.mock("@/db", () => ({
   recipeColumns: {},
+  recipeEdits: {},
   recipes: {},
   sources: {},
   users: {},
   db: () => ({
     query: {
       recipes: { findFirst: async ({ where }: { where: string }) => book.recipes[where] },
+      recipeEdits: {
+        findFirst: async ({ where: [id, userId] }: { where: string[] }) =>
+          book.edit && book.edit.id === id && book.edit.userId === userId ? book.edit : undefined,
+      },
       users: {
         findFirst: async ({ where, columns }: { where: string; columns: Record<string, boolean> }) =>
           columns.telegramRecipeId
@@ -69,6 +85,19 @@ vi.mock("@/db", () => ({
       },
       sources: { findFirst: async ({ where }: { where: string }) => book.sources[where] },
     },
+    insert: () => ({
+      values: (row: unknown) => ({
+        returning: async () => {
+          book.editsInserted.push(row);
+          return [{ id: editId }];
+        },
+      }),
+    }),
+    delete: () => ({
+      where: async (which: unknown) => {
+        if (Array.isArray(which) && book.edit && which[0] === book.edit.id) book.edit = null;
+      },
+    }),
     update: () => ({
       set: (row: { telegramRecipeId: string; telegramRecipeAt: Date }) => ({
         where: async (who: string) => {
@@ -90,8 +119,17 @@ vi.mock("@/lib/ai/substitute", () => ({
   })),
 }));
 vi.mock("@/lib/ai/voice", () => ({ hearVoiceNote: vi.fn() }));
-vi.mock("@/lib/dedupe", () => ({ resolveDuplicate: vi.fn() }));
-vi.mock("@/lib/ingest", () => ({ ingest: vi.fn(), NotARecipeError: class NotARecipeError extends Error {} }));
+vi.mock("@/lib/dedupe", () => ({
+  resolveDuplicate: vi.fn(),
+  canEdit: (r: { createdBy: string | null }, who: { userId: string; isAdmin: boolean }) =>
+    who.isAdmin || r.createdBy === null || r.createdBy === who.userId,
+}));
+vi.mock("@/lib/ingest", () => ({
+  ingest: vi.fn(),
+  saveCorrection: vi.fn(async () => true),
+  NotARecipeError: class NotARecipeError extends Error {},
+}));
+vi.mock("@/lib/ai/correct", () => ({ proposeCorrection: vi.fn() }));
 vi.mock("@/lib/ingredient-names", () => ({
   localName: async (name: string) => name,
   // Stand-in translations: shouting.
@@ -127,7 +165,8 @@ const { after } = await import("next/server");
 const { hearVoiceNote } = await import("@/lib/ai/voice");
 const { suggestSubstitutes } = await import("@/lib/ai/substitute");
 const { resolveDuplicate } = await import("@/lib/dedupe");
-const { ingest, NotARecipeError } = await import("@/lib/ingest");
+const { ingest, NotARecipeError, saveCorrection } = await import("@/lib/ingest");
+const { proposeCorrection } = await import("@/lib/ai/correct");
 const { goesWellWith, recipesUsingMost } = await import("@/lib/ingredients");
 const { isRateLimited } = await import("@/lib/rate-limit");
 const { findCook, recentRecipes, recipesInCuisines, searchRecipes } = await import("@/lib/search");
@@ -179,6 +218,8 @@ beforeEach(() => {
     lastShown: null,
     rememberedFor: null,
     memoryBroken: false,
+    edit: null,
+    editsInserted: [],
     localized: [],
     search: [{ id, title: "Pancakes", match: { missing: 1 } }],
     cooks: {},
@@ -726,5 +767,131 @@ describe("its buttons", () => {
     const fallback = pretendChat();
     await onTap(fallback.chat, { ...person, locale: null }, old);
     expect(fallback.said).toMatchObject([{ edit: expect.stringContaining("makes 4") }]);
+  });
+});
+
+describe("a correction", () => {
+  const fixed = (proposal: Partial<{ ingredients: string[]; steps: string[] }>, isCorrection = true) => ({
+    isCorrection,
+    summary: "Less buttermilk.",
+    recipe: {
+      title: "Pancakes",
+      servings: "4",
+      prepMinutes: null,
+      cookMinutes: null,
+      totalMinutes: 20,
+      ingredients: ["250 ml buttermilk"],
+      steps: ["Whisk the buttermilk into the flour."],
+      ...proposal,
+    },
+  });
+
+  it("about the recipe they replied to shows what would change, with Apply and Cancel", async () => {
+    vi.mocked(proposeCorrection).mockResolvedValue(fixed({ ingredients: ["200 ml buttermilk"] }));
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "it's 200 ml, not 250", repliedToRecipe: id });
+    expect(proposeCorrection).toHaveBeenCalledWith(expect.objectContaining({ ingredients: ["250 ml buttermilk"] }), "it's 200 ml, not 250", "en");
+    expect(book.editsInserted).toMatchObject([{ recipeId: id, userId: "u1", baseUpdatedAt: pancakes.updatedAt }]);
+    expect(said).toMatchObject([
+      {
+        send:
+          "<b>✏️ Change Pancakes like this?</b>\n<i>Less buttermilk.</i>\n\n<b>Ingredients</b>\n➖ 250 ml buttermilk\n➕ 200 ml buttermilk",
+        buttons: [
+          [
+            { label: "✅ Apply", action: { kind: "fix", editId, choice: "apply" } },
+            { label: "✖️ Cancel", action: { kind: "fix", editId, choice: "cancel" } },
+          ],
+        ],
+      },
+    ]);
+  });
+
+  it("isn't asked of the AI without a recipe in question, unless they say /fix", async () => {
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "it's 200 ml, not 250" });
+    expect(proposeCorrection).not.toHaveBeenCalled();
+    expect(searchRecipes).toHaveBeenCalled();
+    await onMessage(chat, person, { ref: 2, text: "/fix it's 200 ml, not 250" });
+    expect(said.at(-1)).toMatchObject({ send: expect.stringMatching(/^✏️ Which recipe\?/) });
+  });
+
+  it("that the AI says isn't one is answered as a question", async () => {
+    vi.mocked(proposeCorrection).mockResolvedValue(fixed({}, false));
+    book.lastShown = { id, at: minutesAgo(5) };
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "should be fine without eggs, right?" });
+    expect(proposeCorrection).toHaveBeenCalled();
+    expect(book.editsInserted).toEqual([]);
+    expect(searchRecipes).toHaveBeenCalled();
+    expect(said).toMatchObject([{ send: expect.stringContaining("Pancakes") }]);
+  });
+
+  it("that changes nothing says so", async () => {
+    vi.mocked(proposeCorrection).mockResolvedValue(fixed({}));
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "/fix it's fine", repliedToRecipe: id });
+    expect(said).toMatchObject([{ send: WORDS.en["bot.fixNothing"] }]);
+    expect(book.editsInserted).toEqual([]);
+  });
+
+  it("of someone else's recipe isn't theirs to make", async () => {
+    book.recipes = { [id]: { ...pancakes, createdBy: "someone-else" } };
+    const { chat, said } = pretendChat();
+    await onMessage(chat, person, { ref: 1, text: "/fix 200 ml", repliedToRecipe: id });
+    expect(proposeCorrection).not.toHaveBeenCalled();
+    expect(said).toMatchObject([{ send: WORDS.en["bot.fixNotYours"] }]);
+  });
+
+  describe("tapped", () => {
+    const waiting = (over: Partial<NonNullable<typeof book.edit>> = {}) => {
+      book.edit = {
+        id: editId,
+        recipeId: id,
+        userId: "u1",
+        proposal: fixed({ ingredients: ["200 ml buttermilk"] }).recipe,
+        baseUpdatedAt: pancakes.updatedAt,
+        createdAt: new Date(),
+        ...over,
+      };
+    };
+    const tap = (choice: "apply" | "cancel") => ({ action: { kind: "fix", editId, choice, locale: "en" } as const, on: 7 });
+
+    it("Apply saves it and shows the recipe in place of the question, once", async () => {
+      waiting();
+      const { chat, said } = pretendChat();
+      await onTap(chat, person, tap("apply"));
+      expect(saveCorrection).toHaveBeenCalledWith(id, expect.objectContaining({ ingredients: ["200 ml buttermilk"] }));
+      expect(said).toMatchObject([
+        { edit: WORDS.en["bot.fixApplying"], ref: 7 },
+        { edit: expect.stringContaining("<b>Pancakes</b>"), ref: 7 },
+      ]);
+      await onTap(chat, person, tap("apply"));
+      expect(saveCorrection).toHaveBeenCalledTimes(1);
+      expect(said.at(-1)).toMatchObject({ edit: WORDS.en["bot.fixGone"] });
+    });
+
+    it("Cancel leaves the recipe as it was", async () => {
+      waiting();
+      const { chat, said } = pretendChat();
+      await onTap(chat, person, tap("cancel"));
+      expect(saveCorrection).not.toHaveBeenCalled();
+      expect(said).toEqual([{ edit: WORDS.en["bot.fixCancelled"], ref: 7, buttons: undefined }]);
+    });
+
+    it("won't apply over a change made since, or someone else's proposal, or an old one", async () => {
+      waiting({ baseUpdatedAt: new Date("2025-12-31T00:00:00Z") });
+      const { chat, said } = pretendChat();
+      await onTap(chat, person, tap("apply"));
+      expect(said.at(-1)).toMatchObject({ edit: WORDS.en["bot.fixStale"] });
+
+      waiting({ userId: "someone-else" });
+      await onTap(chat, person, tap("apply"));
+      expect(said.at(-1)).toMatchObject({ edit: WORDS.en["bot.fixGone"] });
+
+      waiting({ createdAt: new Date(Date.now() - 25 * 3_600_000) });
+      await onTap(chat, person, tap("apply"));
+      expect(said.at(-1)).toMatchObject({ edit: WORDS.en["bot.fixGone"] });
+      expect(saveCorrection).not.toHaveBeenCalled();
+    });
   });
 });

@@ -7,6 +7,8 @@ import { requireSession } from "@/lib/auth";
 import { canEdit } from "@/lib/dedupe";
 import { dirFor, languageName } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
+import { listNotes } from "@/lib/notes";
+import { heroPhotos } from "@/lib/photos";
 
 export async function generateMetadata() {
   return { title: (await getT())("edit.pageTitle") };
@@ -22,6 +24,7 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
   const r = await db().query.recipes.findFirst({ where: eq(recipes.id, id), columns: recipeColumns });
   if (!r) notFound();
   if (!canEdit(r, session)) redirect(`/recipes/${id}`);
+  const photos = heroPhotos(r.photos, await listNotes(r.id));
 
   return (
     <div className="narrow">
@@ -35,6 +38,7 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
         <EditRecipeForm
           id={r.id}
           dir={dirFor(r.language)}
+          photos={photos}
           values={{
             title: r.title,
             description: r.description ?? "",
@@ -48,7 +52,7 @@ export default async function EditRecipePage({ params }: PageProps<"/recipes/[id
             diet: r.diet,
             ingredients: r.ingredients.map((i) => i.original).join("\n"),
             method: r.steps.map((s) => s.text).join("\n\n"),
-            notes: r.notes ?? "",
+            cover: r.photos[0] ?? "",
           }}
         />
       </div>

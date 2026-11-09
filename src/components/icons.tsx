@@ -26,6 +26,9 @@ const PATHS = {
   send: "M4 12 20 4l-4 16-4-7Zm8 1 8-9",
   menu: "M4 6h16M4 12h16M4 18h16",
   close: "M6 6l12 12M18 6 6 18",
+  // Point left and right; flipped in right-to-left pages.
+  prev: "M15 5l-7 7 7 7",
+  next: "M9 5l7 7-7 7",
 } as const;
 
 export type IconName = keyof typeof PATHS;

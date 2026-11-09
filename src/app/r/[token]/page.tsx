@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { cache } from "react";
 import { A11yControls } from "@/components/a11y-controls";
+import { RecipeHero } from "@/components/carousel";
 import { LanguageSwitch } from "@/components/language-switch";
 import { AddedBy, RecipeMeta } from "@/components/recipe-meta";
 import { RecipeView } from "@/components/recipe-view";
@@ -61,11 +62,8 @@ export default async function SharedRecipe({ params, searchParams }: PageProps<"
           </div>
         </div>
         <article className={`recipe season-${r.season}`}>
-          {r.photos[0] && (
-            <div className="r-hero">
-              <img src={r.photos[0]} alt="" />
-            </div>
-          )}
+          {/* Notes stay in the family: friends see the recipe's own photos only. */}
+          <RecipeHero photos={r.photos} />
           <div className="r-body">
             <header className="r-head">
               <RecipeMeta r={r} />

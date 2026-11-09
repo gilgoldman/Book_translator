@@ -123,7 +123,7 @@ describe.skipIf(!url)("search (database)", () => {
   it("spots a duplicate import and resolves each choice", async () => {
     const actor = { userId: "00000000-0000-0000-0000-000000000000", isAdmin: true };
     const original = (await searchRecipes("shakshuka", "en"))[0];
-    await pool!.query("update recipes set notes = 'family favourite' where id = $1", [original.id]);
+    await pool!.query("insert into recipe_notes (recipe_id, text) values ($1, 'family favourite')", [original.id]);
     const token = (await pool!.query("select share_token from recipes where id = $1", [original.id])).rows[0].share_token;
 
     const again = () => addRecipe("Shakshuka", ["egg", "tomato", "green onion", "feta cheese", "cumin"], 3);
@@ -140,9 +140,12 @@ describe.skipIf(!url)("search (database)", () => {
 
     const b = await again();
     await pool!.query("update recipes set duplicate_of = $2 where id = $1", [b, original.id]);
+    // A note left on the parked copy moves over.
+    await pool!.query("insert into recipe_notes (recipe_id, text) values ($1, 'tried it')", [b]);
     expect(await resolveDuplicate(b, "replace", actor)).toBe(original.id);
-    const replaced = await pool!.query("select notes, share_token, ingredients from recipes where id = $1", [original.id]);
-    expect(replaced.rows[0].notes).toBe("family favourite");
+    const replaced = await pool!.query("select share_token, ingredients from recipes where id = $1", [original.id]);
+    const notes = await pool!.query("select text from recipe_notes where recipe_id = $1 order by created_at", [original.id]);
+    expect(notes.rows.map((n: { text: string }) => n.text)).toEqual(["family favourite", "tried it"]);
     expect(replaced.rows[0].share_token).toBe(token);
     expect(replaced.rows[0].ingredients.map((i: { canonical: string }) => i.canonical)).toContain("cumin");
 

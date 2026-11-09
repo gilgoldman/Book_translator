@@ -57,6 +57,13 @@
       "when": 1790960465105,
       "tag": "0007_recipe_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794198195708,
+      "tag": "0008_recipe_notes",
+      "breakpoints": true
     }
   ]
 }

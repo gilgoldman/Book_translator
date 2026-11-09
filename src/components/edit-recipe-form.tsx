@@ -20,10 +20,21 @@ type Values = {
   diet: string[];
   ingredients: string;
   method: string;
-  notes: string;
+  cover: string;
 };
 
-export function EditRecipeForm({ id, values, dir }: { id: string; values: Values; dir: "ltr" | "rtl" }) {
+export function EditRecipeForm({
+  id,
+  values,
+  dir,
+  photos,
+}: {
+  id: string;
+  values: Values;
+  dir: "ltr" | "rtl";
+  /** Every photo on the recipe and its notes: any can be the cover. */
+  photos: string[];
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateRecipe.bind(null, id), undefined);
   const t = useT();
   return (
@@ -85,10 +96,26 @@ export function EditRecipeForm({ id, values, dir }: { id: string; values: Values
       </label>
       <p className="muted">{t("edit.reread")}</p>
 
-      <label className="field">
-        <span>{t("extras.notes")}</span>
-        <textarea name="notes" defaultValue={values.notes} rows={3} dir="auto" />
-      </label>
+      {photos.length > 1 && (
+        <fieldset>
+          <legend>{t("edit.cover")}</legend>
+          <p className="help">{t("edit.coverHelp")}</p>
+          <div className="cover-picker">
+            {photos.map((src, i) => (
+              <label key={src}>
+                <input
+                  type="radio"
+                  name="cover"
+                  value={src}
+                  defaultChecked={src === values.cover}
+                  aria-label={t("carousel.position", { n: i + 1, total: photos.length })}
+                />
+                <img src={src} alt="" loading="lazy" />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       <div className="button-row">
         <button className="btn btn-primary" disabled={pending}>

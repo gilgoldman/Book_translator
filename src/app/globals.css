@@ -396,7 +396,54 @@ legend { font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
 .source audio { width: 100%; }
 .source-text { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); max-height: 70vh; overflow: auto; }
 
-.notes { background: var(--bg); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-inline-start: 4px solid var(--accent); margin-top: var(--sp-5); }
+/* Photo carousel: the recipe hero and note photos. Swipe, arrows or dots. */
+.carousel { position: relative; height: 100%; }
+.carousel-track { display: flex; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-track:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.carousel-slide { flex: 0 0 100%; scroll-snap-align: start; height: 100%; }
+.carousel-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.carousel-nav { position: absolute; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%;
+  border: var(--border-w) solid var(--border); background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); }
+.carousel-nav.prev { inset-inline-start: var(--sp-2); }
+.carousel-nav.next { inset-inline-end: var(--sp-2); }
+[dir="rtl"] .carousel-nav .ico { transform: scaleX(-1); }
+.carousel-dots { position: absolute; inset-inline: 0; bottom: var(--sp-2); display: flex; justify-content: center; gap: var(--sp-1); }
+/* Small dots, 24px tap targets. */
+.carousel-dots button { width: 1.5rem; height: 1.5rem; padding: 0; border: 0; background: none; display: grid; place-items: center; }
+.carousel-dots button::before { content: ""; width: .6rem; height: .6rem; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--border); opacity: .8; }
+.carousel-dots button[aria-current]::before { background: var(--accent); border-color: var(--surface); opacity: 1; }
+@media (hover: none) { .carousel-nav { display: none; } }
+
+/* Notes: a thread under the recipe, each note with optional photos. */
+.r-notes { margin-top: var(--sp-6); max-width: var(--measure); }
+.r-notes h2 { font-size: var(--fs-xl); margin: 0 0 var(--sp-4); }
+.note-list { list-style: none; padding: 0; margin: 0 0 var(--sp-5); display: grid; gap: var(--sp-4); }
+.note { background: var(--bg); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-inline-start: 4px solid var(--accent); display: grid; gap: var(--sp-3); }
+.note-head { display: flex; align-items: center; gap: var(--sp-2); }
+.note-head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-head .muted { white-space: nowrap; font-size: var(--fs-sm); }
+.note-head .avatar { width: 1.75rem; height: 1.75rem; font-size: .8rem; border-width: 1.5px; }
+.note-delete { margin-inline-start: auto; display: grid; place-items: center; width: var(--tap); height: var(--tap); border-radius: 50%; border: 0; background: none; color: var(--ink-2); }
+.note-text { margin: 0; white-space: pre-wrap; }
+.note-photos { aspect-ratio: 4 / 3; height: auto; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); background: var(--sunk); }
+.note-composer { display: grid; gap: var(--sp-3); }
+.note-composer p:empty { display: none; }
+.note-previews { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.note-previews li { position: relative; }
+.note-previews img { width: 5rem; height: 5rem; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); display: block; }
+.note-previews button { position: absolute; top: -.6rem; inset-inline-end: -.6rem; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); padding: 0; }
+.note-previews button .ico { width: 1rem; height: 1rem; }
+.btn.disabled { opacity: .5; pointer-events: none; }
+
+/* Edit: pick the book cover from the recipe's and notes' photos. */
+.cover-picker { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.cover-picker label { position: relative; cursor: pointer; }
+.cover-picker input { position: absolute; opacity: 0; }
+.cover-picker img { width: 6rem; height: 4.5rem; object-fit: cover; display: block; border-radius: var(--r-sm); border: 3px solid transparent; }
+.cover-picker input:checked + img { border-color: var(--accent); }
+.cover-picker input:focus-visible + img { outline: 3px solid var(--accent); outline-offset: 2px; }
 .extras { margin-top: var(--sp-5); max-width: var(--measure); }
 .extras-toggle { display: inline-flex; align-items: center; gap: .5em; min-height: var(--tap); padding: .4em 1.1em; border-radius: var(--r-pill); border: var(--border-w) dashed var(--border); background: none; font-weight: var(--fw-bold); }
 .extras-body { display: grid; gap: var(--sp-5); margin-top: var(--sp-4); }

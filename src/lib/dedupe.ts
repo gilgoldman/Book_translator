@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { db, recipes } from "@/db";
+import { db, recipeNotes, recipes } from "@/db";
 import { isLikelyDuplicate } from "./dedupe-rules";
 import { linkIngredients } from "./ingredient-links";
 
@@ -86,6 +86,8 @@ export async function resolveDuplicate(
     await db().update(recipes).set({ duplicateOf: null }).where(eq(recipes.id, newId));
     return newId;
   }
+  // Notes left on the new copy while it was parked follow the recipe that stays.
+  await db().update(recipeNotes).set({ recipeId: original.id }).where(eq(recipeNotes.recipeId, newId));
   if (choice === "keep-original") {
     await db().delete(recipes).where(eq(recipes.id, newId));
     return original.id;

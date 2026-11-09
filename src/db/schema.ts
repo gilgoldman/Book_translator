@@ -77,7 +77,10 @@ export const recipes = pgTable(
     diet: text("diet").array().notNull().default([]),
     season: text("season").notNull(),
     tags: text("tags").array().notNull().default([]),
+    // Legacy: moved to recipe_notes (0008). Unused; drop once every deploy is past 0008.
     notes: text("notes"),
+    // photos[0] is the cover in the book. New photos come in through notes, so it stays put
+    // unless whoever added the recipe picks another.
     photos: jsonb("photos").$type<string[]>().notNull().default([]),
     // The recipe's words in every other app language; numbers stay in the columns above.
     translations: jsonb("translations").$type<Partial<Record<Locale, RecipeTranslation>>>().notNull().default({}),
@@ -139,6 +142,23 @@ export const recipeEdits = pgTable("recipe_edits", {
   baseUpdatedAt: timestamp("base_updated_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Notes people leave on a recipe ("less sugar next time"), each with optional photos of how
+// theirs came out. Note photos also show in the recipe's hero carousel.
+export const recipeNotes = pgTable(
+  "recipe_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull().default(""),
+    photos: jsonb("photos").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("recipe_notes_recipe_idx").on(t.recipeId, t.createdAt)],
+);
 
 export type User = typeof users.$inferSelect;
 export type Recipe = typeof recipes.$inferSelect;

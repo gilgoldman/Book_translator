@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { db, recipes, sources, users } from "@/db";
+import { db, recipeNotes, recipes, sources, users } from "@/db";
 import { isAiBusy } from "@/lib/ai/errors";
 import { substituteContext, suggestSubstitutes } from "@/lib/ai/substitute";
 import {
@@ -30,6 +30,8 @@ import { isLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { applyReread, ingest, NotARecipeError, rereadSource, restructureRecipe, type IngestRequest } from "@/lib/ingest";
 import { findUrl } from "@/lib/ingest/url";
+import { canDeleteNote, listNotes } from "@/lib/notes";
+import { MAX_NOTE_PHOTOS, heroPhotos, withCover } from "@/lib/photos";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
 import { diffRecipe, recipeText, type RecipeDiff } from "@/lib/recipe-changes";
 import { COURSES, CUISINES, DIETS, SEASONS, extractedRecipeSchema, type Substitution } from "@/lib/recipe-types";
@@ -157,17 +159,27 @@ export async function setLanguage(locale: Locale) {
   revalidatePath("/", "layout");
 }
 
+/** The image files in a form field (others skipped), each checked for size. */
+function imageFiles(form: FormData, name: string, maxBytes: number): File[] {
+  const files = form
+    .getAll(name)
+    .filter((f): f is File => f instanceof File && f.size > 0 && f.type.startsWith("image/"));
+  if (files.some((f) => f.size > maxBytes)) throw new Error("That picture is too large.");
+  return files;
+}
+
+/** Store a picture in Blob; returns its public URL. */
+async function uploadImage(path: string, file: File): Promise<string> {
+  const blob = await put(path, file, { access: "public", addRandomSuffix: true, contentType: file.type });
+  return blob.url;
+}
+
 export async function updateAvatar(form: FormData) {
   const session = await requireSession();
-  const file = form.get("avatar");
-  if (!(file instanceof File) || file.size === 0 || !file.type.startsWith("image/")) return;
-  if (file.size > 2_000_000) throw new Error("That picture is too large.");
-  const blob = await put(`avatars/${session.userId}.jpg`, file, {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: file.type,
-  });
-  await db().update(users).set({ avatarUrl: blob.url }).where(eq(users.id, session.userId));
+  const [file] = imageFiles(form, "avatar", 2_000_000);
+  if (!file) return;
+  const avatarUrl = await uploadImage(`avatars/${session.userId}.jpg`, file);
+  await db().update(users).set({ avatarUrl }).where(eq(users.id, session.userId));
   revalidatePath("/", "layout");
 }
 
@@ -266,34 +278,30 @@ async function editableRecipe(id: string) {
   return { session, recipe, allowed: canEdit(recipe, session) };
 }
 
-// Anyone signed in can keep notes and add photos; editing and deletion belong to the
+// Anyone signed in can leave notes with photos; editing and deletion belong to the
 // person who added the recipe (or the owner).
 
-export async function saveNotes(id: string, notes: string) {
-  await requireSession();
-  await db()
-    .update(recipes)
-    .set({ notes: notes.slice(0, 5000), updatedAt: new Date() })
-    .where(eq(recipes.id, id));
-  revalidatePath(`/recipes/${id}`);
+/** Post a note: text, photos (up to MAX_NOTE_PHOTOS), or both. */
+export async function addNote(recipeId: string, form: FormData): Promise<FormState> {
+  const { session } = await editableRecipe(recipeId);
+  const t = await getT();
+  const text = String(form.get("text") ?? "").replace(/\r\n?/g, "\n").trim().slice(0, 2000);
+  const files = imageFiles(form, "photos", 4_000_000).slice(0, MAX_NOTE_PHOTOS);
+  if (!text && !files.length) return { error: t("notes.empty") };
+  const photos = await Promise.all(files.map((f) => uploadImage(`photos/${recipeId}/note.jpg`, f)));
+  await db().insert(recipeNotes).values({ recipeId, userId: session.userId, text, photos });
+  revalidatePath(`/recipes/${recipeId}`);
+  return { ok: t("notes.posted") };
 }
 
-export async function addPhoto(id: string, form: FormData) {
-  const { recipe } = await editableRecipe(id);
-  const file = form.get("photo");
-  if (!(file instanceof File) || file.size === 0 || !file.type.startsWith("image/")) return;
-  if (file.size > 4_000_000) throw new Error("That photo is too large.");
-  const blob = await put(`photos/${id}/photo.jpg`, file, {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: file.type,
-  });
-  // Your own photo goes first: it becomes the cover.
-  await db()
-    .update(recipes)
-    .set({ photos: [blob.url, ...recipe.photos], updatedAt: new Date() })
-    .where(eq(recipes.id, id));
-  revalidatePath(`/recipes/${id}`);
+export async function deleteNote(noteId: string) {
+  const session = await requireSession();
+  const note = await db().query.recipeNotes.findFirst({ where: eq(recipeNotes.id, noteId) });
+  if (!note) return;
+  const { allowed } = await editableRecipe(note.recipeId);
+  if (!canDeleteNote(note, allowed, session)) throw new Error("Only whoever wrote this note can delete it.");
+  await db().delete(recipeNotes).where(eq(recipeNotes.id, noteId));
+  revalidatePath(`/recipes/${note.recipeId}`);
 }
 
 const oneOf = <T extends string>(list: readonly T[], value: FormDataEntryValue | null, fallback: T): T =>
@@ -309,9 +317,15 @@ const minutes = (v: FormDataEntryValue | null) => {
  * recipe is re-read by the LLM so every view (effective, ratios, units, search) stays right.
  */
 export async function updateRecipe(id: string, _: FormState, form: FormData): Promise<FormState> {
-  const { allowed } = await editableRecipe(id);
+  const { allowed, recipe } = await editableRecipe(id);
   const t = await getT();
   if (!allowed) return { error: t("err.onlyOwnerEdits") };
+  // The cover can be any photo on the recipe or its notes.
+  const photos = withCover(
+    recipe.photos,
+    String(form.get("cover") ?? "") || null,
+    heroPhotos(recipe.photos, await listNotes(id)),
+  );
   const current = await db().query.recipes.findFirst({
     where: eq(recipes.id, id),
     columns: { cuisine: true, course: true, season: true, ingredients: true, steps: true },
@@ -338,7 +352,7 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
       course: oneOf(COURSES, form.get("course"), current.course as (typeof COURSES)[number]),
       season: oneOf(SEASONS, form.get("season"), current.season as (typeof SEASONS)[number]),
       diet: form.getAll("diet").filter((d): d is (typeof DIETS)[number] => DIETS.includes(d as never)),
-      notes: String(form.get("notes") ?? "").trim().slice(0, 5000) || null,
+      photos,
       updatedAt: new Date(),
     })
     .where(eq(recipes.id, id));
@@ -357,6 +371,7 @@ export async function updateRecipe(id: string, _: FormState, form: FormData): Pr
   }
   // Changed words make the other languages stale; redo them after the page is back.
   after(() => ensureTranslations(id));
+  if (photos[0] !== recipe.photos[0]) revalidatePath("/");
   revalidatePath(`/recipes/${id}`);
   revalidatePath("/profile");
   redirect(`/recipes/${id}`);

@@ -87,13 +87,7 @@ export default async function SharedRecipe({ params, searchParams }: PageProps<"
               />
             </header>
             <RecipeView
-              recipe={{
-                title: shown.title,
-                language: localized.language,
-                ingredients: shown.ingredients,
-                steps: shown.steps,
-                enrichment: shown.enrichment,
-              }}
+              recipe={{ ...shown, language: localized.language }}
             />
           </div>
         </article>

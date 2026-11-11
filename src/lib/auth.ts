@@ -1,6 +1,6 @@
 import "server-only";
 import bcrypt from "bcryptjs";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -40,6 +40,26 @@ export function passwordProblem(password: string): MessageKey | null {
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, BCRYPT_COST);
+}
+
+/** New password; bumping the version signs out every device that used the old one. */
+export async function setPassword(userId: string, password: string): Promise<User> {
+  const [user] = await db()
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), sessionVersion: sql`${users.sessionVersion} + 1` })
+    .where(eq(users.id, userId))
+    .returning();
+  return user;
+}
+
+// No look-alikes (0/o, 1/l/i), so it can be read out over the phone.
+const READABLE = "abcdefghjkmnpqrstuvwxyz23456789";
+
+/** "k7m2-q9xa-hr4t": easy to pass on, 14 characters, ~70 bits. */
+export function temporaryPassword(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const chars = [...bytes].map((b) => READABLE[b % READABLE.length]).join("");
+  return chars.match(/.{4}/g)!.join("-");
 }
 
 /** Returns the user only if the password matches; status is checked by the caller. */

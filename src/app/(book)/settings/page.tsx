@@ -1,6 +1,7 @@
 import { asc } from "drizzle-orm";
 import { removeUser, setUserStatus } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
+import { ResetPassword } from "@/components/reset-password";
 import { db, users } from "@/db";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -82,6 +83,7 @@ export default async function PeoplePage() {
               </div>
               {!p.isAdmin && (
                 <div className="button-row">
+                  <ResetPassword userId={p.id} name={name(p)} />
                   <form action={setUserStatus.bind(null, p.id, "declined")}>
                     <button className="btn danger">{t("people.removeAccess")}</button>
                   </form>

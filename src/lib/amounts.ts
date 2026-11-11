@@ -61,3 +61,37 @@ export function localAmount(text: string, language: string): string {
   }
   return out;
 }
+
+// ---------- scaling ("half the recipe", "×2.5") ----------
+
+// A quantity to scale: "1 ½", "1/2", "1 1/2", "0.5", "3". Slash fractions come first so
+// "1/2" is one amount, not two.
+const SCALABLE = String.raw`(?:\d+\s+)?\d+\/\d+|${QUANTITY}`;
+// Weighed or poured amounts read best as plain numbers ("66 g"), not fractions ("65 ⅔ g").
+const DECIMAL_UNITS = String.raw`g|gr|grams?|kg|kilograms?|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?|oz|ounces?|lbs?|pounds?|גרם|ק״ג|קג|מ״ל|מל|ליטר`;
+
+/** "1 ½", "3/4", "1 1/2", "0,3", "½" -> a number (NaN if it isn't one). */
+export function parseQuantity(text: string): number {
+  const q = text.trim().replace(/^[x×*]\s*|\s*[x×*]$/gi, "");
+  const slash = q.match(/^(?:(\d+)\s+)?(\d+)\/(\d+)$/);
+  if (slash) return Number(slash[1] ?? 0) + Number(slash[2]) / Number(slash[3]);
+  if (!new RegExp(String.raw`^(?:${QUANTITY})$`, "u").test(q)) return NaN;
+  return valueOf(q);
+}
+
+function decimal(value: number): string {
+  if (value >= 10) return String(Math.round(value));
+  return String(Number(value.toFixed(1)) || Number(value.toPrecision(1)));
+}
+
+/** Every amount in `text` times `factor`: "1 ½ cups" ×2 -> "3 cups", "220 g" ×0.3 -> "66 g". */
+export function scaleAmount(text: string, factor: number): string {
+  if (factor === 1 || !text) return text;
+  const re = new RegExp(String.raw`(${SCALABLE})(?=(\s*(?:${DECIMAL_UNITS})(?![\p{L}]))?)`, "giu");
+  return text.replace(re, (q: string, _: string, metricUnit: string | undefined) => {
+    const value = parseQuantity(q) * factor;
+    if (!Number.isFinite(value)) return q;
+    // Tiny amounts (a pinch scaled down) stay visible instead of rounding to "0".
+    return metricUnit || value < 0.2 ? decimal(value) : measurable(value);
+  });
+}

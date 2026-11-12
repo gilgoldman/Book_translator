@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { substituteInRecipe } from "@/app/actions";
-import { localAmount } from "@/lib/amounts";
+import { localAmount, parseQuantity, scaleAmount } from "@/lib/amounts";
 import { useT } from "@/lib/i18n/client";
 import { dirFor } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/translate";
@@ -15,6 +15,7 @@ import { AddTimer, TimerPill } from "./timers";
 export type RecipeViewData = {
   title: string;
   language: string;
+  servings?: string | null;
   ingredients: Ingredient[];
   steps: Step[];
   enrichment: Enrichment | null;
@@ -28,6 +29,8 @@ export type SourceViewData = {
 } | null;
 
 type Units = "metric" | "volume";
+/** How amounts are shown: in which units, and for how much of the recipe. */
+type Measure = { units: Units; scale: number };
 
 const VIEWS: { id: "effective" | "classic" | "ratios" | "source"; icon: IconName }[] = [
   { id: "effective", icon: "steps" },
@@ -75,6 +78,8 @@ export function RecipeView({
   const views = VIEWS.filter((v) => v.id !== "source" || source !== undefined);
   const [view, setView] = useState<View>("effective");
   const [units, setUnits] = usePersistentUnits();
+  const [scale, setScale] = useState(1);
+  const measure: Measure = { units, scale };
   const touch = useRef<{ x: number; y: number } | null>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const dir = dirFor(recipe.language);
@@ -142,6 +147,8 @@ export function RecipeView({
         </div>
       )}
 
+      {view !== "source" && <ScaleRow scale={scale} setScale={setScale} servings={recipe.servings} />}
+
       <div
         id="view-panel"
         role="tabpanel"
@@ -151,26 +158,90 @@ export function RecipeView({
         onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
         onTouchEnd={onTouchEnd}
       >
-        {view === "effective" && <EffectiveView recipe={recipe} units={units} withTimers={withTimers} />}
+        {view === "effective" && <EffectiveView recipe={recipe} measure={measure} withTimers={withTimers} />}
         {view === "classic" && (
           <ClassicView
             recipe={recipe}
             recipeId={recipeId}
             ingredientNames={ingredientNames}
-            units={units}
+            measure={measure}
             withTimers={withTimers}
           />
         )}
-        {view === "ratios" && <RatiosView recipe={recipe} />}
+        {view === "ratios" && <RatiosView recipe={recipe} scale={scale} />}
         {view === "source" && source !== undefined && <SourceView source={source} />}
       </div>
     </div>
   );
 }
 
-/** In the units they chose, written for the language the recipe is shown in. */
-const amount = (i: { metric: string | null; volume: string | null }, units: Units, language: string) =>
-  localAmount((units === "metric" ? (i.metric ?? i.volume) : (i.volume ?? i.metric)) ?? "", language);
+/** In the units and size they chose, written for the language the recipe is shown in. */
+const amount = (i: { metric: string | null; volume: string | null }, { units, scale }: Measure, language: string) =>
+  localAmount(scaleAmount((units === "metric" ? (i.metric ?? i.volume) : (i.volume ?? i.metric)) ?? "", scale), language);
+
+const PRESETS: { scale: number; key: MessageKey }[] = [
+  { scale: 0.5, key: "scale.half" },
+  { scale: 1, key: "scale.asWritten" },
+  { scale: 2, key: "scale.double" },
+];
+
+/** Half, double, or any other size ("0.3", "5", "1/3"). Only changes what's shown. */
+function ScaleRow({
+  scale,
+  setScale,
+  servings,
+}: {
+  scale: number;
+  setScale: (s: number) => void;
+  servings?: string | null;
+}) {
+  const t = useT();
+  const [custom, setCustom] = useState("");
+  return (
+    <div className="units-row scale-row">
+      <span className="muted">{t("scale.label")}</span>
+      <div className="seg" role="radiogroup" aria-label={t("scale.aria")}>
+        {PRESETS.map((p) => (
+          <button
+            key={p.scale}
+            role="radio"
+            aria-checked={scale === p.scale}
+            onClick={() => {
+              setScale(p.scale);
+              setCustom("");
+            }}
+          >
+            {t(p.key)}
+          </button>
+        ))}
+      </div>
+      <label className="field scale-custom">
+        <span>{t("scale.custom")}</span>
+        <input
+          inputMode="decimal"
+          dir="ltr"
+          placeholder="0.3"
+          value={custom}
+          aria-invalid={custom !== "" && !validScale(parseQuantity(custom))}
+          onChange={(e) => {
+            setCustom(e.target.value);
+            const n = parseQuantity(e.target.value);
+            if (validScale(n)) setScale(n);
+            else if (e.target.value.trim() === "") setScale(1);
+          }}
+        />
+      </label>
+      {scale !== 1 && (
+        <p className="muted small scale-note" role="status">
+          {servings && `${t("scale.makes", { n: scaleAmount(servings, scale) })} · `}
+          {t("scale.note")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const validScale = (n: number) => n >= 0.05 && n <= 100;
 
 /** Steps as cards; tap one to make it the current step, "Done · next step" moves on. */
 function StepList({
@@ -211,10 +282,10 @@ function StepList({
   );
 }
 
-function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; units: Units; withTimers: boolean }) {
+function EffectiveView({ recipe, measure, withTimers }: { recipe: RecipeViewData; measure: Measure; withTimers: boolean }) {
   const t = useT();
   const e = recipe.enrichment;
-  if (!e) return <ClassicView recipe={recipe} units={units} withTimers={withTimers} />;
+  if (!e) return <ClassicView recipe={recipe} measure={measure} withTimers={withTimers} />;
   return (
     <div className="eff">
       <aside className="recap" aria-labelledby="recap-title">
@@ -223,7 +294,7 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
           {e.recap.map((r, i) => (
             <li key={i}>
               <span>{r.name}</span>
-              <span className="q">{amount(r, units, recipe.language)}</span>
+              <span className="q">{amount(r, measure, recipe.language)}</span>
             </li>
           ))}
         </ul>
@@ -238,7 +309,7 @@ function EffectiveView({ recipe, units, withTimers }: { recipe: RecipeViewData; 
               <span key={j}>{seg.text}</span>
             ) : (
               <strong key={j} className="ing">
-                {amount(seg, units, recipe.language) && `${amount(seg, units, recipe.language)} `}
+                {amount(seg, measure, recipe.language) && `${amount(seg, measure, recipe.language)} `}
                 {segmentText(seg, recipe.ingredients)}
               </strong>
             ),
@@ -253,13 +324,13 @@ function ClassicView({
   recipe,
   recipeId,
   ingredientNames = {},
-  units,
+  measure,
   withTimers,
 }: {
   recipe: RecipeViewData;
   recipeId?: string;
   ingredientNames?: Record<string, string>;
-  units: Units;
+  measure: Measure;
   withTimers: boolean;
 }) {
   const t = useT();
@@ -284,13 +355,13 @@ function ClassicView({
                       ing={i}
                       index={index}
                       recipeId={recipeId}
-                      units={units}
+                      measure={measure}
                       language={recipe.language}
                       label={ingredientNames[i.canonical] ?? i.canonical}
                     />
                   ) : (
                     <p style={{ margin: ".5em 0" }}>
-                      <IngredientText ing={i} units={units} language={recipe.language} />
+                      <IngredientText ing={i} measure={measure} language={recipe.language} />
                     </p>
                   )}
                 </li>
@@ -311,11 +382,11 @@ function ClassicView({
   );
 }
 
-function IngredientText({ ing, units, language }: { ing: Ingredient; units: Units; language: string }) {
+function IngredientText({ ing, measure, language }: { ing: Ingredient; measure: Measure; language: string }) {
   const t = useT();
   return (
     <>
-      <span className="qty">{amount(ing, units, language)}</span> {ing.name}
+      <span className="qty">{amount(ing, measure, language)}</span> {ing.name}
       {ing.note && <span className="note">, {ing.note}</span>}
       {ing.optional && <span className="note"> {t("ingredient.optional")}</span>}
     </>
@@ -327,14 +398,14 @@ function IngredientRow({
   ing,
   index,
   recipeId,
-  units,
+  measure,
   language,
   label,
 }: {
   ing: Ingredient;
   index: number;
   recipeId: string;
-  units: Units;
+  measure: Measure;
   language: string;
   label: string;
 }) {
@@ -346,7 +417,7 @@ function IngredientRow({
   return (
     <>
       <button className="ingredient-button" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <IngredientText ing={ing} units={units} language={language} />
+        <IngredientText ing={ing} measure={measure} language={language} />
       </button>
       {open && (
         <div className="ingredient-panel">
@@ -411,7 +482,7 @@ function roleClass(component: { name: string; role?: string }, i: number) {
   return ["c-grain", "c-fat", "c-liquid", "c-egg", "c-dairy"][i % 5];
 }
 
-function RatiosView({ recipe }: { recipe: RecipeViewData }) {
+function RatiosView({ recipe, scale }: { recipe: RecipeViewData; scale: number }) {
   const t = useT();
   const r = recipe.enrichment?.ratio;
   if (!r) return <p className="muted">{t("ratio.none")}</p>;
@@ -459,7 +530,7 @@ function RatiosView({ recipe }: { recipe: RecipeViewData }) {
             <span>{c.name}</span>
             <span className="muted">
               {t("ratio.parts", { n: c.parts })} · {Math.round((c.parts / total) * 100)}%
-              {c.grams ? ` · ${t("ratio.gramsHere", { g: Math.round(c.grams) })}` : ""}
+              {c.grams ? ` · ${t("ratio.gramsHere", { g: Math.round(c.grams * scale) })}` : ""}
             </span>
           </li>
         ))}

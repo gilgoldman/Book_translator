@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
-import { changePassword, deleteRecipe, logout, setLanguage } from "@/app/actions";
+import { changePassword, changeUsername, deleteRecipe, logout, setLanguage } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
 import { Icon } from "@/components/icons";
 import { SimpleForm } from "@/components/login-form";
@@ -95,6 +95,23 @@ export default async function ProfilePage() {
             <Icon name="plus" /> {t("nav.add")}
           </Link>
         </p>
+      </section>
+
+      <section className="card" aria-labelledby="username">
+        <h2 id="username">{t("profile.username")}</h2>
+        <SimpleForm
+          action={changeUsername}
+          submit={t("profile.saveUsername")}
+          fields={[
+            {
+              name: "username",
+              label: t("profile.username"),
+              help: t("profile.usernameHelp"),
+              autoComplete: "username",
+              defaultValue: me.username,
+            },
+          ]}
+        />
       </section>
 
       <section className="card" aria-labelledby="password">

@@ -15,14 +15,15 @@ import {
   createUser,
   getSession,
   endSession,
-  hashPassword,
   hasAnyUser,
   normalizeUsername,
   OWNER_USERNAME,
   passwordProblem,
   requireAdmin,
   requireSession,
+  setPassword,
   startSession,
+  temporaryPassword,
   validUsername,
 } from "@/lib/auth";
 import { canEdit, resolveDuplicate, type DuplicateChoice } from "@/lib/dedupe";
@@ -120,14 +121,24 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
   if (problem) return { error: t(problem) };
   if (await isRateLimited(`password:${session.userId}`, 5, 15 * 60)) return { error: t("err.tryLater") };
   if (!(await checkCredentials(session.username, current))) return { error: t("err.currentPassword") };
-  // Bumping the version signs out every other device.
-  const [user] = await db()
-    .update(users)
-    .set({ passwordHash: await hashPassword(next), sessionVersion: sql`${users.sessionVersion} + 1` })
-    .where(eq(users.id, session.userId))
-    .returning();
-  await startSession(user);
+  // Signs out every other device; this one gets a fresh session.
+  await startSession(await setPassword(session.userId, next));
   return { ok: t("password.changed") };
+}
+
+export async function changeUsername(_: FormState, form: FormData): Promise<FormState> {
+  const session = await requireSession();
+  const username = normalizeUsername(String(form.get("username") ?? ""));
+  const t = await getT();
+  if (!validUsername(username)) return { error: t("err.username"), values: { username } };
+  if (username === session.username) return { ok: t("profile.usernameChanged") };
+  try {
+    await db().update(users).set({ username }).where(eq(users.id, session.userId));
+  } catch {
+    return { error: t("err.taken"), values: { username } };
+  }
+  revalidatePath("/", "layout");
+  return { ok: t("profile.usernameChanged") };
 }
 
 // ---------- profile ----------
@@ -199,6 +210,17 @@ export async function setUserStatus(userId: string, status: "approved" | "declin
     .set({ status, sessionVersion: sql`${users.sessionVersion} + 1` })
     .where(and(eq(users.id, userId), eq(users.isAdmin, false)));
   revalidatePath("/settings");
+}
+
+/** Owner only: a new temporary password for someone who forgot theirs. Shown once, to the owner. */
+export async function resetPassword(userId: string): Promise<{ password: string } | undefined> {
+  const owner = await requireAdmin();
+  if (userId === owner.userId) return;
+  const target = await db().query.users.findFirst({ where: and(eq(users.id, userId), ne(users.isAdmin, true)) });
+  if (!target) return;
+  const password = temporaryPassword();
+  await setPassword(userId, password);
+  return { password };
 }
 
 export async function removeUser(userId: string) {

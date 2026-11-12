@@ -119,13 +119,7 @@ export default async function RecipePage({ params, searchParams }: PageProps<"/r
 
           <RecipeView
             recipeId={r.id}
-            recipe={{
-              title: shown.title,
-              language: localized.language,
-              ingredients: shown.ingredients,
-              steps: shown.steps,
-              enrichment: shown.enrichment,
-            }}
+            recipe={{ ...shown, language: localized.language }}
             ingredientNames={Object.fromEntries(names)}
             source={source ? { kind: source.kind, url: source.url, files: source.files, text: source.text } : null}
           />

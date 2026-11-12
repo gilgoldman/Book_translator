@@ -83,18 +83,23 @@ export function SimpleForm({
   submit,
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
-  fields: { name: string; label: string; type?: string; autoComplete?: string }[];
+  fields: { name: string; label: string; help?: string; type?: string; autoComplete?: string; defaultValue?: string }[];
   submit: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(serverAction, undefined);
   return (
     <form action={action} className="simple-form">
-      {fields.map(({ label, ...f }) => (
-        <label key={f.name} className="field">
-          <span>{label}</span>
-          <input {...f} autoCapitalize="none" required />
-        </label>
-      ))}
+      {fields.map(({ label, help, defaultValue, ...f }) => {
+        // A failed submit keeps what they typed (the form resets to defaultValue otherwise).
+        const value = state?.values?.[f.name] ?? defaultValue;
+        return (
+          <label key={f.name} className="field">
+            <span>{label}</span>
+            {help && <span className="help">{help}</span>}
+            <input key={value} {...f} defaultValue={value} autoCapitalize="none" spellCheck={false} required />
+          </label>
+        );
+      })}
       <button className="secondary" disabled={pending}>
         {submit}
       </button>

@@ -116,6 +116,7 @@ export const he: Messages = {
   "err.accessDenied": "הגישה נחסמה.",
   "err.tooManyLogins": "יותר מדי ניסיונות. כדאי לחכות 15 דקות ולנסות שוב.",
   "err.badLogin": "שם המשתמש והסיסמה לא תואמים.",
+  "err.noOwner": "יש להגדיר OWNER_USERNAME בהגדרות השרת לשם המשתמש שלך, לפרוס מחדש ואז להתחבר.",
   "err.pending": "הבקשה שלך עדיין מחכה לאישור.",
   "err.tooManyRequests": "יותר מדי בקשות. כדאי לנסות שוב מאוחר יותר.",
   "err.notSetUp": "ספר המתכונים עדיין לא הוקם.",

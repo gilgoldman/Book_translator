@@ -118,6 +118,7 @@ export const en = {
   "err.accessDenied": "Access denied.",
   "err.tooManyLogins": "Too many attempts. Please wait 15 minutes and try again.",
   "err.badLogin": "That username and password don't match.",
+  "err.noOwner": "Set OWNER_USERNAME in the server's settings to your username, redeploy, then sign in.",
   "err.pending": "Your request is waiting for approval.",
   "err.tooManyRequests": "Too many requests. Please try again later.",
   "err.notSetUp": "The cookbook isn't set up yet.",

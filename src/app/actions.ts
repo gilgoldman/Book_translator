@@ -65,6 +65,7 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
 
   if (!(await hasAnyUser())) {
     // First run: only the configured owner can claim the book.
+    if (!OWNER_USERNAME) return { error: t("err.noOwner"), values: { username } };
     if (username !== OWNER_USERNAME) return { error: t("err.badLogin"), values: { username } };
     const problem = passwordProblem(password);
     if (problem) return { error: t(problem), values: { username } };

@@ -36,9 +36,10 @@ original. Search and "I have a lot of…" / "I don't have…" work in both langu
 
 1. **Vercel project**: import this repo.
 2. **Storage**: in the project's *Storage* tab add **Neon** (Postgres) and **Blob**. Their env vars are added for you.
-3. **Env vars**: add the rest from `.env.example` (`AUTH_SECRET`, `GOOGLE_GENERATIVE_AI_API_KEY`, `APP_URL`).
+3. **Env vars**: add the rest from `.env.example` (`AUTH_SECRET`, `GOOGLE_GENERATIVE_AI_API_KEY`, `APP_URL`,
+   and `OWNER_USERNAME`: the username you'll sign in with).
 4. **Deploy**. Migrations run automatically during the build.
-5. Open the site and sign in as `gilgoldman` (or `OWNER_USERNAME`) with the password you want:
+5. Open the site and sign in as your `OWNER_USERNAME` with the password you want (10+ characters):
    on an empty database only that username can create the owner account. Change it later under
    **Settings**.
 6. Family and friends use **Ask for access** on the sign-in page; approve them under **People**.
@@ -46,6 +47,33 @@ original. Search and "I have a lot of…" / "I don't have…" work in both langu
    every recipe shows who added it.
    Approved members can add recipes, notes and photos; changing tags or deleting is limited to
    whoever added the recipe, and managing people to the owner.
+
+### Starting your own cookbook from this one
+
+The recipes, people and photos live in the database and Blob store, not in the code. A fresh
+deploy is an empty cookbook.
+
+1. Fork or copy this repository to your own GitHub account.
+2. Follow **Setup** above with your own Vercel account, your own Neon and Blob stores, your own
+   Google AI key and a new `AUTH_SECRET`. Set `OWNER_USERNAME` to your username: without it,
+   nobody can create the first account.
+3. Optional: the app's name and wording ("Our family cookbook", "Shared with love from our
+   family cookbook") are in `src/lib/i18n/messages/en.ts` and `he.ts`.
+4. Telegram is optional. If you want it, make your own bot (see **Telegram bot** below).
+
+**Languages.** The app speaks English and **Hebrew**. Every recipe is translated into each app
+language on import, so a language you don't need costs model calls and time. To use another
+second language (or none), change it in these places:
+
+- `src/lib/i18n/config.ts`: the `LOCALES` list. `detectLocale` there tells Hebrew from English
+  by its letters, for the chat bot; adjust it for your languages.
+- `src/lib/i18n/messages/`: one file of app words per language, listed in `index.ts`.
+- `src/lib/assistant/persona.ts` and `src/lib/channels/telegram/settings.ts`: the chat bot's words.
+- `src/lib/amounts.ts`: Hebrew-specific number wording; `src/lib/ingredient-intent.ts`: phrasing
+  for "I have a lot of…".
+
+TypeScript (`npm run typecheck`) points out every place a language is missing or left over.
+Adding one is covered under **Adding a language** below; removing one is the same steps in reverse.
 
 ### Security on Vercel
 

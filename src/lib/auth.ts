@@ -13,7 +13,8 @@ const BCRYPT_COST = 12;
 // Unknown usernames are compared against this so they cost the same time as wrong passwords.
 let dummyHash: Promise<string> | undefined;
 
-export const OWNER_USERNAME = normalizeUsername(process.env.OWNER_USERNAME ?? "gilgoldman");
+/** Who may create the owner account on an empty database. Unset: nobody, until it is set. */
+export const OWNER_USERNAME = process.env.OWNER_USERNAME?.trim() ? normalizeUsername(process.env.OWNER_USERNAME) : null;
 
 export type Session = {
   userId: string;
